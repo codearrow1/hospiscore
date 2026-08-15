@@ -3,8 +3,7 @@ import { SITE_NAME, SITE_TAGLINE } from "@/lib/site";
 
 export const runtime = "edge";
 
-export const size = { width: 1200, height: 630 };
-export const contentType = "image/png";
+const SIZE = { width: 1200, height: 630 } as const;
 
 function truncate(text: string, max: number): string {
   return text.length > max ? `${text.slice(0, max - 1).trimEnd()}…` : text;
@@ -105,6 +104,6 @@ export async function GET(request: Request) {
         </div>
       </div>
     ),
-    { ...size }
+    { ...SIZE }
   );
 }
