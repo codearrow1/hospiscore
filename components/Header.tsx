@@ -151,6 +151,12 @@ export default function Header() {
             Pricing
           </Link>
           <Dropdown label="Resources" items={RESOURCE_ITEMS} wide />
+          <Link
+            href="/score-check"
+            className="link-underline rounded-lg px-3 py-2 text-sm font-medium text-indigo-300 transition hover:text-indigo-200"
+          >
+            Score check
+          </Link>
         </nav>
 
         <div className="flex items-center gap-3">
@@ -209,6 +215,9 @@ export default function Header() {
             ))}
             <Link href="/pricing" onClick={() => setOpen(false)} className="rounded-lg px-3 py-2 text-sm text-zinc-300 hover:bg-zinc-900">
               Pricing
+            </Link>
+            <Link href="/score-check" onClick={() => setOpen(false)} className="rounded-lg px-3 py-2 text-sm font-medium text-indigo-300 hover:bg-zinc-900">
+              Score check
             </Link>
             <Link href="/account" onClick={() => setOpen(false)} className="rounded-lg px-3 py-2 text-sm text-zinc-300 hover:bg-zinc-900">
               Sign in
