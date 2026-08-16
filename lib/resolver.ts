@@ -79,10 +79,12 @@ function buildSignals(
   };
 }
 
-function toSearchResult(prop: Property, isLive: boolean): SearchResult {
+export function toSearchResult(prop: Property, isLive: boolean): SearchResult {
   const result = computeScore(prop.signals);
   return {
-    id: isLive ? `place:${prop.slug}` : prop.slug,
+    // prop.slug already carries the single `place:` prefix for live results;
+    // prefixing again would break resolvePropertyById/getPlaceDetails.
+    id: prop.slug,
     slug: prop.slug,
     name: prop.name,
     city: prop.city,

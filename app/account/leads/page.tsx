@@ -82,6 +82,14 @@ function LeadRowView({ row }: { row: LeadRow }) {
           >
             {row.email}
           </a>
+          {row.phone && (
+            <a
+              href={`tel:${row.phone.replace(/[^\d+]/g, "")}`}
+              className="mt-0.5 block text-sm text-zinc-500 hover:text-indigo-600 dark:text-zinc-400 dark:hover:text-indigo-400"
+            >
+              {row.phone}
+            </a>
+          )}
         </div>
         <div className="flex shrink-0 flex-col items-end gap-2">
           <div className="text-right text-xs text-zinc-400">{fmtDate(row.createdAt)}</div>

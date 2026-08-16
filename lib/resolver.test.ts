@@ -1,7 +1,7 @@
 import { describe, it, expect, beforeAll } from "vitest";
-import { searchProperties, resolvePropertyById } from "@/lib/resolver";
+import { searchProperties, resolvePropertyById, toSearchResult } from "@/lib/resolver";
 import { fetchReviewSignals } from "@/lib/providers/reviews";
-import { properties } from "@/lib/data";
+import { properties, findProperty } from "@/lib/data";
 
 // The test environment has no Google Places key, so the resolver runs in demo
 // mode. Set GOOGLE_PLACES_API_KEY in the CI environment to exercise live paths.
@@ -31,6 +31,23 @@ describe("searchProperties (demo mode)", () => {
       expect(r.totalReviews).toBeGreaterThan(0);
       expect(r.platformsCount).toBeGreaterThan(0);
     }
+  });
+});
+
+describe("toSearchResult", () => {
+  it("keeps a single place: prefix on live result ids", () => {
+    const prop = findProperty("the-royal-sandpiper");
+    if (!prop) throw new Error("test property missing");
+    const live = { ...prop, slug: "place:ChIJabc123" };
+    const result = toSearchResult(live, true);
+    expect(result.id).toBe("place:ChIJabc123");
+    expect(result.id).not.toContain("place:place:");
+    expect(result.slug).toBe("place:ChIJabc123");
+  });
+
+  it("keeps the plain slug for demo results", () => {
+    const result = toSearchResult(findProperty("the-royal-sandpiper")!, false);
+    expect(result.id).toBe("the-royal-sandpiper");
   });
 });
 

@@ -26,6 +26,7 @@ export interface LeadRow {
   source: "demo" | "report";
   name: string;
   email: string;
+  phone?: string;
   propertyName?: string;
   propertySlug?: string;
   company?: string;
@@ -62,6 +63,7 @@ function reportRow(r: ReportRequest): LeadRow {
     source: "report",
     name: r.name,
     email: r.email,
+    phone: r.phone,
     propertyName: r.propertyName,
     propertySlug: r.propertySlug,
     status: r.status ?? "new",
@@ -139,6 +141,7 @@ const CSV_HEADERS = [
   "status",
   "name",
   "email",
+  "phone",
   "propertyName",
   "propertySlug",
   "company",
@@ -165,6 +168,7 @@ export function leadsToCsv(rows: LeadRow[]): string {
         r.status,
         r.name,
         r.email,
+        r.phone ?? null,
         r.propertyName ?? null,
         r.propertySlug ?? null,
         r.company ?? null,
