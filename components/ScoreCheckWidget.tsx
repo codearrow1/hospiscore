@@ -507,31 +507,34 @@ export default function ScoreCheckWidget() {
                   </div>
                 )}
 
-                <div className="absolute inset-0 flex items-center justify-center px-6">
-                  <div className="w-full max-w-md text-center">
-                    <span className="mx-auto flex h-10 w-10 items-center justify-center rounded-full bg-indigo-500/20 text-indigo-300">
-                      <LockIcon />
-                    </span>
-                    <p className="mt-3 text-base font-bold text-zinc-50">
-                      Unlock the full score breakdown
-                    </p>
-                    {lever ? (
-                      <div className="mx-auto mt-2 max-w-sm rounded-xl border border-amber-500/25 bg-amber-500/10 px-4 py-3">
-                        <p className="text-sm font-semibold text-amber-300">
-                          ⚠ {lever.label} is dragging the score down
-                        </p>
-                        <p className="mt-0.5 text-xs text-zinc-300">
-                          Fixing it could add ~<span className="font-bold text-amber-200">+{lever.lift} points</span> —
-                          see exactly how in the full report.
-                        </p>
-                      </div>
-                    ) : (
-                      <p className="mt-1 text-sm text-zinc-400">
-                        Enter your details to see every signal, strengths and what to fix first.
+                  <div
+                    className="pointer-events-none absolute inset-x-0 bottom-0 h-2/3 bg-gradient-to-t from-zinc-950/95 via-zinc-950/40 to-transparent"
+                    aria-hidden="true"
+                  />
+                </div>
+
+                <div className="relative border-t border-zinc-800 px-5 py-5 text-center">
+                  <span className="mx-auto flex h-10 w-10 items-center justify-center rounded-full bg-indigo-500/20 text-indigo-300">
+                    <LockIcon />
+                  </span>
+                  <p className="mt-3 text-base font-bold text-zinc-50">
+                    Unlock the full score breakdown
+                  </p>
+                  {lever ? (
+                    <div className="mx-auto mt-2 max-w-sm rounded-xl border border-amber-500/25 bg-amber-500/10 px-4 py-3">
+                      <p className="text-sm font-semibold text-amber-300">
+                        ⚠ {lever.label} is dragging the score down
                       </p>
-                    )}
-                  </div>
-                  </div>
+                      <p className="mt-0.5 text-xs text-zinc-300">
+                        Fixing it could add ~<span className="font-bold text-amber-200">+{lever.lift} points</span> —
+                        see exactly how in the full report.
+                      </p>
+                    </div>
+                  ) : (
+                    <p className="mt-1 text-sm text-zinc-400">
+                      Enter your details to see every signal, strengths and what to fix first.
+                    </p>
+                  )}
                 </div>
 
                 <form onSubmit={onSubmit} className="relative z-10 border-t border-zinc-800 bg-zinc-950/40 p-5">
