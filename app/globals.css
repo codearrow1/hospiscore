@@ -614,6 +614,42 @@ a {
   }
 }
 
+@keyframes mobile-menu-in {
+  from { opacity: 0; transform: translateY(-10px); }
+  to { opacity: 1; transform: none; }
+}
+
+@keyframes mobile-menu-out {
+  from { opacity: 1; transform: none; }
+  to { opacity: 0; transform: translateY(-10px); }
+}
+
+@keyframes mobile-accordion-in {
+  from { opacity: 0; transform: translateY(8px); }
+  to { opacity: 1; transform: none; }
+}
+
+@keyframes navlink-in {
+  from { opacity: 0; transform: translateY(6px); }
+  to { opacity: 1; transform: none; }
+}
+
+.mobile-menu-enter {
+  animation: mobile-menu-in 0.28s cubic-bezier(0.22, 1, 0.36, 1) both;
+}
+
+.mobile-menu-exit {
+  animation: mobile-menu-out 0.18s ease-out both;
+}
+
+.mobile-accordion-enter {
+  animation: mobile-accordion-in 0.32s cubic-bezier(0.22, 1, 0.36, 1) both;
+}
+
+.link-pop {
+  animation: navlink-in 0.3s cubic-bezier(0.22, 1, 0.36, 1) both;
+}
+
 @media (prefers-reduced-motion: reduce) {
   .reveal,
   .reveal-left,
@@ -641,7 +677,11 @@ a {
   .pulse-dot,
   .hero-zoom,
   .bar-grow,
-  .toast-in {
+  .toast-in,
+  .mobile-menu-enter,
+  .mobile-menu-exit,
+  .mobile-accordion-enter,
+  .link-pop {
     animation: none !important;
   }
   .faq-panel,

@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { usePathname } from "next/navigation";
 import Link from "next/link";
 import Icon from "@/components/marketing/icons";
@@ -102,10 +102,134 @@ function Dropdown({
   );
 }
 
+function MobileAccordion({
+  id,
+  title,
+  count,
+  items,
+  showIcons,
+  active,
+  onToggle,
+  enterDelay,
+  linkDelayBase,
+  onNavigate,
+}: {
+  id: string;
+  title: string;
+  count: number;
+  items: NavItem[];
+  showIcons?: boolean;
+  active: boolean;
+  onToggle: (id: string) => void;
+  enterDelay: number;
+  linkDelayBase: number;
+  onNavigate: () => void;
+}) {
+  return (
+    <div
+      className="mobile-accordion-enter overflow-hidden rounded-xl"
+      style={{ animationDelay: `${enterDelay}ms` }}
+    >
+      <button
+        type="button"
+        onClick={() => onToggle(id)}
+        aria-expanded={active}
+        aria-controls={`mob-${id}`}
+        className="flex w-full items-center justify-between gap-3 rounded-xl px-3 py-3 text-left transition hover:bg-zinc-900/80 active:bg-zinc-900"
+      >
+        <span className="flex items-center gap-2.5">
+          <span className="text-sm font-semibold text-zinc-100">{title}</span>
+          <span className="rounded-full border border-zinc-700/60 bg-zinc-900 px-1.5 py-0.5 text-[10px] font-medium text-zinc-400">
+            {count}
+          </span>
+        </span>
+        <span className="flex items-center gap-2">
+          <span
+            className={`h-2 w-2 rounded-full transition-colors duration-300 ${
+              active ? "bg-emerald-400" : "bg-zinc-700"
+            }`}
+          />
+          <svg
+            className={`h-4 w-4 text-zinc-500 transition-transform duration-300 ${
+              active ? "rotate-180 text-indigo-300" : ""
+            }`}
+            viewBox="0 0 24 24"
+            fill="none"
+            stroke="currentColor"
+            strokeWidth={2}
+            strokeLinecap="round"
+            strokeLinejoin="round"
+            aria-hidden="true"
+          >
+            <path d="m6 9 6 6 6-6" />
+          </svg>
+        </span>
+      </button>
+      <div
+        id={`mob-${id}`}
+        role="region"
+        aria-label={title}
+        className={`grid transition-[grid-template-rows] duration-300 ease-out ${
+          active ? "grid-rows-[1fr]" : "grid-rows-[0fr]"
+        }`}
+      >
+        <div className="overflow-hidden">
+          <div className="flex flex-col gap-0.5 pb-2 pr-2 pt-1">
+            {items.map((item, idx) => (
+              <Link
+                key={item.label}
+                href={item.href}
+                onClick={onNavigate}
+                className="link-pop group flex items-center gap-3 rounded-lg px-3 py-2.5 text-sm text-zinc-300 transition hover:bg-zinc-900 hover:text-zinc-50 active:scale-[0.98]"
+                style={
+                  active
+                    ? { animationDelay: `${linkDelayBase + idx * 22}ms` }
+                    : undefined
+                }
+              >
+                {showIcons && item.icon && (
+                  <span className="flex h-7 w-7 shrink-0 items-center justify-center rounded-lg bg-indigo-500/10 text-indigo-300 transition group-hover:bg-indigo-500/20 group-hover:text-indigo-200">
+                    <Icon name={item.icon} className="h-3.5 w-3.5" />
+                  </span>
+                )}
+                <span className="truncate">{item.label}</span>
+                <svg
+                  className="ml-auto h-3.5 w-3.5 -translate-x-1 text-zinc-600 opacity-0 transition duration-150 group-hover:translate-x-0 group-hover:opacity-100"
+                  viewBox="0 0 24 24"
+                  fill="none"
+                  stroke="currentColor"
+                  strokeWidth={2}
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  aria-hidden="true"
+                >
+                  <path d="M5 12h14m-6-6 6 6-6 6" />
+                </svg>
+              </Link>
+            ))}
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}
+
 export default function Header() {
   const [open, setOpen] = useState(false);
+  const [closing, setClosing] = useState(false);
   const [scrolled, setScrolled] = useState(false);
+  const [activeSection, setActiveSection] = useState<string | null>("platform");
+  const closeTimer = useRef<number | undefined>(undefined);
   const pathname = usePathname();
+
+  const closeMenu = () => {
+    if (closing) return;
+    setClosing(true);
+    closeTimer.current = window.setTimeout(() => {
+      setOpen(false);
+      setClosing(false);
+    }, 180);
+  };
 
   useEffect(() => {
     if (typeof window === "undefined") return;
@@ -117,7 +241,9 @@ export default function Header() {
 
   // Close the mobile menu on any route change.
   useEffect(() => {
+    if (closeTimer.current) window.clearTimeout(closeTimer.current);
     setOpen(false);
+    setClosing(false);
   }, [pathname]);
 
   // While the mobile menu is open, lock page scroll and close on Escape.
@@ -126,7 +252,14 @@ export default function Header() {
     const previous = document.body.style.overflow;
     document.body.style.overflow = "hidden";
     const onKey = (e: KeyboardEvent) => {
-      if (e.key === "Escape") setOpen(false);
+      if (e.key === "Escape") {
+        if (closeTimer.current) window.clearTimeout(closeTimer.current);
+        setClosing(true);
+        closeTimer.current = window.setTimeout(() => {
+          setOpen(false);
+          setClosing(false);
+        }, 180);
+      }
     };
     window.addEventListener("keydown", onKey);
     return () => {
@@ -196,8 +329,15 @@ export default function Header() {
           </Link>
           <button
             type="button"
-            onClick={() => setOpen((v) => !v)}
-            className="flex h-10 w-10 items-center justify-center rounded-xl border border-zinc-800 text-zinc-300 active:scale-95 lg:hidden"
+            onClick={() => {
+              if (open) {
+                closeMenu();
+              } else {
+                setActiveSection("platform");
+                setOpen(true);
+              }
+            }}
+            className="flex h-10 w-10 items-center justify-center rounded-xl border border-zinc-800 text-zinc-300 transition active:scale-95 lg:hidden"
             aria-label={open ? "Close menu" : "Open menu"}
             aria-expanded={open}
             aria-controls="mobile-menu"
@@ -209,52 +349,91 @@ export default function Header() {
         </div>
       </div>
 
-      {open && (
+      {(open || closing) && (
         <div
           id="mobile-menu"
-          className="fixed inset-x-0 bottom-0 top-16 z-[65] overflow-y-auto overscroll-contain border-t border-zinc-800 bg-zinc-950 px-4 pb-10 pt-2 lg:hidden"
+          className={`fixed inset-x-0 bottom-0 top-16 z-[65] overflow-y-auto overscroll-contain border-t border-zinc-800 bg-gradient-to-b from-zinc-950 via-zinc-950 to-indigo-950/50 px-4 pb-10 pt-2 lg:hidden ${
+            closing ? "mobile-menu-exit" : "mobile-menu-enter"
+          }`}
         >
           <nav aria-label="Mobile" className="flex flex-col gap-1">
-            <p className="mt-2 px-3 text-[10px] font-semibold uppercase tracking-widest text-zinc-500">
-              Platform
+            <p className="mobile-accordion-enter mt-2 px-3 text-[10px] font-semibold uppercase tracking-widest text-zinc-500" style={{ animationDelay: "40ms" }}>
+              Explore HospiOS
             </p>
-            {PLATFORM_ITEMS.map((i) => (
-              <Link key={i.label} href={i.href} onClick={() => setOpen(false)} className="rounded-lg px-3 py-2.5 text-sm text-zinc-300 active:bg-zinc-900">
-                {i.label}
+            <MobileAccordion
+              id="platform"
+              title="Platform"
+              count={PLATFORM_ITEMS.length}
+              items={PLATFORM_ITEMS}
+              showIcons
+              active={activeSection === "platform"}
+              onToggle={() => setActiveSection((v) => (v === "platform" ? null : "platform"))}
+              enterDelay={70}
+              linkDelayBase={60}
+              onNavigate={closeMenu}
+            />
+            <MobileAccordion
+              id="solutions"
+              title="Solutions"
+              count={SOLUTION_ITEMS.length}
+              items={SOLUTION_ITEMS}
+              active={activeSection === "solutions"}
+              onToggle={() => setActiveSection((v) => (v === "solutions" ? null : "solutions"))}
+              enterDelay={130}
+              linkDelayBase={60}
+              onNavigate={closeMenu}
+            />
+            <MobileAccordion
+              id="resources"
+              title="Resources"
+              count={RESOURCE_ITEMS.length}
+              items={RESOURCE_ITEMS}
+              active={activeSection === "resources"}
+              onToggle={() => setActiveSection((v) => (v === "resources" ? null : "resources"))}
+              enterDelay={190}
+              linkDelayBase={60}
+              onNavigate={closeMenu}
+            />
+            <div className="flex flex-col gap-1 pt-2">
+              <Link
+                href="/pricing"
+                onClick={closeMenu}
+                className="mobile-accordion-enter link-pop flex items-center gap-3 rounded-xl px-3 py-3 text-sm font-semibold text-zinc-200 transition hover:bg-zinc-900 active:scale-[0.98]"
+                style={{ animationDelay: "250ms" }}
+              >
+                Pricing
+                <span className="ml-auto rounded-full border border-zinc-700/60 bg-zinc-900 px-1.5 py-0.5 text-[10px] font-medium text-zinc-400">
+                  3 plans
+                </span>
               </Link>
-            ))}
-            <p className="mt-3 px-3 text-[10px] font-semibold uppercase tracking-widest text-zinc-500">
-              Solutions
-            </p>
-            {SOLUTION_ITEMS.map((i) => (
-              <Link key={i.label} href={i.href} onClick={() => setOpen(false)} className="rounded-lg px-3 py-2.5 text-sm text-zinc-300 active:bg-zinc-900">
-                {i.label}
+              <Link
+                href="/score-check"
+                onClick={closeMenu}
+                className="mobile-accordion-enter link-pop flex items-center gap-3 rounded-xl px-3 py-3 text-sm font-semibold text-indigo-300 transition hover:bg-indigo-500/10 active:scale-[0.98]"
+                style={{ animationDelay: "310ms" }}
+              >
+                Score check
+                <span className="ml-auto rounded-full bg-emerald-400/10 px-1.5 py-0.5 text-[10px] font-medium text-emerald-300">
+                  Free
+                </span>
               </Link>
-            ))}
-            <p className="mt-3 px-3 text-[10px] font-semibold uppercase tracking-widest text-zinc-500">
-              Resources
-            </p>
-            {RESOURCE_ITEMS.map((i) => (
-              <Link key={i.label} href={i.href} onClick={() => setOpen(false)} className="rounded-lg px-3 py-2.5 text-sm text-zinc-300 active:bg-zinc-900">
-                {i.label}
+              <Link
+                href="/account"
+                onClick={closeMenu}
+                className="mobile-accordion-enter link-pop flex items-center gap-3 rounded-xl px-3 py-3 text-sm text-zinc-300 transition hover:bg-zinc-900 active:scale-[0.98]"
+                style={{ animationDelay: "370ms" }}
+              >
+                Sign in
               </Link>
-            ))}
-            <Link href="/pricing" onClick={() => setOpen(false)} className="rounded-lg px-3 py-2.5 text-sm text-zinc-300 active:bg-zinc-900">
-              Pricing
-            </Link>
-            <Link href="/score-check" onClick={() => setOpen(false)} className="rounded-lg px-3 py-2.5 text-sm font-medium text-indigo-300 active:bg-zinc-900">
-              Score check
-            </Link>
-            <Link href="/account" onClick={() => setOpen(false)} className="rounded-lg px-3 py-2.5 text-sm text-zinc-300 active:bg-zinc-900">
-              Sign in
-            </Link>
-            <Link
-              href="/demo"
-              onClick={() => setOpen(false)}
-              className="btn-shine mt-4 inline-flex items-center justify-center rounded-xl bg-indigo-600 px-4 py-3 text-sm font-semibold text-white transition hover:bg-indigo-500"
-            >
-              Book a demo
-            </Link>
+              <Link
+                href="/demo"
+                onClick={closeMenu}
+                className="mobile-accordion-enter btn-shine mt-2 inline-flex items-center justify-center rounded-xl bg-indigo-600 px-4 py-3 text-sm font-semibold text-white shadow-lg shadow-indigo-600/25 transition hover:bg-indigo-500 active:scale-[0.98]"
+                style={{ animationDelay: "430ms" }}
+              >
+                Book a demo
+              </Link>
+            </div>
           </nav>
         </div>
       )}
