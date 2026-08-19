@@ -1,4 +1,5 @@
 import type { Metadata } from "next";
+import Image from "next/image";
 import Link from "next/link";
 import Header from "@/components/Header";
 import JsonLd from "@/components/JsonLd";
@@ -14,7 +15,6 @@ import Security from "@/components/marketing/Security";
 import Reveal from "@/components/marketing/Reveal";
 import CountUp from "@/components/marketing/CountUp";
 import RotatingWords from "@/components/marketing/RotatingWords";
-import SpotlightCard from "@/components/marketing/SpotlightCard";
 import Marquee from "@/components/marketing/Marquee";
 import SectionHeading from "@/components/marketing/SectionHeading";
 import SolutionsStrip from "@/components/marketing/SolutionsStrip";
@@ -216,47 +216,132 @@ export default function Home() {
 
               <ul className="mt-8 flex flex-wrap gap-2 animate-fade-up" aria-label="Modules" style={{ animationDelay: "320ms" }}>
                 {HERO_CHIPS.map((c) => (
-                  <li key={c} className="rounded-full bg-zinc-900 px-3 py-1 text-xs font-medium text-zinc-300">
+                  <li
+                    key={c}
+                    className="rounded-full border border-zinc-800 bg-zinc-900/80 px-3 py-1 text-xs font-medium text-zinc-300 transition hover:border-indigo-700 hover:text-indigo-200"
+                  >
                     {c}
                   </li>
                 ))}
               </ul>
+
+              <div className="mt-8 flex flex-wrap items-center gap-x-4 gap-y-2 text-xs text-zinc-500 animate-fade-up" style={{ animationDelay: "400ms" }}>
+                <span className="inline-flex items-center gap-1.5">
+                  <span className="flex text-amber-400" aria-hidden="true">
+                    {[0, 1, 2, 3, 4].map((i) => (
+                      <Icon key={i} name="star" className="h-3.5 w-3.5" />
+                    ))}
+                  </span>
+                  4.9/5 from 2,000+ operators
+                </span>
+                <span className="hidden h-3 w-px bg-zinc-800 sm:block" aria-hidden="true" />
+                <span className="inline-flex items-center gap-1.5">
+                  <Icon name="shield" className="h-3.5 w-3.5 text-emerald-400" />
+                  SOC 2 Type II · GDPR ready
+                </span>
+              </div>
             </div>
 
             <div className="relative animate-fade-up" style={{ animationDelay: "200ms" }}>
-              <SpotlightCard className="rounded-3xl border border-zinc-800 bg-zinc-900 p-6 shadow-2xl shadow-indigo-950/40">
-                <p className="mb-4 text-center text-xs font-semibold uppercase tracking-widest text-zinc-400">
-                  What you&apos;ll see — free example score
-                </p>
-                <div className="flex items-center justify-between rounded-2xl bg-zinc-800/60 p-4">
-                  <div>
-                    <p className="text-sm font-semibold text-zinc-50">Harbor Lights Inn</p>
-                    <p className="text-xs text-zinc-400">Coastal hotel · Cornwall, UK</p>
-                  </div>
-                  <span className="rounded-full bg-emerald-900/40 px-3 py-1 text-sm font-bold text-emerald-300">
-                    84 · Good
+              <div
+                aria-hidden="true"
+                className="pointer-events-none absolute -inset-8 rounded-[2.5rem] bg-gradient-to-tr from-indigo-600/25 via-violet-600/10 to-sky-500/20 blur-3xl"
+              />
+              <div
+                aria-hidden="true"
+                className="pointer-events-none absolute -right-12 -top-12 h-64 w-64 animate-spin-slower rounded-full opacity-60 blur-2xl"
+                style={{
+                  background:
+                    "conic-gradient(from 0deg, transparent, rgba(99,102,241,0.35), rgba(56,189,248,0.25), transparent)",
+                }}
+              />
+
+              <div className="relative overflow-hidden rounded-3xl border border-zinc-700/70 bg-zinc-900 shadow-2xl shadow-black/60">
+                <div className="flex items-center gap-2 border-b border-zinc-800 bg-zinc-900/90 px-4 py-2.5">
+                  <span className="h-2.5 w-2.5 rounded-full bg-rose-500/80" aria-hidden="true" />
+                  <span className="h-2.5 w-2.5 rounded-full bg-amber-500/80" aria-hidden="true" />
+                  <span className="h-2.5 w-2.5 rounded-full bg-emerald-500/80" aria-hidden="true" />
+                  <span className="mx-auto flex items-center gap-1.5 rounded-md bg-zinc-800 px-3 py-1 text-[10px] font-medium text-zinc-400">
+                    <Icon name="globe" className="h-3 w-3" />
+                    app.hospios.com
                   </span>
+                  <span className="w-6" aria-hidden="true" />
                 </div>
-                <div className="mt-4 grid grid-cols-3 divide-x divide-zinc-800 rounded-2xl border border-zinc-800 text-center">
-                  {[
-                    { v: "1,240", l: "reviews" },
-                    { v: "8", l: "platforms" },
-                    { v: "▲ +3", l: "this week" },
-                  ].map((s) => (
-                    <div key={s.l} className="px-2 py-3">
-                      <p className="text-sm font-bold tabular-nums text-zinc-50">{s.v}</p>
-                      <p className="text-[10px] uppercase tracking-wide text-zinc-500">{s.l}</p>
+
+                <div className="relative aspect-[4/3] w-full">
+                  <Image
+                    src="https://images.unsplash.com/photo-1520250497591-112f2f40a3f4?auto=format&fit=crop&w=1400&q=80"
+                    alt="Resort pool at dusk — a property managed with HospiOS"
+                    fill
+                    priority
+                    sizes="(max-width: 1024px) 100vw, 50vw"
+                    className="hero-zoom object-cover"
+                  />
+                  <div
+                    aria-hidden="true"
+                    className="absolute inset-0 bg-gradient-to-t from-zinc-950/95 via-zinc-950/25 to-zinc-950/5"
+                  />
+                  <div className="absolute left-4 top-4 flex items-center gap-2">
+                    <span className="inline-flex items-center gap-1.5 rounded-full border border-emerald-400/30 bg-zinc-950/70 px-2.5 py-1 text-[10px] font-semibold text-emerald-300 backdrop-blur">
+                      <span className="pulse-dot" aria-hidden="true" />
+                      Live data
+                    </span>
+                    <span className="rounded-full border border-zinc-700 bg-zinc-950/70 px-2.5 py-1 text-[10px] font-semibold text-zinc-200 backdrop-blur">
+                      84 · Good
+                    </span>
+                  </div>
+                  <div className="absolute inset-x-4 bottom-4 flex items-end justify-between gap-3">
+                    <div>
+                      <p className="text-sm font-bold text-white">Harbor Lights Inn</p>
+                      <p className="text-xs text-zinc-300">
+                        Cornwall, UK · 1,240 reviews · 8 platforms
+                      </p>
                     </div>
+                    <span className="shrink-0 rounded-lg bg-emerald-500 px-2 py-1 text-xs font-bold text-zinc-950">
+                      ▲ +3 this week
+                    </span>
+                  </div>
+                </div>
+              </div>
+
+              <div className="absolute -bottom-7 -left-5 hidden w-44 rounded-2xl border border-zinc-700 bg-zinc-900/95 p-3.5 shadow-xl shadow-black/50 backdrop-blur animate-float-slow sm:block">
+                <p className="text-[10px] font-semibold uppercase tracking-wide text-zinc-400">
+                  Tonight&apos;s occupancy
+                </p>
+                <p className="mt-1 text-lg font-bold tabular-nums text-zinc-50">
+                  78% <span className="text-xs font-semibold text-emerald-400">▲ +12%</span>
+                </p>
+                <div className="mt-2 flex h-8 items-end gap-1" aria-hidden="true">
+                  {[35, 55, 42, 70, 62, 85, 78].map((h, i) => (
+                    <div
+                      key={i}
+                      className="bar-grow flex-1 rounded-sm bg-indigo-500/70"
+                      style={{ height: `${h}%`, animationDelay: `${0.15 * i + 0.3}s` }}
+                    />
                   ))}
                 </div>
-              </SpotlightCard>
-              <div className="absolute -bottom-5 -left-4 hidden animate-float-slow rounded-xl border border-zinc-700 bg-zinc-900 px-4 py-3 shadow-lg sm:block">
-                <p className="text-[10px] font-semibold uppercase tracking-wide text-zinc-400">AI reply draft</p>
-                <p className="text-xs text-zinc-300">“Thank you for your honest feedback…”</p>
               </div>
-              <div className="absolute -right-3 -top-4 hidden animate-float rounded-xl border border-indigo-900 bg-indigo-950 px-4 py-3 shadow-lg sm:block">
-                <p className="text-[10px] font-semibold uppercase tracking-wide text-indigo-300">23 modules</p>
-                <p className="text-xs font-medium text-indigo-200">One platform · zero re-keying</p>
+
+              <div className="absolute -top-5 -right-3 hidden w-56 rounded-2xl border border-zinc-700 bg-zinc-900/95 p-3.5 shadow-xl shadow-black/50 backdrop-blur toast-in sm:block">
+                <p className="text-[10px] font-semibold uppercase tracking-wide text-zinc-400">
+                  New booking
+                </p>
+                <p className="mt-0.5 text-xs font-semibold text-zinc-100">
+                  Deluxe King · 2 nights
+                </p>
+                <p className="mt-0.5 flex items-center gap-1.5 text-[11px] text-zinc-400">
+                  <span className="pulse-dot" aria-hidden="true" />
+                  Direct booking · $487 · 20:14
+                </p>
+              </div>
+
+              <div className="absolute -bottom-4 right-8 hidden rounded-xl border border-indigo-900 bg-indigo-950/90 px-3.5 py-2.5 shadow-lg shadow-indigo-950/40 backdrop-blur animate-float sm:block">
+                <p className="text-[10px] font-semibold uppercase tracking-wide text-indigo-300">
+                  AI reply draft
+                </p>
+                <p className="mt-0.5 text-xs text-indigo-100">
+                  “Thank you for the lovely review…”
+                </p>
               </div>
             </div>
           </div>
