@@ -392,12 +392,12 @@ export default function Home() {
               {PARTNERS.map((p) => (
                 <span
                   key={p.name}
-                  className="mx-2.5 inline-flex items-center gap-2.5 rounded-full border border-zinc-800 bg-zinc-950/80 py-1.5 pl-1.5 pr-4 shadow-sm shadow-black/20"
+                  className="mx-2.5 inline-flex w-44 shrink-0 items-center justify-center gap-2.5 whitespace-nowrap rounded-full border border-zinc-800 bg-zinc-950/80 py-1.5 pl-1.5 pr-4 shadow-sm shadow-black/20"
                 >
-                  <span className="flex h-7 w-7 items-center justify-center rounded-full bg-gradient-to-br from-indigo-500/25 to-violet-500/25 text-indigo-300">
+                  <span className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-gradient-to-br from-indigo-500/25 to-violet-500/25 text-indigo-300">
                     <Icon name={p.icon} className="h-4 w-4" />
                   </span>
-                  <span className="text-sm font-semibold tracking-tight text-zinc-300">
+                  <span className="truncate text-sm font-semibold tracking-tight text-zinc-300">
                     {p.name}
                   </span>
                 </span>
