@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useRef, type CSSProperties, type ReactNode } from "react";
+import { useCallback, useEffect, useRef, type CSSProperties, type ReactNode } from "react";
 
 /**
  * Card with a cursor-tracking radial spotlight. On hover/move the mouse
@@ -9,7 +9,7 @@ import { useCallback, useRef, type CSSProperties, type ReactNode } from "react";
  *
  * Accessibility: the highlight is purely decorative (aria-hidden) and the
  * card itself stays a normal element — keyboard focus reveals it via
- * :focus-within.
+ * :focus-within. Tracking is skipped on coarse-pointer (touch) devices.
  */
 export default function SpotlightCard({
   children,
@@ -25,8 +25,16 @@ export default function SpotlightCard({
   radius?: number;
 }) {
   const ref = useRef<HTMLDivElement>(null);
+  const coarse = useRef(false);
+
+  useEffect(() => {
+    if (typeof window !== "undefined" && "matchMedia" in window) {
+      coarse.current = window.matchMedia("(pointer: coarse)").matches;
+    }
+  }, []);
 
   const handlePointerMove = useCallback((e: React.PointerEvent<HTMLDivElement>) => {
+    if (coarse.current) return;
     const el = ref.current;
     if (!el) return;
     const rect = el.getBoundingClientRect();

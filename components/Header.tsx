@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import { usePathname } from "next/navigation";
 import Link from "next/link";
 import Icon from "@/components/marketing/icons";
 import type { IconName } from "@/components/marketing/icons";
@@ -104,6 +105,7 @@ function Dropdown({
 export default function Header() {
   const [open, setOpen] = useState(false);
   const [scrolled, setScrolled] = useState(false);
+  const pathname = usePathname();
 
   useEffect(() => {
     if (typeof window === "undefined") return;
@@ -112,6 +114,26 @@ export default function Header() {
     window.addEventListener("scroll", onScroll, { passive: true });
     return () => window.removeEventListener("scroll", onScroll);
   }, []);
+
+  // Close the mobile menu on any route change.
+  useEffect(() => {
+    setOpen(false);
+  }, [pathname]);
+
+  // While the mobile menu is open, lock page scroll and close on Escape.
+  useEffect(() => {
+    if (!open) return;
+    const previous = document.body.style.overflow;
+    document.body.style.overflow = "hidden";
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === "Escape") setOpen(false);
+    };
+    window.addEventListener("keydown", onKey);
+    return () => {
+      document.body.style.overflow = previous;
+      window.removeEventListener("keydown", onKey);
+    };
+  }, [open]);
 
   return (
     <header
@@ -175,9 +197,10 @@ export default function Header() {
           <button
             type="button"
             onClick={() => setOpen((v) => !v)}
-            className="flex h-10 w-10 items-center justify-center rounded-xl border border-zinc-800 text-zinc-300 lg:hidden"
-            aria-label="Toggle menu"
+            className="flex h-10 w-10 items-center justify-center rounded-xl border border-zinc-800 text-zinc-300 active:scale-95 lg:hidden"
+            aria-label={open ? "Close menu" : "Open menu"}
             aria-expanded={open}
+            aria-controls="mobile-menu"
           >
             <svg className="h-5 w-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
               {open ? <path d="M18 6 6 18M6 6l12 12" /> : <path d="M4 7h16M4 12h16M4 17h16" />}
@@ -187,13 +210,16 @@ export default function Header() {
       </div>
 
       {open && (
-        <div className="border-t border-zinc-800 bg-zinc-950 px-4 pb-6 pt-2 lg:hidden">
+        <div
+          id="mobile-menu"
+          className="fixed inset-x-0 bottom-0 top-16 z-[65] overflow-y-auto overscroll-contain border-t border-zinc-800 bg-zinc-950 px-4 pb-10 pt-2 lg:hidden"
+        >
           <nav aria-label="Mobile" className="flex flex-col gap-1">
             <p className="mt-2 px-3 text-[10px] font-semibold uppercase tracking-widest text-zinc-500">
               Platform
             </p>
             {PLATFORM_ITEMS.map((i) => (
-              <Link key={i.label} href={i.href} onClick={() => setOpen(false)} className="rounded-lg px-3 py-2 text-sm text-zinc-300 hover:bg-zinc-900">
+              <Link key={i.label} href={i.href} onClick={() => setOpen(false)} className="rounded-lg px-3 py-2.5 text-sm text-zinc-300 active:bg-zinc-900">
                 {i.label}
               </Link>
             ))}
@@ -201,7 +227,7 @@ export default function Header() {
               Solutions
             </p>
             {SOLUTION_ITEMS.map((i) => (
-              <Link key={i.label} href={i.href} onClick={() => setOpen(false)} className="rounded-lg px-3 py-2 text-sm text-zinc-300 hover:bg-zinc-900">
+              <Link key={i.label} href={i.href} onClick={() => setOpen(false)} className="rounded-lg px-3 py-2.5 text-sm text-zinc-300 active:bg-zinc-900">
                 {i.label}
               </Link>
             ))}
@@ -209,18 +235,25 @@ export default function Header() {
               Resources
             </p>
             {RESOURCE_ITEMS.map((i) => (
-              <Link key={i.label} href={i.href} onClick={() => setOpen(false)} className="rounded-lg px-3 py-2 text-sm text-zinc-300 hover:bg-zinc-900">
+              <Link key={i.label} href={i.href} onClick={() => setOpen(false)} className="rounded-lg px-3 py-2.5 text-sm text-zinc-300 active:bg-zinc-900">
                 {i.label}
               </Link>
             ))}
-            <Link href="/pricing" onClick={() => setOpen(false)} className="rounded-lg px-3 py-2 text-sm text-zinc-300 hover:bg-zinc-900">
+            <Link href="/pricing" onClick={() => setOpen(false)} className="rounded-lg px-3 py-2.5 text-sm text-zinc-300 active:bg-zinc-900">
               Pricing
             </Link>
-            <Link href="/score-check" onClick={() => setOpen(false)} className="rounded-lg px-3 py-2 text-sm font-medium text-indigo-300 hover:bg-zinc-900">
+            <Link href="/score-check" onClick={() => setOpen(false)} className="rounded-lg px-3 py-2.5 text-sm font-medium text-indigo-300 active:bg-zinc-900">
               Score check
             </Link>
-            <Link href="/account" onClick={() => setOpen(false)} className="rounded-lg px-3 py-2 text-sm text-zinc-300 hover:bg-zinc-900">
+            <Link href="/account" onClick={() => setOpen(false)} className="rounded-lg px-3 py-2.5 text-sm text-zinc-300 active:bg-zinc-900">
               Sign in
+            </Link>
+            <Link
+              href="/demo"
+              onClick={() => setOpen(false)}
+              className="btn-shine mt-4 inline-flex items-center justify-center rounded-xl bg-indigo-600 px-4 py-3 text-sm font-semibold text-white transition hover:bg-indigo-500"
+            >
+              Book a demo
             </Link>
           </nav>
         </div>
