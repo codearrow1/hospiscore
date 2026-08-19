@@ -6,6 +6,7 @@ import JsonLd from "@/components/JsonLd";
 import PropertySearch from "@/components/PropertySearch";
 import BookDemoForm from "@/components/BookDemoForm";
 import Icon from "@/components/marketing/icons";
+import type { IconName } from "@/components/marketing/icons";
 import FeatureCard from "@/components/marketing/FeatureCard";
 import ModuleGrid from "@/components/marketing/ModuleGrid";
 import CoreTools from "@/components/marketing/CoreTools";
@@ -49,11 +50,31 @@ export const metadata: Metadata = {
   },
 };
 
-const STATS = [
-  { to: 500, suffix: "+", label: "properties onboarded" },
-  { to: 50, suffix: "+", label: "OTA channels in sync" },
-  { to: 23, label: "integrated modules" },
-  { to: 4.9, decimals: 1, suffix: "/5", label: "average operator rating" },
+const STATS: {
+  to: number;
+  suffix?: string;
+  decimals?: number;
+  label: string;
+  icon: IconName;
+  accent: string;
+}[] = [
+  { to: 500, suffix: "+", label: "properties onboarded", icon: "building", accent: "text-indigo-300 bg-indigo-500/15" },
+  { to: 50, suffix: "+", label: "OTA channels in sync", icon: "network", accent: "text-sky-300 bg-sky-500/15" },
+  { to: 23, label: "integrated modules", icon: "dashboard", accent: "text-violet-300 bg-violet-500/15" },
+  { to: 4.9, decimals: 1, suffix: "/5", label: "average operator rating", icon: "star", accent: "text-amber-300 bg-amber-500/15" },
+];
+
+const PARTNERS: { name: string; icon: IconName }[] = [
+  { name: "Boutique Hotels", icon: "star" },
+  { name: "Resort Groups", icon: "building" },
+  { name: "Hostels & B&Bs", icon: "users" },
+  { name: "Vacation Rentals", icon: "key" },
+  { name: "Serviced Apartments", icon: "box" },
+  { name: "Budget Chains", icon: "coins" },
+  { name: "Mountain Lodges", icon: "globe" },
+  { name: "City Hotels", icon: "dashboard" },
+  { name: "Island Resorts", icon: "sparkle" },
+  { name: "Boutique Chains", icon: "network" },
 ];
 
 const HERO_CHIPS = [
@@ -367,10 +388,18 @@ export default function Home() {
             <p className="mb-6 text-center text-xs font-semibold uppercase tracking-widest text-zinc-500">
               Powering properties everywhere
             </p>
-            <Marquee duration={36}>
-              {["Boutique Hotels", "Resort Groups", "Hostels & B&Bs", "Vacation Rentals", "Serviced Apartments", "Budget Chains", "Mountain Lodges", "City Hotels", "Island Resorts", "Boutique Chains"].map((t) => (
-                <span key={t} className="mx-3 text-lg font-bold tracking-tight text-zinc-700 dark:text-zinc-600">
-                  {t}
+            <Marquee duration={38}>
+              {PARTNERS.map((p) => (
+                <span
+                  key={p.name}
+                  className="mx-2.5 inline-flex items-center gap-2.5 rounded-full border border-zinc-800 bg-zinc-950/80 py-1.5 pl-1.5 pr-4 shadow-sm shadow-black/20"
+                >
+                  <span className="flex h-7 w-7 items-center justify-center rounded-full bg-gradient-to-br from-indigo-500/25 to-violet-500/25 text-indigo-300">
+                    <Icon name={p.icon} className="h-4 w-4" />
+                  </span>
+                  <span className="text-sm font-semibold tracking-tight text-zinc-300">
+                    {p.name}
+                  </span>
                 </span>
               ))}
             </Marquee>
@@ -379,11 +408,16 @@ export default function Home() {
 
         {/* ───────────────────────── Trust stats ───────────────────────── */}
         <section className="border-b border-zinc-800 bg-zinc-900/40">
-          <div className="mx-auto grid w-full max-w-6xl grid-cols-2 gap-8 px-4 py-12 sm:px-6 md:grid-cols-4">
+          <div className="mx-auto grid w-full max-w-6xl grid-cols-2 gap-x-8 gap-y-10 px-4 py-12 sm:px-6 md:grid-cols-4">
             {STATS.map((s, i) => (
               <Reveal key={s.label} delay={i * 80} from="scale">
                 <div className="group text-center transition duration-300 hover:-translate-y-1">
-                  <p className="text-3xl font-bold tracking-tight text-zinc-50 transition group-hover:text-indigo-300">
+                  <span
+                    className={`mx-auto flex h-11 w-11 items-center justify-center rounded-2xl transition duration-300 group-hover:scale-110 ${s.accent}`}
+                  >
+                    <Icon name={s.icon} className="h-5 w-5" />
+                  </span>
+                  <p className="mt-3 text-3xl font-bold tracking-tight text-zinc-50 transition group-hover:text-indigo-300">
                     <CountUp to={s.to} suffix={s.suffix ?? ""} decimals={s.decimals ?? 0} />
                   </p>
                   <p className="mt-1 text-sm text-zinc-500">{s.label}</p>
@@ -420,8 +454,14 @@ export default function Home() {
               />
             </Reveal>
             <Reveal delay={120}>
-              <div className="mt-12">
-                <ModuleGrid />
+              <div className="relative mt-12">
+                <div
+                  aria-hidden="true"
+                  className="pointer-events-none absolute left-1/2 top-1/2 h-[28rem] w-[42rem] -translate-x-1/2 -translate-y-1/2 rounded-full bg-indigo-600/10 blur-3xl"
+                />
+                <div className="relative">
+                  <ModuleGrid />
+                </div>
               </div>
             </Reveal>
             <div className="mt-10 text-center">
@@ -519,11 +559,15 @@ export default function Home() {
           <div className="mt-12 grid gap-8 md:grid-cols-3">
             {STEPS.map((s, i) => (
               <Reveal key={s.n} delay={i * 100} from={i === 0 ? "left" : i === 2 ? "right" : "up"}>
-                <div className="group relative rounded-2xl border border-zinc-800 bg-zinc-900 p-6 transition duration-300 hover:-translate-y-1 hover:border-indigo-500/50">
-                  <span className="text-4xl font-bold text-indigo-950 transition duration-300 group-hover:text-indigo-900" aria-hidden="true">
+                <div className="group relative h-full rounded-2xl border border-zinc-800 bg-zinc-900 p-6 transition duration-300 hover:-translate-y-1 hover:border-indigo-500/60 hover:shadow-xl hover:shadow-indigo-950/40">
+                  <span
+                    aria-hidden="true"
+                    className="pointer-events-none absolute inset-x-0 top-0 h-px bg-gradient-to-r from-transparent via-indigo-500/60 to-transparent opacity-0 transition duration-300 group-hover:opacity-100"
+                  />
+                  <span className="inline-flex h-14 w-14 items-center justify-center rounded-2xl bg-gradient-to-br from-indigo-500 to-violet-600 text-lg font-bold text-white shadow-lg shadow-indigo-600/25 transition duration-300 group-hover:scale-110 group-hover:shadow-indigo-600/40">
                     {s.n}
                   </span>
-                  <h3 className="mt-3 text-lg font-semibold text-zinc-50">{s.title}</h3>
+                  <h3 className="mt-4 text-lg font-semibold text-zinc-50">{s.title}</h3>
                   <p className="mt-2 text-sm leading-relaxed text-zinc-400">{s.body}</p>
                 </div>
               </Reveal>
@@ -689,11 +733,23 @@ export default function Home() {
         <section className="py-20">
           <Reveal>
             <div className="mx-auto w-full max-w-6xl px-4 sm:px-6">
-              <div className="glow-border relative overflow-hidden rounded-3xl bg-gradient-to-br from-indigo-600 via-violet-600 to-indigo-800 px-6 py-16 text-center shadow-xl sm:px-12">
-                <div aria-hidden="true" className="pointer-events-none absolute -top-24 -right-24 h-72 w-72 animate-glow rounded-full bg-white/10 blur-2xl" />
-                <div aria-hidden="true" className="pointer-events-none absolute -bottom-24 -left-24 h-72 w-72 animate-glow rounded-full bg-white/10 blur-2xl" />
-                <div className="relative mx-auto max-w-2xl">
-                  <h2 className="text-3xl font-bold tracking-tight text-white sm:text-4xl">
+              <div className="glow-border relative overflow-hidden rounded-3xl shadow-2xl shadow-indigo-950/50">
+                <Image
+                  src="https://images.unsplash.com/photo-1566073771259-6a8506099945?auto=format&fit=crop&w=2000&q=80"
+                  alt="Luxury resort pool at golden hour"
+                  fill
+                  sizes="100vw"
+                  className="object-cover"
+                />
+                <div aria-hidden="true" className="absolute inset-0 bg-gradient-to-br from-indigo-950/95 via-violet-950/85 to-zinc-950/90" />
+                <div aria-hidden="true" className="bg-grid absolute inset-0 opacity-60" />
+
+                <div className="relative mx-auto max-w-2xl px-6 py-16 text-center sm:px-12">
+                  <span className="inline-flex items-center gap-2 rounded-full border border-white/15 bg-white/10 px-3 py-1 text-xs font-semibold text-indigo-100 backdrop-blur">
+                    <span className="pulse-dot" aria-hidden="true" />
+                    Live product demo · 30 minutes
+                  </span>
+                  <h2 className="mt-5 text-3xl font-bold tracking-tight text-white sm:text-4xl">
                     See HospiOS run your property
                   </h2>
                   <p className="mt-4 text-base text-indigo-100">
@@ -701,9 +757,26 @@ export default function Home() {
                     live — front desk, housekeeping, POS, and your free online
                     presence score.
                   </p>
-                  <div className="mx-auto mt-8 max-w-md rounded-3xl bg-zinc-950/90 p-6 text-left shadow-lg">
+                  <div className="mx-auto mt-8 max-w-md rounded-3xl border border-white/10 bg-zinc-950/70 p-6 text-left shadow-2xl shadow-black/40 backdrop-blur-xl">
                     <BookDemoForm compact />
                   </div>
+                </div>
+
+                <div className="absolute -top-4 right-10 hidden animate-float rounded-xl border border-white/10 bg-zinc-950/80 px-4 py-2.5 shadow-lg backdrop-blur md:block">
+                  <p className="text-[10px] font-semibold uppercase tracking-wide text-indigo-300">
+                    Front desk · 08:00
+                  </p>
+                  <p className="mt-0.5 text-xs text-zinc-200">
+                    24 check-ins today · all rooms clean
+                  </p>
+                </div>
+                <div className="absolute -bottom-5 left-10 hidden animate-float-slow rounded-xl border border-white/10 bg-zinc-950/80 px-4 py-2.5 shadow-lg backdrop-blur md:block">
+                  <p className="text-[10px] font-semibold uppercase tracking-wide text-emerald-300">
+                    Your online presence
+                  </p>
+                  <p className="mt-0.5 text-xs font-semibold text-zinc-100">
+                    84/100 · Good · ▲ +3 this week
+                  </p>
                 </div>
               </div>
             </div>
