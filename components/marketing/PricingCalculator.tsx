@@ -48,7 +48,7 @@ export default function PricingCalculator() {
                 key={c.id}
                 type="button"
                 onClick={() => setCycle(c.id)}
-                className={`rounded-lg px-3 py-1.5 text-sm font-medium transition ${
+                className={`rounded-lg px-3 py-2.5 text-sm font-medium transition ${
                   cycle === c.id
                     ? "bg-indigo-600 text-white"
                     : "text-zinc-400 hover:text-zinc-200"
@@ -70,7 +70,7 @@ export default function PricingCalculator() {
                 key={c}
                 type="button"
                 onClick={() => setCurrency(c)}
-                className={`rounded-lg px-3 py-1.5 text-sm font-medium transition ${
+                className={`rounded-lg px-3 py-2.5 text-sm font-medium transition ${
                   currency === c ? "bg-indigo-600 text-white" : "text-zinc-400 hover:text-zinc-200"
                 }`}
                 aria-pressed={currency === c}

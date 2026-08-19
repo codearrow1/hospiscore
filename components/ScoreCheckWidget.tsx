@@ -354,8 +354,8 @@ export default function ScoreCheckWidget() {
 
       {selected && (
         <div ref={unlockRef} className="mt-4 rounded-3xl border border-zinc-800 bg-zinc-900/70 p-5 sm:p-6">
-          <div className="flex flex-wrap items-start justify-between gap-4">
-            <div className="min-w-0">
+          <div className="flex flex-wrap items-center gap-4">
+            <div className="order-2 w-full min-w-0 sm:order-1 sm:w-auto">
               <p className="text-[11px] font-semibold uppercase tracking-widest text-indigo-400">
                 {unlocked ? "Full report unlocked" : "Free score preview"}
               </p>
@@ -364,8 +364,8 @@ export default function ScoreCheckWidget() {
                 {selected.type} · {selected.city}, {selected.country}
               </p>
             </div>
-            <div className="flex items-center gap-4">
-              <div className="text-right text-xs text-zinc-500">
+            <div className="order-1 flex w-full shrink-0 items-center justify-between gap-4 sm:order-2 sm:w-auto">
+              <div className="text-left text-xs text-zinc-500 sm:text-right">
                 {unlocked?.grade && (
                   <p className={`mb-1 inline-flex rounded-full px-2 py-0.5 text-[10px] font-bold uppercase tracking-wide ${unlocked.gradeColor}`}>
                     Grade {unlocked.grade}

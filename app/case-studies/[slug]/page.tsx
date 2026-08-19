@@ -114,7 +114,7 @@ export default async function CaseStudyPage({
 
           <div className="mx-auto w-full max-w-3xl px-4 py-14 sm:px-6">
             <Reveal>
-              <div className="grid grid-cols-3 gap-4 rounded-3xl border border-zinc-800 bg-zinc-900/60 p-7">
+              <div className="grid grid-cols-1 gap-3 rounded-3xl border border-zinc-800 bg-zinc-900/60 p-7 sm:grid-cols-3 sm:gap-4">
                 {cs.results.map((r) => (
                   <div key={r.metric} className="text-center">
                     <p className="text-2xl font-bold tabular-nums text-emerald-400 sm:text-3xl">

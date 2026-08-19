@@ -67,7 +67,7 @@ function LeadRowView({ row }: { row: LeadRow }) {
     <li className="rounded-2xl border border-zinc-200 bg-white p-4 dark:border-zinc-800 dark:bg-zinc-900">
       <div className="flex flex-wrap items-start justify-between gap-3">
         <div className="min-w-0">
-          <div className="flex items-center gap-2">
+          <div className="flex min-w-0 flex-wrap items-center gap-2">
             <span className="font-semibold text-zinc-900 dark:text-zinc-50">{row.name}</span>
             {badge(row)}
             <span
@@ -125,7 +125,7 @@ function FilterChip({
     <Link
       href={href}
       aria-current={active ? "page" : undefined}
-      className={`rounded-full px-3 py-1 text-xs font-medium transition ${
+      className={`flex min-h-10 items-center rounded-full px-3.5 py-2 text-sm font-medium transition ${
         active
           ? "bg-indigo-600 text-white"
           : "bg-zinc-100 text-zinc-600 hover:bg-zinc-200 dark:bg-zinc-800 dark:text-zinc-300 dark:hover:bg-zinc-700"
@@ -264,7 +264,7 @@ export default async function LeadsPage({
           </span>
           <Link
             href={exportHref()}
-            className="inline-flex items-center gap-1.5 rounded-xl bg-indigo-600 px-3 py-1.5 text-sm font-semibold text-white shadow-sm transition hover:bg-indigo-700"
+            className="inline-flex min-h-11 items-center gap-1.5 rounded-xl bg-indigo-600 px-4 py-2.5 text-sm font-semibold text-white shadow-sm transition hover:bg-indigo-700"
           >
             <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
               <path d="M12 3v12m0 0 4-4m-4 4-4-4M4 17v2a1 1 0 0 0 1 1h14a1 1 0 0 0 1-1v-2" />

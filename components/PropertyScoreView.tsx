@@ -72,7 +72,7 @@ export default async function PropertyScoreView({
             {result.averageRating}/100 · {result.dataCompleteness}% data coverage
           </p>
         </div>
-        <div className="flex flex-col items-end gap-2 sm:flex-row">
+        <div className="flex flex-col items-stretch gap-2 sm:flex-row sm:items-end">
           <SavePropertyButton slug={prop.slug} />
           {!prop.claimed && (
             <Link

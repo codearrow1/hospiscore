@@ -29,7 +29,7 @@ function ComponentRow({ c }: { c: ScoreComponent }) {
 
   return (
     <div className="flex items-center gap-4">
-      <div className="w-44 shrink-0 sm:w-52">
+      <div className="w-full min-w-0 sm:w-44 sm:shrink-0 lg:w-52">
         <div className="flex items-baseline justify-between gap-2">
           <span className="text-sm font-medium text-zinc-800 dark:text-zinc-100">
             {c.label}

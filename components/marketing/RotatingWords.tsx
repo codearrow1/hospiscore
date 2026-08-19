@@ -4,7 +4,9 @@ import { useEffect, useState } from "react";
 
 /**
  * Rotating word/phrase. Cycles through `words` every `interval` ms with a
- * quick fade-up. Stops cycling when the user prefers reduced motion.
+ * quick fade-up. Reserves the width of the longest word so the surrounding
+ * headline never re-flows when the word swaps. Stops cycling when the user
+ * prefers reduced motion.
  */
 export default function RotatingWords({
   words,
@@ -32,10 +34,18 @@ export default function RotatingWords({
   }, [words.length, interval]);
 
   const word = words[index] ?? words[0];
+  const longest = words.reduce((a, b) => (b.length > a.length ? b : a), words[0] ?? "");
 
   return (
-    <span className={`inline-block ${className}`}>
-      <span key={index} className="inline-block animate-fade-up" aria-hidden="true">
+    <span className={`relative inline-grid ${className}`}>
+      <span className="invisible" aria-hidden="true">
+        {longest}
+      </span>
+      <span
+        key={index}
+        className="absolute inset-0 animate-fade-up"
+        aria-hidden="true"
+      >
         {word}
       </span>
     </span>

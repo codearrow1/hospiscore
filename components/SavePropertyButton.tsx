@@ -43,7 +43,7 @@ export default function SavePropertyButton({ slug }: { slug: string }) {
 
   if (status === "loading") {
     return (
-      <span className="rounded-lg border border-zinc-300 px-3 py-1.5 text-sm text-zinc-400">
+      <span className="flex min-h-11 items-center rounded-lg border border-zinc-300 px-4 py-2.5 text-sm text-zinc-400">
         …
       </span>
     );
@@ -53,7 +53,7 @@ export default function SavePropertyButton({ slug }: { slug: string }) {
     return (
       <a
         href="/account"
-        className="rounded-lg border border-zinc-300 px-3 py-1.5 text-sm text-zinc-600 hover:border-indigo-400 hover:text-indigo-600 dark:border-zinc-700 dark:text-zinc-300"
+        className="flex min-h-11 items-center justify-center rounded-lg border border-zinc-300 px-4 py-2.5 text-sm text-zinc-600 hover:border-indigo-400 hover:text-indigo-600 dark:border-zinc-700 dark:text-zinc-300"
       >
         Sign in to save
       </a>
@@ -64,7 +64,7 @@ export default function SavePropertyButton({ slug }: { slug: string }) {
     <button
       onClick={toggle}
       disabled={busy}
-      className={`rounded-lg px-3 py-1.5 text-sm font-medium transition-colors disabled:opacity-50 ${
+      className={`flex min-h-11 items-center justify-center rounded-lg px-4 py-2.5 text-sm font-medium transition-colors disabled:opacity-50 ${
         status === "saved"
           ? "bg-indigo-50 text-indigo-700 hover:bg-indigo-100 dark:bg-indigo-950/40 dark:text-indigo-300"
           : "border border-zinc-300 text-zinc-700 hover:border-indigo-400 hover:text-indigo-600 dark:border-zinc-700 dark:text-zinc-200"

@@ -15,44 +15,52 @@ export default function ScoreGauge({
   const filled = (score / 100) * circumference;
 
   return (
-    <div className="relative" style={{ width: size, height: size }}>
-      <svg
-        width={size}
-        height={size}
-        className="-rotate-90"
-        aria-hidden="true"
-        focusable="false"
-      >
-        <circle
-          cx={size / 2}
-          cy={size / 2}
-          r={radius}
-          fill="none"
-          stroke="currentColor"
-          className="text-zinc-200 dark:text-zinc-800"
-          strokeWidth={stroke}
-        />
-        <circle
-          cx={size / 2}
-          cy={size / 2}
-          r={radius}
-          fill="none"
-          stroke={color}
-          strokeWidth={stroke}
-          strokeLinecap="round"
-          strokeDasharray={`${filled} ${circumference - filled}`}
-        />
-      </svg>
-      <div className="absolute inset-0 flex flex-col items-center justify-center">
-        <span className="text-5xl font-bold tabular-nums tracking-tight" style={{ color }}>
-          {score}
-        </span>
-        <span
-          className="mt-1 rounded-full px-3 py-0.5 text-sm font-semibold"
-          style={{ color, backgroundColor: `${color}1a` }}
+    <div className="relative w-full" style={{ maxWidth: size }}>
+      <div className="relative aspect-square">
+        <svg
+          viewBox={`0 0 ${size} ${size}`}
+          className="absolute inset-0 h-full w-full -rotate-90"
+          aria-hidden="true"
+          focusable="false"
         >
-          {grade}
-        </span>
+          <circle
+            cx={size / 2}
+            cy={size / 2}
+            r={radius}
+            fill="none"
+            stroke="currentColor"
+            className="text-zinc-200 dark:text-zinc-800"
+            strokeWidth={stroke}
+          />
+          <circle
+            cx={size / 2}
+            cy={size / 2}
+            r={radius}
+            fill="none"
+            stroke={color}
+            strokeWidth={stroke}
+            strokeLinecap="round"
+            strokeDasharray={`${filled} ${circumference - filled}`}
+          />
+        </svg>
+        <div className="absolute inset-0 flex flex-col items-center justify-center">
+          <span
+            className="font-bold tabular-nums tracking-tight"
+            style={{ color, fontSize: Math.round(size * 0.26) }}
+          >
+            {score}
+          </span>
+          <span
+            className="mt-1 rounded-full px-2.5 py-0.5 font-semibold"
+            style={{
+              color,
+              backgroundColor: `${color}1a`,
+              fontSize: Math.max(10, Math.round(size * 0.075)),
+            }}
+          >
+            {grade}
+          </span>
+        </div>
       </div>
     </div>
   );

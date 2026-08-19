@@ -73,7 +73,7 @@ export default function CaseStudiesPage() {
                       href={`/case-studies/${c.slug}`}
                       className="group relative flex h-full flex-col rounded-3xl border border-zinc-800 bg-zinc-900/60 p-7 transition hover:border-indigo-500/60"
                     >
-                      <div className="flex items-center justify-between gap-3">
+                      <div className="flex flex-wrap items-center justify-between gap-x-3 gap-y-1.5">
                         <span className="rounded-full bg-indigo-950 px-3 py-1 text-[11px] font-semibold uppercase tracking-wide text-indigo-300">
                           {c.sector}
                         </span>
@@ -87,13 +87,13 @@ export default function CaseStudiesPage() {
                       <p className="mt-2 flex-1 text-sm leading-relaxed text-zinc-400">
                         {c.summary}
                       </p>
-                      <div className="mt-5 grid grid-cols-3 gap-3 border-t border-zinc-800 pt-5">
+                      <div className="mt-5 grid grid-cols-3 gap-2 border-t border-zinc-800 pt-5 sm:gap-3">
                         {c.results.map((r) => (
                           <div key={r.metric}>
-                            <p className="text-lg font-bold tabular-nums text-emerald-400">
+                            <p className="text-base font-bold tabular-nums text-emerald-400 sm:text-lg">
                               {r.value}
                             </p>
-                            <p className="text-[11px] leading-tight text-zinc-500">{r.label}</p>
+                            <p className="text-[10px] leading-tight text-zinc-500 sm:text-[11px]">{r.label}</p>
                           </div>
                         ))}
                       </div>

@@ -312,11 +312,9 @@ export default function Home() {
                     </span>
                   </div>
                   <div className="absolute inset-x-4 bottom-4 flex items-end justify-between gap-3">
-                    <div>
+                    <div className="min-w-0">
                       <p className="text-sm font-bold text-white">Harbor Lights Inn</p>
-                      <p className="text-xs text-zinc-300">
-                        Cornwall, UK · 1,240 reviews · 8 platforms
-                      </p>
+                      <p className="text-xs text-zinc-300">Cornwall, UK · 1,240 reviews · 8 platforms</p>
                     </div>
                     <span className="shrink-0 rounded-lg bg-emerald-500 px-2 py-1 text-xs font-bold text-zinc-950">
                       ▲ +3 this week
@@ -408,7 +406,7 @@ export default function Home() {
 
         {/* ───────────────────────── Trust stats ───────────────────────── */}
         <section className="border-b border-zinc-800 bg-zinc-900/40">
-          <div className="mx-auto grid w-full max-w-6xl grid-cols-2 gap-x-8 gap-y-10 px-4 py-12 sm:px-6 md:grid-cols-4">
+          <div className="mx-auto grid w-full max-w-6xl grid-cols-2 gap-x-4 gap-y-10 px-4 py-12 sm:gap-x-8 sm:px-6 md:grid-cols-4">
             {STATS.map((s, i) => (
               <Reveal key={s.label} delay={i * 80} from="scale">
                 <div className="group text-center transition duration-300 hover:-translate-y-1">
@@ -454,7 +452,7 @@ export default function Home() {
               />
             </Reveal>
             <Reveal delay={120}>
-              <div className="relative mt-12">
+              <div className="relative mt-12 overflow-hidden">
                 <div
                   aria-hidden="true"
                   className="pointer-events-none absolute left-1/2 top-1/2 h-[28rem] w-[42rem] -translate-x-1/2 -translate-y-1/2 rounded-full bg-indigo-600/10 blur-3xl"

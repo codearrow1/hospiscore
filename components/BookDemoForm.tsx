@@ -79,7 +79,7 @@ export default function BookDemoForm({ compact = false }: { compact?: boolean })
   }
 
   const inputCls =
-    "w-full rounded-lg border border-zinc-300 bg-white px-3 py-2 text-sm text-zinc-900 outline-none transition focus:border-indigo-500 focus:ring-2 focus:ring-indigo-500/30 dark:border-zinc-700 dark:bg-zinc-800 dark:text-zinc-100";
+    "w-full rounded-lg border border-zinc-300 bg-white px-3 py-2.5 text-sm text-zinc-900 outline-none transition focus:border-indigo-500 focus:ring-2 focus:ring-indigo-500/30 dark:border-zinc-700 dark:bg-zinc-800 dark:text-zinc-100";
   const labelCls = "text-sm font-medium text-zinc-700 dark:text-zinc-300";
 
   return (
@@ -148,7 +148,7 @@ export default function BookDemoForm({ compact = false }: { compact?: boolean })
       <button
         type="submit"
         disabled={loading}
-        className="rounded-xl bg-indigo-600 px-5 py-3 text-sm font-semibold text-white shadow-sm transition hover:bg-indigo-700 disabled:opacity-50"
+        className="w-full rounded-xl bg-indigo-600 px-5 py-3 text-sm font-semibold text-white shadow-sm transition hover:bg-indigo-700 disabled:opacity-50 sm:w-auto"
       >
         {loading ? "Booking…" : "Book my demo"}
       </button>

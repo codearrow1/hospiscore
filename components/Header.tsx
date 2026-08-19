@@ -323,7 +323,7 @@ export default function Header() {
           </Link>
           <Link
             href="/demo"
-            className="btn-shine inline-flex items-center rounded-xl bg-indigo-600 px-4 py-2 text-sm font-semibold text-white shadow-lg shadow-indigo-600/25 transition hover:bg-indigo-500"
+            className="btn-shine inline-flex items-center rounded-xl bg-indigo-600 px-4 py-2.5 text-sm font-semibold text-white shadow-lg shadow-indigo-600/25 transition hover:bg-indigo-500"
           >
             Book a demo
           </Link>

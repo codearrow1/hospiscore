@@ -80,7 +80,7 @@ export default function NewsPage() {
                       href={`/news/${n.slug}`}
                       className="group relative flex h-full flex-col rounded-3xl border border-zinc-800 bg-zinc-900/60 p-7 transition hover:border-indigo-500/60"
                     >
-                      <div className="flex items-center gap-3">
+                      <div className="flex flex-wrap items-center gap-x-3 gap-y-1.5">
                         <span
                           className={`rounded-full px-3 py-1 text-[11px] font-semibold uppercase tracking-wide ${
                             CATEGORY_COLORS[n.category] ?? "text-zinc-300 bg-zinc-800"

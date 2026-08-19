@@ -54,7 +54,7 @@ export default function AuthCard({ onAuthed }: Props) {
               value={name}
               onChange={(e) => setName(e.target.value)}
               required
-              className="rounded-lg border border-zinc-300 px-3 py-2 text-sm text-zinc-900 outline-none focus:border-indigo-500 dark:border-zinc-700 dark:bg-zinc-800 dark:text-zinc-100"
+              className="rounded-lg border border-zinc-300 px-3 py-2.5 text-sm text-zinc-900 outline-none focus:border-indigo-500 dark:border-zinc-700 dark:bg-zinc-800 dark:text-zinc-100"
               autoComplete="name"
             />
           </label>
@@ -66,7 +66,7 @@ export default function AuthCard({ onAuthed }: Props) {
             value={email}
             onChange={(e) => setEmail(e.target.value)}
             required
-            className="rounded-lg border border-zinc-300 px-3 py-2 text-sm text-zinc-900 outline-none focus:border-indigo-500 dark:border-zinc-700 dark:bg-zinc-800 dark:text-zinc-100"
+            className="rounded-lg border border-zinc-300 px-3 py-2.5 text-sm text-zinc-900 outline-none focus:border-indigo-500 dark:border-zinc-700 dark:bg-zinc-800 dark:text-zinc-100"
             autoComplete="email"
           />
         </label>
@@ -78,7 +78,7 @@ export default function AuthCard({ onAuthed }: Props) {
             onChange={(e) => setPassword(e.target.value)}
             required
             minLength={8}
-            className="rounded-lg border border-zinc-300 px-3 py-2 text-sm text-zinc-900 outline-none focus:border-indigo-500 dark:border-zinc-700 dark:bg-zinc-800 dark:text-zinc-100"
+            className="rounded-lg border border-zinc-300 px-3 py-2.5 text-sm text-zinc-900 outline-none focus:border-indigo-500 dark:border-zinc-700 dark:bg-zinc-800 dark:text-zinc-100"
             autoComplete={isRegister ? "new-password" : "current-password"}
           />
         </label>
@@ -88,7 +88,7 @@ export default function AuthCard({ onAuthed }: Props) {
         <button
           type="submit"
           disabled={loading}
-          className="rounded-lg bg-indigo-600 py-2 text-sm font-semibold text-white transition-colors hover:bg-indigo-700 disabled:opacity-50"
+          className="rounded-lg bg-indigo-600 py-3 text-sm font-semibold text-white transition-colors hover:bg-indigo-700 disabled:opacity-50"
         >
           {loading ? "Please wait…" : isRegister ? "Create account" : "Sign in"}
         </button>
@@ -99,7 +99,7 @@ export default function AuthCard({ onAuthed }: Props) {
           setMode(isRegister ? "login" : "register");
           setError(null);
         }}
-        className="mt-3 text-xs text-indigo-600 hover:underline dark:text-indigo-400"
+        className="mt-3 flex min-h-11 w-full items-center justify-center rounded-lg py-2.5 text-sm font-medium text-indigo-600 transition hover:bg-indigo-50 hover:underline dark:text-indigo-400 dark:hover:bg-indigo-950/30"
       >
         {isRegister ? "Already have an account? Sign in" : "New here? Create an account"}
       </button>

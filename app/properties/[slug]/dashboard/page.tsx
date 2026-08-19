@@ -139,11 +139,11 @@ export default async function DashboardPage({
                 key={r.title}
                 className={`rounded-2xl border p-5 ${PRIORITY_STYLES[r.priority]}`}
               >
-                <div className="mb-1 flex items-center gap-2">
-                  <span className="rounded-full px-2 py-0.5 text-[10px] font-bold uppercase tracking-wide text-zinc-500 dark:text-zinc-400">
+                <div className="mb-1 flex flex-wrap items-center gap-2">
+                  <span className="shrink-0 rounded-full px-2 py-0.5 text-[10px] font-bold uppercase tracking-wide text-zinc-500 dark:text-zinc-400">
                     {r.priority}
                   </span>
-                  <h3 className="font-semibold text-zinc-900 dark:text-zinc-50">{r.title}</h3>
+                  <h3 className="min-w-0 font-semibold text-zinc-900 dark:text-zinc-50">{r.title}</h3>
                 </div>
                 <p className="text-sm text-zinc-600 dark:text-zinc-300">{r.body}</p>
               </div>

@@ -283,7 +283,7 @@ export default function PropertyReport({
         <button
           type="button"
           onClick={() => window.print()}
-          className="btn-shine inline-flex items-center gap-2 rounded-xl border border-zinc-300 bg-white px-4 py-2 text-sm font-medium text-zinc-700 shadow-sm transition hover:border-zinc-400 hover:bg-zinc-50 dark:border-zinc-700 dark:bg-zinc-900 dark:text-zinc-200 dark:hover:border-zinc-600 dark:hover:bg-zinc-800"
+          className="btn-shine inline-flex min-h-11 items-center gap-2 rounded-xl border border-zinc-300 bg-white px-4 py-2.5 text-sm font-medium text-zinc-700 shadow-sm transition hover:border-zinc-400 hover:bg-zinc-50 dark:border-zinc-700 dark:bg-zinc-900 dark:text-zinc-200 dark:hover:border-zinc-600 dark:hover:bg-zinc-800"
         >
           <PrintIcon />
           Print report
@@ -319,9 +319,9 @@ export default function PropertyReport({
         </StatCard>
         <StatCard icon={<TrendIcon />} label="Score trend">
           {trend ? (
-            <div className="flex items-center gap-2">
+            <div className="flex flex-wrap items-center gap-2">
               <span
-                className={`flex h-6 w-6 items-center justify-center rounded-md text-xs font-bold ${
+                className={`flex h-6 w-6 shrink-0 items-center justify-center rounded-md text-xs font-bold ${
                   trend.change >= 0
                     ? "bg-emerald-100 text-emerald-700 dark:bg-emerald-500/20 dark:text-emerald-300"
                     : "bg-rose-100 text-rose-700 dark:bg-rose-500/20 dark:text-rose-300"
