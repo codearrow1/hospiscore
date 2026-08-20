@@ -22,7 +22,9 @@ import type {
  *
  * All account data flows through `readData`/`writeData`. The concrete backend
  * is chosen once per process from `DATA_PROVIDER`:
- *   - "file"   (default): a JSON document in `APP_DATA_FILE`.
+ *   - "file"   (default): a JSON document in `APP_DATA_FILE`, kept mirrored to
+ *                `APP_DATA_MIRROR` (default `<home>/.hospiscore/data.json`) so
+ *                data survives deploys that replace the app directory.
  *   - "sqlite": a SQLite database in `SQLITE_FILE` (Node 22.5+/24).
  *
  * Both implement the same document-shaped interface, so swapping the database
