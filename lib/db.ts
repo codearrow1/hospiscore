@@ -6,6 +6,16 @@ import type { SavedProperty } from "@/lib/saved";
 import type { DemoRequest } from "@/lib/demo";
 import type { ReportRequest } from "@/lib/reportRequest";
 import type { PricingDoc } from "@/lib/pricing/types";
+import type {
+  AuditEntry,
+  Campaign,
+  ConvertedCustomer,
+  DemoBooking,
+  LeadEvent,
+  MarketingFormConfig,
+  MarketingLead,
+  PageView,
+} from "@/lib/marketing/types";
 
 /**
  * Persistence facade (server-only).
@@ -27,6 +37,15 @@ export interface DataFile {
   reportRequests: ReportRequest[];
   /** Localized pricing document (seeded on first use; see lib/pricing/db.ts). */
   pricing?: PricingDoc | null;
+  /** Marketing conversion center (CRM). All optional; seeded lazily. */
+  leads?: MarketingLead[];
+  leadEvents?: LeadEvent[];
+  demoBookings?: DemoBooking[];
+  campaigns?: Campaign[];
+  forms?: MarketingFormConfig[];
+  auditLog?: AuditEntry[];
+  pageViews?: PageView[];
+  convertedCustomers?: ConvertedCustomer[];
 }
 
 export function emptyData(): DataFile {
@@ -37,6 +56,14 @@ export function emptyData(): DataFile {
     demoRequests: [],
     reportRequests: [],
     pricing: null,
+    leads: [],
+    leadEvents: [],
+    demoBookings: [],
+    campaigns: [],
+    forms: [],
+    auditLog: [],
+    pageViews: [],
+    convertedCustomers: [],
   };
 }
 

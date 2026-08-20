@@ -16,6 +16,8 @@ export interface AuthUser {
   email: string;
   createdAt: string;
   passwordHash: string;
+  /** Optional marketing-role for the marketing admin (see lib/marketing/roles). */
+  role?: string;
 }
 
 export interface AuthSession {

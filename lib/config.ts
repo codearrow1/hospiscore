@@ -83,6 +83,20 @@ export const CONFIG = {
     .split(",")
     .map((s) => s.trim().toLowerCase())
     .filter(Boolean),
+
+  // --- Marketing conversion center ---------------------------------------------
+  /** Default destination for lead notifications / auto-replies. */
+  salesEmail: env("SALES_EMAIL") || "hello@hospios.app",
+  /** Base URL for demo meeting links (calendar event join URLs). */
+  demoMeetingUrl: env("DEMO_MEETING_URL") || "https://meet.hospios.app/",
+  /** Public POST endpoints (forms/beacon) rate limit window (ms). */
+  publicRateWindowMs: Number(env("PUBLIC_RATE_WINDOW_MS") || 60_000),
+  /** Max public POSTs per window per client key. */
+  publicRateMax: Number(env("PUBLIC_RATE_MAX") || 10),
+  /** Max admin mutations per window per user. */
+  adminRateMax: Number(env("ADMIN_RATE_MAX") || 120),
+  /** Anonymous page-view tracking enabled (privacy-light, no cookies). */
+  trackViews: env("TRACK_VIEWS") !== "0",
 } as const;
 
 /** Human-readable mode for UI/debugging. */

@@ -4,21 +4,23 @@ import type { AuthUser } from "@/lib/auth";
 import type { DemoRequest } from "@/lib/demo";
 import type { ReportRequest } from "@/lib/reportRequest";
 import { isLeadStatus, type LeadStatus } from "@/lib/accountTypes";
+import { roleFor } from "@/lib/marketing/roles";
 
 /**
  * Internal sales-leads view (server-only).
  *
  * Demo bookings and score-report e-mail captures are separate arrays in the
  * shared data document. This module unifies them into rows the `/account/leads`
- * page renders, and gates access to admin e-mails configured via `ADMIN_EMAILS`.
+ * page renders, and gates access to admin e-mails configured via `ADMIN_EMAILS`
+ * or a marketing role (see lib/marketing/roles).
  */
 
 /** Whether a user is allowed to see the internal leads view. */
 export function isAdmin(
-  user: Pick<AuthUser, "email">,
+  user: Pick<AuthUser, "email" | "role">,
   allowed: readonly string[] = CONFIG.adminEmails,
 ): boolean {
-  return allowed.includes(user.email.toLowerCase());
+  return roleFor(user, allowed) !== null || allowed.includes(user.email.toLowerCase());
 }
 
 export interface LeadRow {

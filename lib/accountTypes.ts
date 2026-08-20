@@ -7,6 +7,8 @@ export interface PublicAuthUser {
   createdAt: string;
   /** Internal-leads access (see ADMIN_EMAILS). Never true for public visitors. */
   isAdmin?: boolean;
+  /** Marketing-role when the user may enter the marketing admin. */
+  marketingRole?: string | null;
 }
 
 export type SavedItem = {
