@@ -13,8 +13,8 @@ export default function IntegrationBar() {
           <svg className="h-4 w-4 text-indigo-400" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round"><path d="M12 2 4 5v6c0 5 3.5 9.5 8 11 4.5-1.5 8-6 8-11V5z" /></svg>
           {TOTAL_INTEGRATIONS}+ connected integrations
         </span>
-        <span>PCI DSS compliant</span>
-        <span>Google Cloud hosted</span>
+        <span>Gateway-secured payments</span>
+        <span>Cloud-hosted platform</span>
         <span>24/7 support</span>
       </div>
 

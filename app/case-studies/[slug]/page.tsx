@@ -98,6 +98,9 @@ export default async function CaseStudyPage({
                   <span className="rounded-full bg-indigo-950 px-3 py-1 font-semibold uppercase tracking-wide text-indigo-300">
                     {cs.sector}
                   </span>
+                  <span className="rounded-full border border-zinc-700/70 bg-zinc-900 px-2.5 py-0.5 font-medium text-zinc-400">
+                    Illustrative scenario
+                  </span>
                   <span>{cs.location}</span>
                   <span>{cs.size}</span>
                   <span>
@@ -173,10 +176,10 @@ export default async function CaseStudyPage({
 
             <Reveal delay={100}>
               <div className="glow-border mt-12 rounded-3xl border border-indigo-900 bg-indigo-950/40 p-8 text-center">
-                <h2 className="text-xl font-bold text-zinc-50">Want results like these?</h2>
+                <h2 className="text-xl font-bold text-zinc-50">Want the same for your property?</h2>
                 <p className="mt-2 text-sm text-zinc-400">
-                  Book a demo and we&apos;ll show you what the numbers look like on
-                  your property.
+                  Book a demo and we&apos;ll show you what running one platform
+                  looks like on your property.
                 </p>
                 <Link
                   href="/demo"

@@ -10,12 +10,12 @@ import SpotlightCard from "@/components/marketing/SpotlightCard";
 import TiltCard from "@/components/marketing/TiltCard";
 import Icon from "@/components/marketing/icons";
 import type { IconName } from "@/components/marketing/icons";
-import { SITE_NAME, ogImage } from "@/lib/site";
+import { SITE_NAME, SITE_URL, ogImage } from "@/lib/site";
 
 export const metadata: Metadata = {
   title: "Switch from your current PMS",
   description:
-    "Move to HospiOS in a day. Free guided migration from 40+ PMS providers — reservations, guest profiles, rate plans and channels, imported for you.",
+    "Move to HospiOS in a day. Free guided migration from 20+ PMS providers — reservations, guest profiles, rate plans and channels, imported for you.",
   alternates: { canonical: "/migration" },
   openGraph: {
     type: "website",
@@ -80,7 +80,7 @@ const FROM_ANYONE = [
   "uHotel",
   "Oracle Hospitality",
   "RoomKey",
-  "40+ providers",
+  "20+ providers",
 ];
 
 export default function MigrationPage() {
@@ -91,7 +91,7 @@ export default function MigrationPage() {
           "@context": "https://schema.org",
           "@type": "Service",
           name: "HospiOS PMS Migration",
-          url: "https://hospios.com/migration",
+          url: `${SITE_URL}/migration`,
           serviceType: "Hotel PMS migration",
           provider: { "@type": "Organization", name: SITE_NAME },
         }}

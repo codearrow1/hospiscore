@@ -11,7 +11,7 @@ import TiltCard from "@/components/marketing/TiltCard";
 import ScoreCheckWidget from "@/components/ScoreCheckWidget";
 import Icon from "@/components/marketing/icons";
 import type { IconName } from "@/components/marketing/icons";
-import { SITE_NAME, ogImage } from "@/lib/site";
+import { SITE_NAME, SITE_URL, ogImage } from "@/lib/site";
 
 export const metadata: Metadata = {
   title: "Check Your Property Score — Real Google Data, Worldwide",
@@ -82,7 +82,7 @@ export default function ScoreCheckPage() {
           "@context": "https://schema.org",
           "@type": "WebApplication",
           name: "HospiOS Property Score Check",
-          url: "https://hospios.com/score-check",
+          url: `${SITE_URL}/score-check`,
           applicationCategory: "BusinessApplication",
           operatingSystem: "Any",
           offers: { "@type": "Offer", price: "0", priceCurrency: "USD" },
@@ -202,9 +202,9 @@ export default function ScoreCheckPage() {
             </Reveal>
             <div className="mt-12 grid gap-6 sm:grid-cols-3">
               {[
-                { value: "92%", label: "of travelers check reviews before booking" },
-                { value: "+4.9%", label: "average revenue lift from a 1-star rating gain" },
-                { value: "6 min", label: "average time researching a hotel before booking" },
+                { value: "1 min", label: "to see any property's score" },
+                { value: "13", label: "weighted signals in every score" },
+                { value: "Free", label: "no sign-up, no credit card" },
               ].map((s, i) => (
                 <Reveal key={s.label} delay={i * 90}>
                   <div className="rounded-3xl border border-zinc-800 bg-zinc-900/60 p-8 text-center">

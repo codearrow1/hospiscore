@@ -8,12 +8,12 @@ import Link from "next/link";
  */
 
 const BADGES = [
-  "SOC 2 Type II",
-  "ISO 27001",
-  "GDPR ready",
-  "PCI-DSS level 1",
-  "99.99% uptime SLA",
-  "EU data residency",
+  "AES-256 encryption",
+  "TLS 1.3 in transit",
+  "Role-based access",
+  "2FA & session controls",
+  "Activity logging",
+  "EU & US data residency",
 ];
 
 export default function Security() {
@@ -31,13 +31,14 @@ export default function Security() {
               </h2>
               <p className="mt-4 max-w-xl leading-relaxed text-zinc-400">
                 Your guests&apos; data is the most sensitive thing you hold. HospiOS
-                encrypts everything in transit and at rest, audits every action,
-                and keeps you compliant so you don&apos;t have to think about it.
+                encrypts data in transit and at rest, logs key actions, and helps
+                you stay aligned with data-protection rules so you don&apos;t have to
+                think about it.
               </p>
               <ul className="mt-6 space-y-2.5">
                   {[
                     "AES-256 encryption at rest and TLS 1.3 in transit",
-                    "Role-based access with full audit trails",
+                    "Role-based access with activity logging",
                     "Automated nightly backups with point-in-time restore",
                     "EU and US data residency options",
                   ].map((item) => (

@@ -9,7 +9,7 @@ import SectionHeading from "@/components/marketing/SectionHeading";
 import UiMock from "@/components/marketing/UiMock";
 import type { UiMockVariant } from "@/components/marketing/UiMock";
 import Icon from "@/components/marketing/icons";
-import { SITE_NAME, ogImage } from "@/lib/site";
+import { SITE_NAME, SITE_URL, ogImage } from "@/lib/site";
 
 export const metadata: Metadata = {
   title: "Product Videos",
@@ -74,7 +74,7 @@ export default function ProductVideosPage() {
           "@context": "https://schema.org",
           "@type": "ItemList",
           name: "HospiOS Product Videos",
-          url: "https://hospios.com/product-videos",
+          url: `${SITE_URL}/product-videos`,
         }}
       />
       <Header />

@@ -14,7 +14,7 @@ import { SITE_NAME, ogImage } from "@/lib/site";
 export const metadata: Metadata = {
   title: "Pricing",
   description:
-    "Simple per-room pricing from $8 per room/month. Core, Flex, Pro, and Ultra plans with a free plan, a 30-day trial, and a live price calculator.",
+    "Simple per-room pricing from $8 per room/month. Core, Flex, Pro, and Ultra plans with a live price calculator and a free walkthrough.",
   alternates: { canonical: "/pricing" },
   openGraph: {
     type: "website",
@@ -29,7 +29,7 @@ export const metadata: Metadata = {
 
 const INCLUDES = [
   "Free online presence score",
-  "30-day free trial on every plan",
+  "Free walkthrough for your property",
   "Free property setup & data migration",
   "Mobile apps for Android & iOS",
   "24/7 support with onboarding help",
@@ -40,7 +40,7 @@ const TABLE_ROWS: { label: string; values: [boolean, boolean, boolean, boolean] 
   { label: "PMS, booking engine & availability calendar", values: [true, true, true, true] },
   { label: "Housekeeping & maintenance", values: [true, true, true, true] },
   { label: "Guest CRM, profiles & stay history", values: [false, true, true, true] },
-  { label: "Channel manager — 12+ OTAs", values: [false, true, true, true] },
+  { label: "Channel manager — 14+ OTAs", values: [false, true, true, true] },
   { label: "Group bookings & multi-property", values: [false, true, true, true] },
   { label: "Restaurant POS, KDS & QR menu", values: [false, false, true, true] },
   { label: "WhatsApp & communication center", values: [false, false, true, true] },
@@ -54,7 +54,7 @@ const TABLE_ROWS: { label: string; values: [boolean, boolean, boolean, boolean] 
 const PRICING_FAQS = [
   {
     q: "Is there a free plan?",
-    a: "Yes. Every plan starts with a 30-day free trial, and the free online presence score never requires a card. You only pay when you go live with a paid plan.",
+    a: "The free online presence score never requires a card or sign-up. Every paid plan includes a free walkthrough of your property, and you only pay when you go live.",
   },
   {
     q: "How is pricing calculated?",

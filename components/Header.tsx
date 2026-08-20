@@ -17,7 +17,7 @@ interface NavItem {
 const PLATFORM_ITEMS: NavItem[] = [
   { label: "Booking Engine", href: "/platform/bookingengine", description: "Branded, mobile-first direct bookings", icon: "globe" },
   { label: "PMS — Front Desk", href: "/platform/frontdesk", description: "Rooms, guests & daily operations", icon: "frontdesk" },
-  { label: "Channel Manager", href: "/platform/channel", description: "Two-way sync across 50+ OTAs", icon: "network" },
+  { label: "Channel Manager", href: "/platform/channel", description: "Two-way sync across 14+ OTAs", icon: "network" },
   { label: "Restaurant POS", href: "/platform/pos", description: "POS, kitchen display & QR ordering", icon: "utensils" },
   { label: "AI Assistant", href: "/platform/ai", description: "Reply drafts, concierge & forecasting", icon: "ai" },
   { label: "All 23 modules", href: "/platform", description: "Browse the full platform", icon: "dashboard" },
@@ -37,7 +37,7 @@ const SOLUTION_ITEMS: NavItem[] = [
 const RESOURCE_ITEMS: NavItem[] = [
   { label: "Free presence score", href: "/free-score", description: "Check any property's online visibility" },
   { label: "Pricing", href: "/pricing", description: "Per-room plans & live calculator" },
-  { label: "Case studies", href: "/case-studies", description: "Real properties, real numbers" },
+  { label: "Case studies", href: "/case-studies", description: "Operator journeys, illustrated" },
   { label: "Blog", href: "/blog", description: "Hotel operations & revenue insights" },
   { label: "Knowledge base", href: "/knowledge-base", description: "Setup & running guides" },
   { label: "Product updates", href: "/product-updates", description: "Every feature we ship" },

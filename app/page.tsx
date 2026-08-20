@@ -58,10 +58,10 @@ const STATS: {
   icon: IconName;
   accent: string;
 }[] = [
-  { to: 500, suffix: "+", label: "properties onboarded", icon: "building", accent: "text-indigo-300 bg-indigo-500/15" },
-  { to: 50, suffix: "+", label: "OTA channels in sync", icon: "network", accent: "text-sky-300 bg-sky-500/15" },
   { to: 23, label: "integrated modules", icon: "dashboard", accent: "text-violet-300 bg-violet-500/15" },
-  { to: 4.9, decimals: 1, suffix: "/5", label: "average operator rating", icon: "star", accent: "text-amber-300 bg-amber-500/15" },
+  { to: 14, suffix: "+", label: "OTA channels in sync", icon: "network", accent: "text-sky-300 bg-sky-500/15" },
+  { to: 7, label: "operating areas", icon: "box", accent: "text-indigo-300 bg-indigo-500/15" },
+  { to: 10, label: "property solutions", icon: "building", accent: "text-emerald-300 bg-emerald-500/15" },
 ];
 
 const PARTNERS: { name: string; icon: IconName }[] = [
@@ -96,7 +96,7 @@ const DIFFERENTIATORS = [
   {
     icon: <Icon name="network" />,
     title: "Real-time OTA sync",
-    body: "Inventory, rates, and restrictions stay in perfect two-way sync across 50+ channels.",
+    body: "Inventory, rates, and restrictions stay in perfect two-way sync across 14+ major channels.",
     accent: "sky" as const,
   },
   {
@@ -114,7 +114,7 @@ const DIFFERENTIATORS = [
   {
     icon: <Icon name="shield" />,
     title: "Role-based security",
-    body: "20+ roles with granular permissions, two-factor auth, and full audit trails.",
+    body: "Role-based access, two-factor auth, and activity logs — every team member sees only what their role needs.",
     accent: "rose" as const,
   },
   {
@@ -216,7 +216,8 @@ export default function Home() {
                 Front desk, reservations, housekeeping, restaurant POS, finance,
                 HRMS, channel manager, and AI automation — every part of your
                 property unified in a single cloud platform. Built for hotels,
-                resorts, homestays, hostels, and multi-property groups.
+                resorts, homestays, hostels, and multi-property groups across
+                brands, countries, and currencies.
               </p>
 
               <div className="mt-8 flex flex-wrap items-center gap-4 animate-fade-up" style={{ animationDelay: "240ms" }}>
@@ -253,12 +254,12 @@ export default function Home() {
                       <Icon key={i} name="star" className="h-3.5 w-3.5" />
                     ))}
                   </span>
-                  4.9/5 from 2,000+ operators
+                  Trusted by independent properties and global groups alike
                 </span>
                 <span className="hidden h-3 w-px bg-zinc-800 sm:block" aria-hidden="true" />
                 <span className="inline-flex items-center gap-1.5">
                   <Icon name="shield" className="h-3.5 w-3.5 text-emerald-400" />
-                  SOC 2 Type II · GDPR ready
+                  Encryption at rest &amp; in transit
                 </span>
               </div>
             </div>
@@ -284,7 +285,7 @@ export default function Home() {
                   <span className="h-2.5 w-2.5 rounded-full bg-emerald-500/80" aria-hidden="true" />
                   <span className="mx-auto flex items-center gap-1.5 rounded-md bg-zinc-800 px-3 py-1 text-[10px] font-medium text-zinc-400">
                     <Icon name="globe" className="h-3 w-3" />
-                    app.hospios.com
+                    Your property · Front Desk
                   </span>
                   <span className="w-6" aria-hidden="true" />
                 </div>
@@ -313,8 +314,8 @@ export default function Home() {
                   </div>
                   <div className="absolute inset-x-4 bottom-4 flex items-end justify-between gap-3">
                     <div className="min-w-0">
-                      <p className="text-sm font-bold text-white">Harbor Lights Inn</p>
-                      <p className="text-xs text-zinc-300">Cornwall, UK · 1,240 reviews · 8 platforms</p>
+                      <p className="text-sm font-bold text-white">Your property</p>
+                      <p className="text-xs text-zinc-300">Live across 8 channels</p>
                     </div>
                     <span className="shrink-0 rounded-lg bg-emerald-500 px-2 py-1 text-xs font-bold text-zinc-950">
                       ▲ +3 this week
@@ -619,7 +620,7 @@ export default function Home() {
           <Reveal delay={120}>
             <div className="mx-auto mt-12 max-w-2xl">
               <p className="mb-4 text-center text-xs font-semibold uppercase tracking-widest text-zinc-500">
-                20+ roles with granular role-based access
+                Role-based access for every team member
               </p>
               <ul className="flex flex-wrap justify-center gap-2">
                 {ROLES.map((r) => (
@@ -640,8 +641,8 @@ export default function Home() {
           <div className="mx-auto w-full max-w-6xl px-4 sm:px-6">
             <Reveal>
               <SectionHeading
-                eyebrow="Loved by operators"
-                title="From boutique B&Bs to global portfolios"
+                eyebrow="Why properties switch"
+                title="From boutique B&Bs to global groups"
               />
             </Reveal>
             <Reveal delay={120}>

@@ -13,60 +13,60 @@ export interface NewsItem {
 
 export const NEWS_ITEMS: NewsItem[] = [
   {
-    slug: "hospios-raises-series-a",
-    title: "HospiOS raises $8M Series A to double down on AI for hospitality",
+    slug: "ai-automation-every-department",
+    title: "AI automation now spans every department",
     excerpt:
-      "The funding accelerates our AI pricing, forecasting and automation roadmap — plus a self-serve migration toolkit.",
+      "From AI reply drafts to pricing recommendations — automation covers front desk, housekeeping, F&B and revenue, with humans always in control.",
     date: "2026-07-20",
     category: "Company",
     body: [
       {
-        text: "HospiOS today announced an $8M Series A led by Sequoia-style conviction: hospitality runs on margins, and AI finally makes those margins defendable for independent properties.",
+        text: "HospiOS AI now touches every department of the platform: an AI concierge and chatbot for guests, sentiment analysis on reviews, automated reply drafts, AI check-in, and pricing and inventory forecasts — with staff reviewing and approving every recommendation.",
       },
-      { heading: "Where the money goes", list: [
-        "AI pricing and revenue forecasting for every property size",
-        "A self-serve data-migration toolkit to switch from any legacy PMS",
-        "Deeper OTA integrations and a public partner marketplace",
+      { heading: "Where AI helps", list: [
+        "AI reply drafts and guest-sentiment analysis for reviews",
+        "AI pricing recommendations and revenue forecasting",
+        "Predictive housekeeping and smart room allocation",
       ]},
-      { heading: "What it means for customers", text: "No price changes for existing plans. The roadmap is additive — more automation, fewer manual tasks, and a faster path to going live." },
+      { heading: "What it means for customers", text: "More automation, fewer manual tasks, and a faster path to going live — with no change to plans or pricing." },
     ],
   },
   {
-    slug: "zoho-and-tally-integrations",
-    title: "Zoho Books and Tally integrations are now live",
+    slug: "accounting-exports-tally-quickbooks",
+    title: "Accounting exports for Tally and QuickBooks are now available",
     excerpt:
-      "Push guest folios and invoices to your accounting software automatically — no export, no re-keying.",
+      "Night-audit output flows straight into your accounting software — guest folios, GST invoices and payments, matched and reconciled.",
     date: "2026-07-01",
     category: "Product",
     body: [
       {
-        text: "We've shipped direct integrations with Zoho Books and Tally so night-audit output flows straight into your accounting system.",
+        text: "We've shipped direct exports to Tally and QuickBooks so night-audit output flows straight into your accounting system — no export, no re-keying.",
       },
       { heading: "What syncs", list: [
         "Guest folios and GST invoices after night audit",
         "Payments and refunds with reconciliation status",
         "Expense categories mapped to your chart of accounts",
       ]},
-      { heading: "How to enable it", text: "Connect your accounting account in Settings → Integrations. Existing customers can turn it on today; new deployments include it at no extra cost." },
+      { heading: "How to enable it", text: "Connect Tally or QuickBooks in Settings → Integrations. Existing customers can turn it on today; new deployments include it at no extra cost." },
     ],
   },
   {
-    slug: "soc-2-type-2",
-    title: "HospiOS achieves SOC 2 Type 2",
+    slug: "security-practices-published",
+    title: "Security practices, published in plain language",
     excerpt:
-      "Independent audit confirms our security controls, uptime practices and data handling meet enterprise standards.",
+      "How HospiOS encrypts data, controls access and logs activity — documented openly on our security page.",
     date: "2026-06-10",
     category: "Trust",
     body: [
       {
-        text: "We're proud to share that HospiOS has completed a SOC 2 Type 2 audit, covering security, availability, processing integrity, confidentiality and privacy.",
+        text: "We've published how HospiOS protects property data: encryption at rest and in transit, role-based access control, two-factor authentication, activity logging, automated backups and data-residency options.",
       },
       { heading: "What this means for you", list: [
-        "Enterprise-grade controls verified by an independent auditor",
-        "Role-based access, 2FA and full audit trails you can rely on",
-        "A security posture that satisfies corporate procurement teams",
+        "Data encrypted at rest and in transit",
+        "Role-based access with two-factor authentication available",
+        "Activity logs and automated backups",
       ]},
-      { heading: "Full report", text: "Customers can request the report from their account. For details on our security architecture, see the dedicated security page." },
+      { heading: "Learn more", text: "See the dedicated security page for the full picture of our security architecture and data-handling commitments." },
     ],
   },
   {

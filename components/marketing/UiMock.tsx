@@ -293,7 +293,7 @@ export default function UiMock({
               <rect x="5" y="11" width="14" height="10" rx="2" />
               <path d="M8 11V7a4 4 0 0 1 8 0v4" />
             </svg>
-            app.hospios.com/{variant}
+            Your property · {variant}
           </div>
           {!src && (
             <span className="rounded-full bg-indigo-950 px-2 py-0.5 text-[9px] font-semibold uppercase tracking-wide text-indigo-300">

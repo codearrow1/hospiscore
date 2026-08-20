@@ -9,7 +9,7 @@ import SpotlightCard from "@/components/marketing/SpotlightCard";
 import TiltCard from "@/components/marketing/TiltCard";
 import Icon from "@/components/marketing/icons";
 import { NEWS_ITEMS } from "@/lib/news";
-import { SITE_NAME, ogImage } from "@/lib/site";
+import { SITE_NAME, SITE_URL, ogImage } from "@/lib/site";
 
 export const metadata: Metadata = {
   title: "News & Announcements",
@@ -41,7 +41,7 @@ export default function NewsPage() {
           "@context": "https://schema.org",
           "@type": "Blog",
           name: "HospiOS News",
-          url: "https://hospios.com/news",
+          url: `${SITE_URL}/news`,
           blogPost: NEWS_ITEMS.map((n) => ({
             "@type": "NewsArticle",
             headline: n.title,

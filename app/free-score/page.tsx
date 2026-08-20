@@ -11,7 +11,7 @@ import SpotlightCard from "@/components/marketing/SpotlightCard";
 import TiltCard from "@/components/marketing/TiltCard";
 import Icon from "@/components/marketing/icons";
 import type { IconName } from "@/components/marketing/icons";
-import { SITE_NAME, ogImage } from "@/lib/site";
+import { SITE_NAME, SITE_URL, ogImage } from "@/lib/site";
 
 export const metadata: Metadata = {
   title: "Free Online Presence Score",
@@ -68,7 +68,7 @@ export default function FreeScorePage() {
           "@context": "https://schema.org",
           "@type": "WebApplication",
           name: "HospiOS Free Online Presence Score",
-          url: "https://hospios.com/free-score",
+          url: `${SITE_URL}/free-score`,
           applicationCategory: "BusinessApplication",
           operatingSystem: "Any",
           offers: { "@type": "Offer", price: "0", priceCurrency: "USD" },

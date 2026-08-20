@@ -9,7 +9,7 @@ import SpotlightCard from "@/components/marketing/SpotlightCard";
 import TiltCard from "@/components/marketing/TiltCard";
 import Icon from "@/components/marketing/icons";
 import { BLOG_POSTS } from "@/lib/posts";
-import { SITE_NAME, ogImage } from "@/lib/site";
+import { SITE_NAME, SITE_URL, ogImage } from "@/lib/site";
 
 export const metadata: Metadata = {
   title: "Blog",
@@ -41,7 +41,7 @@ export default function BlogPage() {
           "@context": "https://schema.org",
           "@type": "Blog",
           name: "HospiOS Blog",
-          url: "https://hospios.com/blog",
+          url: `${SITE_URL}/blog`,
           blogPost: BLOG_POSTS.map((p) => ({
             "@type": "BlogPosting",
             headline: p.title,

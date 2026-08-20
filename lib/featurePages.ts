@@ -50,7 +50,7 @@ export const FEATURE_CONTENT: Record<string, FeaturePageContent> = {
     ],
   },
   channel: {
-    headline: "Connect 50+ booking channels without the overhead",
+    headline: "Connect 14+ booking channels without the overhead",
     intro:
       "Inventory, rates, and restrictions sync two-way across every major OTA in real time — from Booking.com and Airbnb to Trip.com and Hotelbeds. One dashboard, zero channel-hopping, zero overbookings.",
     highlights: [
@@ -61,7 +61,7 @@ export const FEATURE_CONTENT: Record<string, FeaturePageContent> = {
     faqs: [
       {
         q: "Which channels can I connect?",
-        a: "Booking.com, Airbnb, Expedia, Agoda, VRBO, Google Hotels, MakeMyTrip, Goibibo, Yatra, Cleartrip, Hotelbeds, Trip.com, Hostelworld and more — 50+ demand channels supported.",
+        a: "Booking.com, Airbnb, Expedia, Agoda, VRBO, Google Hotels, MakeMyTrip, Goibibo, Yatra, Cleartrip, Hotelbeds, Trip.com, Hostelworld and more — 14+ demand channels supported.",
       },
       {
         q: "Will I ever overbook?",
@@ -185,7 +185,7 @@ export const FEATURE_CONTENT: Record<string, FeaturePageContent> = {
       },
       {
         q: "Does it use my own data?",
-        a: "Yes, and it's yours. AI recommendations are built on your property's live data, secured behind role-based access and full audit trails.",
+        a: "Yes, and it's yours. AI recommendations are built on your property's live data, secured behind role-based access and activity logging.",
       },
     ],
   },
@@ -261,7 +261,7 @@ export const FEATURE_CONTENT: Record<string, FeaturePageContent> = {
     faqs: [
       {
         q: "Is guest data portable?",
-        a: "Yes — you can export it any time. It's your data, secured behind role-based access and full audit trails.",
+        a: "Yes — you can export it any time. It's your data, secured behind role-based access and activity logging.",
       },
       {
         q: "Can I automate guest communication?",
@@ -452,10 +452,10 @@ export const FEATURE_CONTENT: Record<string, FeaturePageContent> = {
   security: {
     headline: "Enterprise-grade security without the setup cost",
     intro:
-      "Granular multi-role RBAC, two-factor authentication, full audit trails, API keys, session and device management, password policies, backups, and disaster recovery.",
+      "Role-based access control, two-factor authentication, activity logs, API keys, session and device management, password policies, backups, and disaster recovery.",
     highlights: [
-      { title: "Granular RBAC", body: "20+ roles with fine-grained permissions per module." },
-      { title: "2FA & audit trails", body: "Two-factor authentication and complete activity logs." },
+      { title: "Role-based access", body: "Fine-grained permissions per role, module and property." },
+      { title: "2FA & activity logs", body: "Two-factor authentication and reviewable activity logs." },
       { title: "Backups & recovery", body: "Automated backups and disaster recovery built in from day one." },
     ],
     faqs: [

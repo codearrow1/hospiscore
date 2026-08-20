@@ -34,7 +34,7 @@ const VALUES: { icon: IconName; title: string; body: string }[] = [
   {
     icon: "shield",
     title: "Security by design",
-    body: "Role-based access, full audit trails, and cloud-grade backups on every plan, from day one.",
+    body: "Role-based access, activity logging, and automated backups on every plan, from day one.",
   },
 ];
 

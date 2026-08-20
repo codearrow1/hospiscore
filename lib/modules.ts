@@ -70,7 +70,7 @@ export const MODULE_CATEGORIES: ModuleCategory[] = [
   {
     id: "enterprise",
     label: "Enterprise & Automation",
-    blurb: "Run groups, integrate anything, automate with AI.",
+    blurb: "Run global groups across brands and currencies, integrate anything, automate with AI.",
     icon: "ai",
   },
 ];
@@ -307,23 +307,24 @@ export const PMS_MODULES: PmsModule[] = [
   {
     id: "multiproperty",
     name: "Multi-Property Management",
-    tagline: "A central dashboard for every property, brand, and team in your group.",
+    tagline: "A central dashboard for every property, brand, and team — in your own currency.",
     category: "enterprise",
     bullets: [
       "Centralized dashboard & property switching",
       "Shared users & consolidated reporting",
       "Central CRM & central inventory",
+      "Multi-currency pricing, folios & settlement",
       "Brand management & property-specific pricing",
     ],
   },
   {
     id: "security",
     name: "Security & Administration",
-    tagline: "Granular role-based access, audit trails, 2FA, and session controls.",
+    tagline: "Role-based access, activity logs, 2FA, and session controls.",
     category: "enterprise",
     bullets: [
-      "Granular multi-role RBAC",
-      "2FA, audit logs & activity logs",
+      "Role-based access control",
+      "2FA & activity logs",
       "API keys, sessions & device management",
       "Password policies, backups & disaster recovery",
     ],

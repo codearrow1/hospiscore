@@ -7,7 +7,7 @@ import PageHero from "@/components/marketing/PageHero";
 import Reveal from "@/components/marketing/Reveal";
 import Icon from "@/components/marketing/icons";
 import { UPDATES } from "@/lib/updates";
-import { SITE_NAME, ogImage } from "@/lib/site";
+import { SITE_NAME, SITE_URL, ogImage } from "@/lib/site";
 
 export const metadata: Metadata = {
   title: "Product Updates",
@@ -33,11 +33,11 @@ export default function ProductUpdatesPage() {
           "@context": "https://schema.org",
           "@type": "CollectionPage",
           name: "HospiOS Product Updates",
-          url: "https://hospios.com/product-updates",
+          url: "${SITE_URL}/product-updates",
           hasPart: UPDATES.map((u) => ({
             "@type": "Article",
             headline: u.title,
-            url: `https://hospios.com/product-updates/${u.slug}`,
+            url: `${SITE_URL}/product-updates/${u.slug}`,
           })),
         }}
       />
