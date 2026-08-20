@@ -355,7 +355,7 @@ export default function Header() {
         createPortal(
           <div
             id="mobile-menu"
-            className={`fixed inset-x-0 bottom-0 top-16 z-[65] overflow-y-auto overscroll-contain border-t border-zinc-800 bg-gradient-to-b from-zinc-950 via-zinc-950 to-indigo-950/50 px-4 pb-10 pt-2 lg:hidden ${
+            className={`fixed inset-x-0 bottom-0 top-16 z-[65] overflow-y-auto overscroll-contain border-t border-zinc-800 bg-gradient-to-b from-zinc-950 via-zinc-950 to-indigo-950 px-4 pb-10 pt-2 lg:hidden ${
               closing ? "mobile-menu-exit" : "mobile-menu-enter"
             }`}
           >
