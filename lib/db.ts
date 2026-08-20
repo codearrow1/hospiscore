@@ -82,16 +82,44 @@ function serialized<T>(fn: () => Promise<T>): Promise<T> {
   return run;
 }
 
-/** File-backed (JSON document) backend. Exported for tests. */
+/** File-backed (JSON document) backend. Exported for tests.
+ *
+ * `mirror` is a secondary copy kept in sync with every write and used as a
+ * fallback when the primary file is missing or has been reset (e.g. a deploy
+ * that replaces the app directory). Best-effort: mirror failures never fail a
+ * write.
+ */
 export class FileDataBackend implements DataBackend {
-  constructor(private file: string) {}
+  constructor(private file: string, private mirror?: string) {}
 
-  read(): Promise<DataFile> {
-    return fs
-      .readFile(this.file, "utf8")
-      .then((raw) => JSON.parse(raw) as Partial<DataFile>)
-      .then((p) => ({ ...emptyData(), ...p }))
-      .catch(() => emptyData());
+  async read(): Promise<DataFile> {
+    const primary = await this.tryLoad(this.file);
+    if (primary !== null && !this.looksFresh(primary)) {
+      return { ...emptyData(), ...primary };
+    }
+    if (this.mirror) {
+      const mirrored = await this.tryLoad(this.mirror);
+      if (mirrored !== null && !this.looksFresh(mirrored)) {
+        return { ...emptyData(), ...mirrored };
+      }
+    }
+    return { ...emptyData(), ...(primary ?? {}) };
+  }
+
+  private async tryLoad(file: string): Promise<Partial<DataFile> | null> {
+    try {
+      const raw = await fs.readFile(file, "utf8");
+      return JSON.parse(raw) as Partial<DataFile>;
+    } catch {
+      return null;
+    }
+  }
+
+  /** Never-stored-anything document (fresh install or a wiped/reset file). */
+  private looksFresh(doc: Partial<DataFile>): boolean {
+    const users = Array.isArray(doc.users) ? doc.users.length : 0;
+    const sessions = Array.isArray(doc.sessions) ? doc.sessions.length : 0;
+    return users === 0 && sessions === 0;
   }
 
   write(mutate: (prev: DataFile) => Promise<DataFile> | DataFile): Promise<DataFile> {
@@ -100,6 +128,14 @@ export class FileDataBackend implements DataBackend {
       const next = await mutate(prev);
       await fs.mkdir(path.dirname(this.file), { recursive: true });
       await fs.writeFile(this.file, JSON.stringify(next, null, 2), "utf8");
+      if (this.mirror) {
+        try {
+          await fs.mkdir(path.dirname(this.mirror), { recursive: true });
+          await fs.copyFile(this.file, this.mirror);
+        } catch {
+          /* mirror is best-effort */
+        }
+      }
       return next;
     });
   }
@@ -121,7 +157,9 @@ function getBackend(): Promise<DataBackend> {
           );
         }
       }
-      return new FileDataBackend(CONFIG.dataFile);
+      const mirror =
+        CONFIG.dataMirror && CONFIG.dataMirror !== CONFIG.dataFile ? CONFIG.dataMirror : undefined;
+      return new FileDataBackend(CONFIG.dataFile, mirror);
     })();
   }
   return backendPromise;

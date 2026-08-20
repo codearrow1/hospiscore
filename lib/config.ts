@@ -12,6 +12,7 @@
  */
 
 import path from "node:path";
+import os from "node:os";
 
 function env(name: string): string {
   return process.env[name]?.trim() ?? "";
@@ -56,6 +57,16 @@ export const CONFIG = {
   // --- Auth & accounts ---------------------------------------------------
   /** JSON file backing users/sessions/saved properties (default <project>/var/data.json). */
   dataFile: env("APP_DATA_FILE") || path.join(process.cwd(), "var", "data.json"),
+  /**
+   * Secondary copy of the data document, kept in sync on every write and used
+   * to recover when the primary file is lost/reset (e.g. deploys that replace
+   * the app directory). Defaults to a file in the user's home directory so it
+   * survives app-directory deploys. Set APP_DATA_MIRROR= (empty) to disable.
+   */
+  dataMirror:
+    process.env.APP_DATA_MIRROR === undefined
+      ? path.join(os.homedir(), ".hospiscore", "data.json")
+      : env("APP_DATA_MIRROR"),
   /** Session cookie name. */
   sessionCookie: env("APP_SESSION_COOKIE") || "hs_session",
   /** Session lifetime in days. */
