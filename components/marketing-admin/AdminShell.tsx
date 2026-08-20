@@ -178,8 +178,14 @@ export default function AdminShell({
   children: ReactNode;
 }) {
   const pathname = usePathname();
+  const router = useRouter();
   const [collapsed, setCollapsed] = useState(false);
   const [palette, setPalette] = useState(false);
+
+  async function logout() {
+    await fetch("/api/auth/logout", { method: "POST" });
+    router.push("/");
+  }
 
   useEffect(() => {
     const saved = localStorage.getItem("hs-admin-collapsed");
@@ -259,6 +265,12 @@ export default function AdminShell({
                   {user.roleLabel}
                 </span>
               )}
+              <button
+                onClick={logout}
+                className="mt-2 flex w-full items-center justify-center gap-1.5 rounded-lg border border-zinc-200 px-2 py-1.5 text-xs font-semibold text-zinc-500 transition hover:border-rose-300 hover:bg-rose-50 hover:text-rose-600 dark:border-zinc-700 dark:text-zinc-400 dark:hover:border-rose-800 dark:hover:bg-rose-950/40 dark:hover:text-rose-300"
+              >
+                Sign out
+              </button>
             </>
           )}
         </div>
@@ -282,6 +294,16 @@ export default function AdminShell({
           <div className="ml-auto flex items-center gap-2">
             <QuickActions onAction={() => setPalette(false)} />
             <span className="hidden text-xs text-zinc-400 sm:block">{pathname}</span>
+            <button
+              onClick={logout}
+              aria-label="Sign out"
+              title="Sign out"
+              className="grid h-9 w-9 place-items-center rounded-xl border border-zinc-200 text-zinc-500 transition hover:border-rose-300 hover:bg-rose-50 hover:text-rose-600 dark:border-zinc-700 dark:text-zinc-400 dark:hover:border-rose-800 dark:hover:bg-rose-950/40 dark:hover:text-rose-300"
+            >
+              <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                <path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4m7 14 5-5-5-5m5 5H9" />
+              </svg>
+            </button>
           </div>
         </header>
         <main id="main" className="mx-auto w-full max-w-7xl flex-1 px-4 py-6 sm:px-6">

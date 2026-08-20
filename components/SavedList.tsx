@@ -39,7 +39,12 @@ export default function SavedList() {
   async function handleAuthed(u: PublicAuthUser) {
     setUser(u);
     await refreshList();
-    if (next) router.push(next);
+    if (next) {
+      router.push(next);
+    } else if (u.marketingRole) {
+      // Marketing-team members land on their dashboard, not saved properties.
+      router.push("/marketing-admin");
+    }
   }
 
   async function remove(slug: string) {
