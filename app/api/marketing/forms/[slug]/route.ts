@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { CONFIG } from "@/lib/config";
 import { originAllowed, rateLimit, clientIp } from "@/lib/marketing/guard";
-import { handleFormSubmission } from "@/lib/marketing/forms";
+import { handleFormSubmission, getForm } from "@/lib/marketing/forms";
 import { ensureMarketingStore } from "@/lib/marketing/seed";
 import { resolveCountry } from "@/lib/pricing/engine";
 import { BILLING_COUNTRY_COOKIE } from "@/lib/pricing/countries";
@@ -11,6 +11,32 @@ export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 
 export type { FormSubmission } from "@/lib/marketing/forms";
+
+/**
+ * GET /api/marketing/forms/[slug] — public, slim form config (fields only;
+ * no notification settings). Also lazily seeds the marketing store.
+ */
+export async function GET(
+  req: NextRequest,
+  { params }: { params: Promise<{ slug: string }> },
+) {
+  const { slug } = await params;
+  await ensureMarketingStore();
+  const form = await getForm(slug);
+  if (!form) return NextResponse.json({ error: "Unknown form" }, { status: 404 });
+  return NextResponse.json({
+    ok: true,
+    form: {
+      slug: form.slug,
+      name: form.name,
+      fields: form.fields,
+      consentRequired: form.consentRequired,
+      thankYou: form.thankYou,
+      redirectUrl: form.redirectUrl,
+      slim: form.slim,
+    },
+  });
+}
 
 /**
  * POST /api/marketing/forms/[slug] — public form submission. Validates against
