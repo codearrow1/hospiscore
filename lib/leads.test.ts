@@ -198,7 +198,7 @@ describe("leadsToCsv", () => {
 
     const csv = leadsToCsv([...snap.demo, ...snap.report]);
     expect(csv.startsWith("\uFEFF")).toBe(true);
-    expect(csv).toContain("source,status,name,email,phone,propertyName,propertySlug,company,propertyCount,message,createdAt");
+    expect(csv).toContain("source,status,name,email,phone,propertyName,propertySlug,company,propertyCount,plan,country,billingCycle,message,createdAt");
     expect(csv).toContain('"demo","new","Marta ""M"" Alvarez","m@harbor.com",""');
     expect(csv).toContain('"report","new","Jonas Berg","jonas@lighthouse.se","","Harbor Lights Inn","harbor-lights-inn"');
     expect(csv.endsWith("\r\n")).toBe(true);

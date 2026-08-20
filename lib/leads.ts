@@ -32,6 +32,10 @@ export interface LeadRow {
   company?: string;
   propertyCount?: number;
   message?: string;
+  /** Pricing context captured with demo requests. */
+  plan?: string;
+  country?: string;
+  billingCycle?: "monthly" | "yearly";
   status: LeadStatus;
   createdAt: string;
 }
@@ -51,6 +55,9 @@ function demoRow(r: DemoRequest): LeadRow {
     company: r.company,
     propertyName: r.propertyName,
     propertyCount: r.propertyCount,
+    plan: r.plan,
+    country: r.country,
+    billingCycle: r.billingCycle,
     message: r.message,
     status: r.status ?? "new",
     createdAt: r.createdAt,
@@ -146,6 +153,9 @@ const CSV_HEADERS = [
   "propertySlug",
   "company",
   "propertyCount",
+  "plan",
+  "country",
+  "billingCycle",
   "message",
   "createdAt",
 ] as const;
@@ -173,6 +183,9 @@ export function leadsToCsv(rows: LeadRow[]): string {
         r.propertySlug ?? null,
         r.company ?? null,
         r.propertyCount ?? null,
+        r.plan ?? null,
+        r.country ?? null,
+        r.billingCycle ?? null,
         r.message ?? null,
         r.createdAt,
       ]

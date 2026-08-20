@@ -5,6 +5,7 @@ import type { AuthSession, AuthUser } from "@/lib/auth";
 import type { SavedProperty } from "@/lib/saved";
 import type { DemoRequest } from "@/lib/demo";
 import type { ReportRequest } from "@/lib/reportRequest";
+import type { PricingDoc } from "@/lib/pricing/types";
 
 /**
  * Persistence facade (server-only).
@@ -24,10 +25,19 @@ export interface DataFile {
   saved: Record<string, SavedProperty[]>;
   demoRequests: DemoRequest[];
   reportRequests: ReportRequest[];
+  /** Localized pricing document (seeded on first use; see lib/pricing/db.ts). */
+  pricing?: PricingDoc | null;
 }
 
 export function emptyData(): DataFile {
-  return { users: [], sessions: [], saved: {}, demoRequests: [], reportRequests: [] };
+  return {
+    users: [],
+    sessions: [],
+    saved: {},
+    demoRequests: [],
+    reportRequests: [],
+    pricing: null,
+  };
 }
 
 export interface DataBackend {

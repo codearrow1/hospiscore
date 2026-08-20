@@ -63,6 +63,13 @@ function LeadRowView({ row }: { row: LeadRow }) {
           .join(" · ")
       : row.propertySlug?.replace(/^place:/, "");
 
+  const pricingCtx =
+    row.source === "demo"
+      ? [row.plan && `Plan: ${row.plan}`, row.country && `Country: ${row.country}`, row.billingCycle && row.billingCycle]
+          .filter(Boolean)
+          .join(" · ")
+      : null;
+
   return (
     <li className="rounded-2xl border border-zinc-200 bg-white p-4 dark:border-zinc-800 dark:bg-zinc-900">
       <div className="flex flex-wrap items-start justify-between gap-3">
@@ -101,6 +108,11 @@ function LeadRowView({ row }: { row: LeadRow }) {
           {property}
           {property && detail && <span className="text-zinc-400"> · </span>}
           {detail}
+        </div>
+      )}
+      {pricingCtx && (
+        <div className="mt-1.5 text-xs font-medium text-indigo-600 dark:text-indigo-400">
+          {pricingCtx}
         </div>
       )}
       {row.message && (

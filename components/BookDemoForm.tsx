@@ -1,10 +1,12 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 
 /**
  * Book-a-demo form. Validates client-side, POSTs to /api/demo and shows a
  * confirmation card on success. Works on the /demo page and marketing CTAs.
+ * Options on /demo?plan=…&country=…&cycle=… (pricing page CTAs) are captured
+ * automatically as sales context.
  */
 export default function BookDemoForm({ compact = false }: { compact?: boolean }) {
   const [values, setValues] = useState({
@@ -15,9 +17,28 @@ export default function BookDemoForm({ compact = false }: { compact?: boolean })
     propertyCount: "1-5",
     message: "",
   });
+  const [context, setContext] = useState<{
+    plan?: string;
+    country?: string;
+    cycle?: string;
+  }>({});
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
   const [done, setDone] = useState<{ name: string; id: string } | null>(null);
+
+  useEffect(() => {
+    const params = new URLSearchParams(window.location.search);
+    const plan = params.get("plan")?.trim();
+    const country = params.get("country")?.trim().toUpperCase();
+    const cycle = params.get("cycle")?.trim();
+    if (plan || country || cycle) {
+      setContext({
+        plan: plan || undefined,
+        country: country || undefined,
+        cycle: cycle === "monthly" || cycle === "yearly" ? cycle : undefined,
+      });
+    }
+  }, []);
 
   function set<K extends keyof typeof values>(key: K, value: string) {
     setValues((v) => ({ ...v, [key]: value }));
@@ -45,6 +66,9 @@ export default function BookDemoForm({ compact = false }: { compact?: boolean })
                   ? 60
                   : 250,
           message: values.message,
+          plan: context.plan,
+          country: context.country,
+          billingCycle: context.cycle,
         }),
       });
       const data = await res.json();
@@ -88,6 +112,25 @@ export default function BookDemoForm({ compact = false }: { compact?: boolean })
         <p role="alert" className="rounded-lg bg-rose-50 px-3 py-2 text-sm text-rose-700 dark:bg-rose-950/40 dark:text-rose-300">
           {error}
         </p>
+      )}
+
+      {(context.plan || context.country) && (
+        <div className="rounded-xl border border-indigo-200 bg-indigo-50 px-3 py-2 text-xs text-indigo-700 dark:border-indigo-800 dark:bg-indigo-950/40 dark:text-indigo-300">
+          We noted your interest in the{" "}
+          <span className="font-semibold capitalize">{context.plan ?? "plan"}</span> plan
+          {context.country ? (
+            <>
+              {" "}for{" "}
+              <span className="font-semibold">{context.country}</span>
+            </>
+          ) : null}
+          {context.cycle ? (
+            <>
+              {" "}· <span className="font-semibold">{context.cycle}</span> billing
+            </>
+          ) : null}
+          . We&apos;ll show local pricing during your walkthrough.
+        </div>
       )}
 
       <div className="grid gap-4 sm:grid-cols-2">
