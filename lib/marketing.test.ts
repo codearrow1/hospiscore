@@ -32,7 +32,7 @@ import {
 } from "./marketing/campaigns";
 import { cleanReferrer, cleanPath, validateTrackInput, recordView, viewCount } from "./marketing/track";
 import { dashboardMetrics } from "./marketing/metrics";
-import { ensureMarketingStore } from "./marketing/seed";
+import { ensureMarketingStore, ensureDemoUsers } from "./marketing/seed";
 
 let dirs: string[] = [];
 
@@ -522,5 +522,18 @@ describe("marketing seed", () => {
     await ensureMarketingStore(target);
     doc = await readData(target);
     expect(doc.leads).toHaveLength(1);
+  });
+
+  it("creates demo accounts once and skips existing on re-run", async () => {
+    const target = await tempTarget();
+    const first = await ensureDemoUsers(target);
+    expect(first.created).toHaveLength(6);
+    const second = await ensureDemoUsers(target);
+    expect(second.created).toHaveLength(0);
+    expect(second.existing).toHaveLength(6);
+
+    const { users } = await readData(target);
+    expect(users.some((u) => u.email === "superadmin@hospios.demo" && u.role === "super_admin")).toBe(true);
+    expect(users.some((u) => u.email === "analyst@hospios.demo" && u.role === "analyst")).toBe(true);
   });
 });

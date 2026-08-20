@@ -16,7 +16,19 @@ import { upsertLead } from "./leads";
 
 let storeReady = false;
 
-/** Idempotent: forms + historical lead migration. */
+function demoSeedingAllowed(): boolean {
+  return process.env.NODE_ENV !== "production" || process.env.ALLOW_DEMO_SEED === "1";
+}
+
+/** Just like the CLI path, but never throws — used by lazy store seeding. */
+export async function ensureDemoUsersIfAllowed(
+  target?: string,
+): Promise<{ created: string[]; existing: string[] }> {
+  if (!demoSeedingAllowed()) return { created: [], existing: [] };
+  return ensureDemoUsers(target);
+}
+
+/** Idempotent: forms + historical lead migration (+ demo users when allowed). */
 export async function ensureMarketingStore(target?: string): Promise<void> {
   if (!target && storeReady) return;
   const data = await readData(target);
@@ -59,6 +71,10 @@ export async function ensureMarketingStore(target?: string): Promise<void> {
       );
     }
   }
+
+  // Demo team accounts — only on the real store, only when allowed. Idempotent.
+  if (!target) await ensureDemoUsersIfAllowed();
+
   storeReady = !target;
 }
 
@@ -81,8 +97,8 @@ export const DEMO_USERS: {
  * unless `ALLOW_DEMO_SEED=1` is explicitly set (still discouraged).
  */
 export async function ensureDemoUsers(target?: string): Promise<{ created: string[]; existing: string[] }> {
-  if (process.env.NODE_ENV === "production" && process.env.ALLOW_DEMO_SEED !== "1") {
-    throw new Error("Refusing to seed demo users in production");
+  if (!demoSeedingAllowed()) {
+    throw new Error("Refusing to seed demo users in production (set ALLOW_DEMO_SEED=1 to enable)");
   }
   const created: string[] = [];
   const existing: string[] = [];
