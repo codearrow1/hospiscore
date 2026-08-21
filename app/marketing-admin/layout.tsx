@@ -25,6 +25,7 @@ const ALL_NAV: (AdminNavItem & { capability?: Parameters<typeof hasCapability>[1
   { href: "/marketing-admin/analytics", label: "Analytics", icon: "analytics", capability: "analytics.read" },
   { href: "/marketing-admin/audit", label: "Audit log", icon: "audit", capability: "audit.read" },
   { href: "/marketing-admin/settings", label: "Settings", icon: "settings", capability: "settings.manage" },
+  { href: "/saas", label: "SaaS Control Plane", icon: "pricing" },
 ];
 
 export const metadata = {
