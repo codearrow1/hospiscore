@@ -41,9 +41,10 @@ export default function SavedList() {
     await refreshList();
     if (next) {
       router.push(next);
-    } else if (u.marketingRole) {
-      // Marketing-team members land on their dashboard, not saved properties.
-      router.push("/marketing-admin");
+    } else if (u.appDashboard && u.appDashboard !== "/account") {
+      // Route every role to its canonical dashboard (super admin → /saas,
+      // subadmin → /subadmin, portal roles → their portal).
+      router.push(u.appDashboard);
     }
   }
 
@@ -89,6 +90,14 @@ export default function SavedList() {
           </p>
         </div>
         <div className="flex shrink-0 items-center gap-2">
+          {user.appDashboard && user.appDashboard !== "/account" && (
+            <Link
+              href={user.appDashboard}
+              className="flex min-h-11 items-center rounded-lg bg-indigo-600 px-3 py-2.5 text-sm font-semibold text-white hover:bg-indigo-500"
+            >
+              Go to dashboard
+            </Link>
+          )}
           {user.isAdmin && (
             <Link
               href="/account/leads"

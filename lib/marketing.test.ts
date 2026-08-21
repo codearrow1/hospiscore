@@ -452,7 +452,10 @@ describe("dashboard metrics", () => {
       { name: "Marta", email: "m@harbor.com", source: "demo_page", country: "IN", planInterest: "growth" },
       target,
     );
-    await createDemo({ leadId: lead!.id, startAt: new Date(Date.now() + 3_600_000).toISOString() }, undefined, target);
+    // Noon today: stays inside the "today" bucket even when tests run late.
+    const noon = new Date();
+    noon.setHours(12, 0, 0, 0);
+    await createDemo({ leadId: lead!.id, startAt: noon.toISOString() }, undefined, target);
 
     const m = await dashboardMetrics(target);
     const totals = (await readData(target)).leads!.length;

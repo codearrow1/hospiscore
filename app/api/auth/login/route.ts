@@ -3,6 +3,7 @@ import { findUserByEmail, createSession, toPublic, purgeExpiredSessions } from "
 import { verifyPassword } from "@/lib/auth";
 import { CONFIG } from "@/lib/config";
 import { roleFor } from "@/lib/marketing/roles";
+import { resolveAppRole, dashboardPathFor } from "@/lib/rbac";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -34,8 +35,9 @@ export async function POST(request: Request) {
 
   const role = roleFor(user);
   const access = role !== null;
+  const appDashboard = dashboardPathFor(await resolveAppRole(user));
   const res = NextResponse.json({
-    user: { ...toPublic(user), isAdmin: access, marketingRole: role },
+    user: { ...toPublic(user), isAdmin: access, marketingRole: role, appDashboard },
     ok: true,
   });
   res.cookies.set({

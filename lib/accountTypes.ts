@@ -9,6 +9,8 @@ export interface PublicAuthUser {
   isAdmin?: boolean;
   /** Marketing-role when the user may enter the marketing admin. */
   marketingRole?: string | null;
+  /** Canonical role dashboard path (role router); "/account" when none. */
+  appDashboard?: string;
 }
 
 export type SavedItem = {
