@@ -85,6 +85,14 @@ export async function POST(
   if (!result.ok) {
     return NextResponse.json({ error: result.error }, { status: 400 });
   }
+  // Affiliate attribution: if visitor arrived via ?ref=CODE (cookie aff_ref), link lead to affiliate
+  const refCode = req.cookies.get("aff_ref")?.value || url.searchParams.get("ref") || (typeof body.ref === "string" ? body.ref : undefined);
+  if (refCode && result.leadId) {
+    try {
+      const { attributeLeadToAffiliate } = await import("@/lib/saas/affiliates");
+      await attributeLeadToAffiliate(result.leadId, String(refCode));
+    } catch {}
+  }
   return NextResponse.json({
     ok: true,
     leadId: result.leadId,
