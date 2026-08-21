@@ -85,11 +85,17 @@ export const DEMO_USERS: {
   role: string;
 }[] = [
   { email: "superadmin@hospios.demo", password: "Hospios@Demo2026!", name: "Super Admin", role: "super_admin" },
-  { email: "marketing@hospios.demo", password: "Marketing@Demo2026!", name: "Marketing Admin", role: "marketing_admin" },
+  { email: "marketing@hospios.demo", password: "Marketing@Demo2026!", name: "Subadmin (Marketing)", role: "marketing_admin" },
   { email: "salesmanager@hospios.demo", password: "Sales@Demo2026!", name: "Sales Manager", role: "sales_manager" },
   { email: "sales@hospios.demo", password: "SalesRep@Demo2026!", name: "Sales Rep", role: "sales_rep" },
   { email: "content@hospios.demo", password: "Content@Demo2026!", name: "Content Editor", role: "content_editor" },
   { email: "analyst@hospios.demo", password: "Analytics@Demo2026!", name: "Analyst", role: "analyst" },
+  // Portal-only roles (RBAC merge): no marketing admin access; identity is
+  // resolved from the SaaS plane (Affiliate/Partner/OrgContact rows).
+  { email: "affiliate@hospios.demo", password: "Affiliate@Demo2026!", name: "Demo Affiliate", role: "" },
+  { email: "partner@hospios.demo", password: "Partner@Demo2026!", name: "Demo Partner", role: "" },
+  { email: "customer@hospios.demo", password: "Customer@Demo2026!", name: "Demo Customer", role: "" },
+  { email: "staff@hospios.demo", password: "Staff@Demo2026!", name: "Support Staff", role: "support_admin" },
 ];
 
 /**
@@ -112,6 +118,7 @@ export async function ensureDemoUsers(target?: string): Promise<{ created: strin
     await upsertDemoUser(d, target);
     created.push(d.email);
   }
+  if (!target) await ensurePortalIdentities();
   return { created, existing };
 }
 
@@ -150,6 +157,7 @@ function newId(): string {
 /** Dev-only script entry (`npm run seed:marketing-demo`). */
 export async function seedDemoUsersCli(): Promise<void> {
   const { created, existing } = await ensureDemoUsers();
+  await ensurePortalIdentities();
   const note =
     process.env.NODE_ENV === "production"
       ? "WARNING: NODE_ENV=production — demo seeding explicitly allowed via ALLOW_DEMO_SEED=1"
@@ -157,4 +165,92 @@ export async function seedDemoUsersCli(): Promise<void> {
   console.log(`${note}`);
   console.log(`Created: ${created.length ? created.join(", ") : "none"}`);
   console.log(`Already present: ${existing.length ? existing.join(", ") : "none"}`);
+}
+
+/**
+ * Portal identities for the portal-only demo roles (RBAC merge). Idempotent,
+ * keyed by the demo emails. Gives affiliate/partner/customer/staff users real
+ * rows so their portals resolve data.
+ */
+export async function ensurePortalIdentities(): Promise<void> {
+  const { prisma } = await import("@/lib/prisma");
+
+  await prisma.affiliate.upsert({
+    where: { email: "affiliate@hospios.demo" },
+    update: {},
+    create: {
+      name: "Demo Affiliate",
+      email: "affiliate@hospios.demo",
+      country: "US",
+      audience: "Hospitality bloggers & hotel-tech newsletters",
+      promotionMethod: "content",
+      status: "active",
+      referralCode: "AFFDEMO01",
+      tier: "standard",
+      commissionModel: "percent_mrr_12",
+      commissionValue: 2000,
+    },
+  });
+
+  await prisma.partner.upsert({
+    where: { email: "partner@hospios.demo" },
+    update: {},
+    create: {
+      name: "Demo Partner",
+      company: "Demo Partner Agency",
+      email: "partner@hospios.demo",
+      country: "US",
+      type: "reseller",
+      tier: "silver",
+      status: "active",
+      commissionModel: "percent_first",
+      commissionValue: 1500,
+      referralCode: "PTNDEMO01",
+    },
+  });
+
+  let plan = await prisma.plan.findFirst({ where: { isActive: true }, orderBy: { monthlyPrice: "asc" } });
+  if (!plan) {
+    const { seedDefaultPlans } = await import("@/lib/saas/plans");
+    await seedDefaultPlans();
+    plan = await prisma.plan.findFirst({ where: { isActive: true }, orderBy: { monthlyPrice: "asc" } });
+  }
+  if (!plan) return;
+
+  const existingOrg = await prisma.organization.findFirst({
+    where: { contacts: { some: { email: "customer@hospios.demo" } } },
+  });
+  if (!existingOrg) {
+    const org = await prisma.organization.create({
+      data: {
+        legalName: "Demo Grand Hotel",
+        businessName: "Demo Grand Hotel",
+        country: "US",
+        industry: "hospitality",
+        status: "active",
+        acquisitionSource: "organic",
+        contacts: {
+          create: {
+            name: "Demo Customer",
+            email: "customer@hospios.demo",
+            role: "owner",
+            isPrimary: true,
+          },
+        },
+      },
+    });
+    const now = new Date();
+    await prisma.subscription.create({
+      data: {
+        organizationId: org.id,
+        planId: plan.id,
+        status: "active",
+        billingCycle: "monthly",
+        mrr: plan.monthlyPrice,
+        quantity: 1,
+        currentPeriodStart: now,
+        currentPeriodEnd: new Date(now.getTime() + 30 * 86_400_000),
+      },
+    });
+  }
 }
