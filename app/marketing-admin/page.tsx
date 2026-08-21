@@ -8,6 +8,7 @@ import { listDemos } from "@/lib/marketing/demos";
 import { listLeads } from "@/lib/marketing/leads";
 import { Bars, Donut, Line } from "@/components/marketing-admin/charts";
 import { Badge, EmptyState, KpiCard, SectionCard } from "@/components/marketing-admin/ui";
+import DashboardFilters from "@/components/marketing-admin/DashboardFilters";
 import { STAGE_STYLES } from "@/lib/marketing/stages";
 
 export const dynamic = "force-dynamic";
@@ -17,7 +18,11 @@ function fmtDate(iso: string): string {
   return new Date(iso).toLocaleString("en-US", { month: "short", day: "numeric", hour: "numeric", minute: "2-digit" });
 }
 
-export default async function DashboardPage() {
+export default async function DashboardPage({
+  searchParams,
+}: {
+  searchParams?: Promise<Record<string, string | undefined>>;
+}) {
   const guard = await requireMarketingUser();
   if (!guard.ok) {
     return restrictedPanel(
@@ -27,8 +32,12 @@ export default async function DashboardPage() {
   }
   await ensureMarketingStore();
 
+  const sp = (await searchParams) ?? {};
+  const from = sp.from?.trim() || undefined;
+  const to = sp.to?.trim() || undefined;
+
   const [m, campaigns, leads, demos] = await Promise.all([
-    dashboardMetrics(),
+    dashboardMetrics(undefined, { from, to }),
     campaignStats(),
     listLeads(),
     listDemos(),
@@ -49,23 +58,62 @@ export default async function DashboardPage() {
         <h1 className="text-2xl font-bold tracking-tight">Marketing dashboard</h1>
         <p className="mt-1 text-sm text-zinc-500 dark:text-zinc-400">
           Live numbers from the website pipeline — no fabricated metrics.
+          {m.range?.from || m.range?.to ? (
+            <span className="ml-2 font-medium text-indigo-600 dark:text-indigo-400">
+              · {m.range.from ?? "…"} → {m.range.to ?? "…"}
+            </span>
+          ) : null}
         </p>
       </div>
 
+      <DashboardFilters initialFrom={from} initialTo={to} />
+
       <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-4">
-        <KpiCard label="New leads today" value={m.kpis.newLeadsToday} hint={`${m.kpis.newLeads7d} in 7 days`} />
-        <KpiCard label="Total leads" value={m.kpis.totalLeads} accent="text-indigo-600 dark:text-indigo-400" />
-        <KpiCard label="Qualified" value={m.kpis.qualified} />
-        <KpiCard label="Demo requests" value={m.kpis.demoRequests} />
-        <KpiCard label="Trials" value={m.kpis.trials} />
-        <KpiCard label="Converted" value={m.kpis.conversions} accent="text-emerald-600 dark:text-emerald-400" />
-        <KpiCard label="Follow-ups due" value={m.kpis.followUpsDue} accent={m.kpis.followUpsDue > 0 ? "text-amber-600 dark:text-amber-400" : undefined} />
+        <KpiCard label="New leads today" value={m.kpis.newLeadsToday} hint={`${m.kpis.newLeads7d} in 7 days`} href="/marketing-admin/leads" />
+        <KpiCard label="Total leads" value={m.kpis.totalLeads} accent="text-indigo-600 dark:text-indigo-400" href="/marketing-admin/leads" />
+        <KpiCard label="Qualified" value={m.kpis.qualified} href="/marketing-admin/leads?stage=qualified" />
+        <KpiCard label="Demo requests" value={m.kpis.demoRequests} href="/marketing-admin/demos" />
+        <KpiCard label="Trials" value={m.kpis.trials} href="/marketing-admin/leads?stage=trial" />
+        <KpiCard label="Converted" value={m.kpis.conversions} accent="text-emerald-600 dark:text-emerald-400" href="/marketing-admin/leads?stage=won" />
+        <KpiCard label="Follow-ups due" value={m.kpis.followUpsDue} accent={m.kpis.followUpsDue > 0 ? "text-amber-600 dark:text-amber-400" : undefined} href="/marketing-admin/leads" />
         <KpiCard
           label="Pipeline value"
           value={leadValueLabel(m.kpis.pipelineValue)}
           hint={`${m.kpis.won} won · ${m.kpis.lost} lost`}
           accent="text-emerald-600 dark:text-emerald-400"
+          href="/marketing-admin/pipeline"
         />
+      </div>
+
+      <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
+        <KpiCard
+          label="Win rate"
+          value={m.kpis.winRate == null ? "—" : `${m.kpis.winRate}%`}
+          hint={`${m.kpis.won} / ${m.kpis.won + m.kpis.lost} closed`}
+          href="/marketing-admin/leads?stage=won"
+        />
+        <KpiCard
+          label="Avg days to won"
+          value={m.kpis.avgDaysToWon == null ? "—" : `${m.kpis.avgDaysToWon}d`}
+          hint="Created → won"
+        />
+        <div className="col-span-2 rounded-2xl border border-zinc-200 bg-white p-4 shadow-sm dark:border-zinc-800 dark:bg-zinc-900">
+          <p className="text-xs font-semibold uppercase tracking-wide text-zinc-400">Velocity (avg days in stage)</p>
+          <ul className="mt-2 space-y-1 text-xs">
+            {m.velocity
+              .filter((v) => v.count > 0)
+              .slice(0, 6)
+              .map((v) => (
+                <li key={v.stage} className="flex justify-between">
+                  <span className="text-zinc-600 dark:text-zinc-300">{v.label}</span>
+                  <span className="font-semibold tabular-nums">{v.avgDays == null ? "—" : `${v.avgDays}d`} <span className="font-normal text-zinc-400">· {v.count}</span></span>
+                </li>
+              ))}
+            {m.velocity.filter((v) => v.count > 0).length === 0 && (
+              <li className="text-zinc-400">No staged leads yet</li>
+            )}
+          </ul>
+        </div>
       </div>
 
       <div className="grid gap-5 lg:grid-cols-3">

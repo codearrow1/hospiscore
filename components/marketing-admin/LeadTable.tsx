@@ -91,16 +91,19 @@ const STAGE_LIST: LeadStage[] = [
 export function BulkStageBar({
   selected,
   onDone,
+  ownerOptions,
 }: {
   selected: string[];
   onDone: () => void;
+  ownerOptions?: { email: string; name: string }[];
 }) {
   const router = useRouter();
   const [stage, setStage] = useState<LeadStage>("contacted");
+  const [owner, setOwner] = useState("");
   const [busy, setBusy] = useState(false);
   const [message, setMessage] = useState("");
 
-  const apply = async () => {
+  const applyStage = async () => {
     setBusy(true);
     setMessage("");
     let moved = 0;
@@ -118,18 +121,76 @@ export function BulkStageBar({
     setTimeout(onDone, 800);
   };
 
+  const assignOwner = async () => {
+    if (!owner) return;
+    const isUnassign = owner === "__unassign__";
+    setBusy(true);
+    setMessage("");
+    let done = 0;
+    for (const id of selected) {
+      const res = await fetch(`/api/marketing/leads/${id}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(isUnassign ? { ownerEmail: "" } : { ownerEmail: owner }),
+      });
+      if (res.ok) done++;
+    }
+    setBusy(false);
+    setMessage(isUnassign ? `${done} unassigned.` : `${done} assigned to ${owner}.`);
+    router.refresh();
+    setTimeout(onDone, 800);
+  };
+
+  const deleteSelected = async () => {
+    if (!confirm(`Delete ${selected.length} leads? This cannot be undone.`)) return;
+    setBusy(true);
+    setMessage("");
+    let done = 0;
+    for (const id of selected) {
+      const res = await fetch(`/api/marketing/leads/${id}`, { method: "DELETE" });
+      if (res.ok) done++;
+    }
+    setBusy(false);
+    setMessage(`${done} deleted.`);
+    router.refresh();
+    setTimeout(onDone, 800);
+  };
+
   return (
     <div className="flex flex-wrap items-center gap-2 rounded-xl border border-indigo-200 bg-indigo-50/60 p-3 dark:border-indigo-900 dark:bg-indigo-950/40">
       <span className="text-xs font-semibold text-indigo-700 dark:text-indigo-300">
         {selected.length} selected {message && `· ${message}`}
       </span>
-      <select value={stage} onChange={(e) => setStage(e.target.value as LeadStage)} className={inputCls + " !w-auto"} aria-label="Target stage">
-        {STAGE_LIST.map((s) => (
-          <option key={s} value={s}>{s}</option>
-        ))}
-      </select>
-      <button onClick={apply} disabled={busy} className={btnPrimary}>
-        {busy ? "Moving…" : "Move to stage"}
+      <div className="flex flex-wrap items-center gap-2">
+        <select value={stage} onChange={(e) => setStage(e.target.value as LeadStage)} className={inputCls + " !w-auto"} aria-label="Target stage">
+          {STAGE_LIST.map((s) => (
+            <option key={s} value={s}>
+              {s}
+            </option>
+          ))}
+        </select>
+        <button onClick={applyStage} disabled={busy} className={btnPrimary}>
+          {busy ? "Moving…" : "Move stage"}
+        </button>
+      </div>
+      {ownerOptions && ownerOptions.length > 0 && (
+        <div className="flex items-center gap-2">
+          <select value={owner} onChange={(e) => setOwner(e.target.value)} className={inputCls + " !w-auto"} aria-label="Assign owner">
+            <option value="">Assign to…</option>
+            <option value="__unassign__">— Unassign —</option>
+            {ownerOptions.map((u) => (
+              <option key={u.email} value={u.email}>
+                {u.name} ({u.email})
+              </option>
+            ))}
+          </select>
+          <button onClick={assignOwner} disabled={busy || !owner} className={btnGhost}>
+            Assign
+          </button>
+        </div>
+      )}
+      <button onClick={deleteSelected} disabled={busy} className="ml-auto inline-flex min-h-9 items-center rounded-xl border border-red-200 bg-white px-3 py-2 text-xs font-semibold text-red-600 hover:bg-red-50 dark:border-red-900 dark:bg-zinc-900 dark:text-red-400">
+        Delete
       </button>
     </div>
   );

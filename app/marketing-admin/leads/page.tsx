@@ -2,6 +2,7 @@ import { requireCapability } from "@/lib/marketing/guard";
 import { restrictedPanel } from "@/app/marketing-admin/restricted";
 import { ensureMarketingStore } from "@/lib/marketing/seed";
 import { listLeads, filterLeads } from "@/lib/marketing/leads";
+import { listUsers } from "@/lib/marketing/users";
 import { isLeadStage } from "@/lib/marketing/stages";
 import LeadsTableClient from "@/components/marketing-admin/LeadsTableClient";
 import { FilterChipLink, SearchBox } from "@/components/marketing-admin/LeadTable";
@@ -28,16 +29,41 @@ export default async function LeadsPage({
   const country = sp.country ?? "";
   const plan = sp.plan ?? "";
   const band = (sp.band ?? "all") as string;
+  const owner = sp.owner ?? "";
+  const sort = (sp.sort ?? "updatedAt") as "updatedAt" | "createdAt" | "score" | "name" | "stage";
+  const dir = sp.dir === "asc" ? "asc" : "desc";
+  const page = Math.max(1, parseInt(sp.page ?? "1", 10) || 1);
+  const perPageRaw = parseInt(sp.perPage ?? "20", 10) || 20;
+  const perPage = [10, 20, 50].includes(perPageRaw) ? perPageRaw : 20;
 
-  const leads = await listLeads();
-  const rows = filterLeads(leads, {
+  const [leads, users] = await Promise.all([listLeads(), listUsers()]);
+  let filtered = filterLeads(leads, {
     q,
     stage: stage as never,
     source: source as never,
     country: country || undefined,
     plan: plan || undefined,
     band: band as never,
-  }).map((l) => ({
+    owner: owner || undefined,
+  });
+
+  // Sorting
+  filtered = filtered.slice().sort((a, b) => {
+    let cmp = 0;
+    if (sort === "score") cmp = a.score - b.score;
+    else if (sort === "name") cmp = a.name.localeCompare(b.name);
+    else if (sort === "stage") cmp = PIPELINE_STAGES.indexOf(a.stage) - PIPELINE_STAGES.indexOf(b.stage);
+    else if (sort === "createdAt") cmp = Date.parse(a.createdAt) - Date.parse(b.createdAt);
+    else cmp = Date.parse(a.updatedAt) - Date.parse(b.updatedAt);
+    return dir === "asc" ? cmp : -cmp;
+  });
+
+  const total = filtered.length;
+  const totalPages = Math.max(1, Math.ceil(total / perPage));
+  const safePage = Math.min(page, totalPages);
+  const paged = filtered.slice((safePage - 1) * perPage, safePage * perPage);
+
+  const rows = paged.map((l) => ({
     id: l.id,
     name: l.name,
     email: l.email,
@@ -59,9 +85,21 @@ export default async function LeadsPage({
   const href = (patch: Record<string, string | undefined>) => {
     const p = new URLSearchParams();
     if (q) p.set("q", q);
-    const merged = { stage, source, country, plan, band, ...patch };
+    const merged = { stage, source, country, plan, band, owner, sort, dir, page: String(safePage), perPage: String(perPage), ...patch };
     for (const [k, v] of Object.entries(merged)) {
-      if (v && v !== "all") p.set(k, v);
+      const def = k === "perPage" ? "20" : k === "sort" ? "updatedAt" : k === "dir" ? "desc" : k === "page" ? "1" : "all";
+      if (!v || v === def || (k === "page" && v === "1")) {
+        if (k === "perPage" && v === "20") continue;
+        if (k === "sort" && v === "updatedAt") continue;
+        if (k === "dir" && v === "desc") continue;
+        if (k === "page" && v === "1") continue;
+        if (v === "all" || v === "") continue;
+      }
+      p.set(k, v);
+    }
+    // When filter changes, reset page
+    if (patch.stage !== undefined || patch.source !== undefined || patch.country !== undefined || patch.q !== undefined || patch.band !== undefined || patch.owner !== undefined) {
+      p.delete("page");
     }
     return p.toString() ? `/marketing-admin/leads?${p}` : "/marketing-admin/leads";
   };
@@ -73,7 +111,10 @@ export default async function LeadsPage({
     ...(country ? { country } : {}),
     ...(plan ? { plan } : {}),
     ...(band !== "all" ? { band } : {}),
+    ...(owner ? { owner } : {}),
   }).toString()}`;
+
+  const ownerOptions = users.map((u) => ({ email: u.email, name: u.name }));
 
   const sourceOptions = [
     "organic", "google_ads", "meta_ads", "linkedin", "youtube", "direct",
@@ -87,13 +128,20 @@ export default async function LeadsPage({
         <div>
           <h1 className="text-2xl font-bold tracking-tight">Leads</h1>
           <p className="mt-1 text-sm text-zinc-500 dark:text-zinc-400">
-            {rows.length} of {leads.length} leads · every form and demo request is captured automatically.
+            {total} of {leads.length} leads · page {safePage} of {totalPages} · every form and demo request is captured automatically.
           </p>
         </div>
       </div>
 
       <LeadsTableClient
         rows={rows}
+        total={total}
+        page={safePage}
+        perPage={perPage}
+        totalPages={totalPages}
+        sort={sort}
+        dir={dir}
+        ownerOptions={ownerOptions}
         exportHref={exportHref}
         filterBar={
           <>
@@ -108,6 +156,12 @@ export default async function LeadsPage({
               <FilterChipLink href={href({ source: "all" })} label="All sources" active={source === "all"} />
               {sourceOptions.slice(0, 8).map((s) => (
                 <FilterChipLink key={s} href={href({ source: s })} label={s.replace(/_/g, " ")} active={source === s} />
+              ))}
+            </div>
+            <div className="flex max-w-full flex-wrap items-center gap-1.5">
+              <FilterChipLink href={href({ band: "all" })} label="All bands" active={band === "all"} />
+              {["cold", "warm", "hot", "very_hot"].map((b) => (
+                <FilterChipLink key={b} href={href({ band: b })} label={b.replace("_", " ")} active={band === b} />
               ))}
             </div>
           </>

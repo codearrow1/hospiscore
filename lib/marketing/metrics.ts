@@ -13,6 +13,7 @@ import type { PageView } from "./types";
 
 export interface DashboardMetrics {
   generatedAt: string;
+  range?: { from?: string; to?: string };
   kpis: {
     newLeadsToday: number;
     newLeads7d: number;
@@ -25,12 +26,15 @@ export interface DashboardMetrics {
     lost: number;
     followUpsDue: number;
     pipelineValue: number;
+    winRate: number | null;
+    avgDaysToWon: number | null;
     topLanding: { key: string; count: number } | null;
     topSource: { key: string; count: number } | null;
     topCountry: { key: string; count: number } | null;
     topPlan: { key: string; count: number } | null;
   };
   funnel: { stage: (typeof STAGE_ORDER)[number]; label: string; count: number }[];
+  velocity: { stage: (typeof STAGE_ORDER)[number]; label: string; avgDays: number | null; count: number }[];
   trend: { day: string; leads: number; demos: number; views: number }[];
   sources: { key: string; count: number }[];
   countries: { key: string; count: number }[];
@@ -66,12 +70,28 @@ export function bucketBy<T>(
     .sort((a, b) => b.count - a.count);
 }
 
-export async function dashboardMetrics(target?: string): Promise<DashboardMetrics> {
-  const leads = await listLeads(target);
+export async function dashboardMetrics(
+  target?: string,
+  opts?: { from?: string; to?: string },
+): Promise<DashboardMetrics> {
+  const allLeads = await listLeads(target);
   const demos = await listDemos(target);
   const customers = await listConvertedCustomers(target);
   const data = await readData(target);
   const views = data.pageViews ?? [];
+
+  // Optional date range: filter leads by createdAt within [from, to]
+  const fromMs = opts?.from ? Date.parse(opts.from) : NaN;
+  const toMs = opts?.to ? Date.parse(opts.to) : NaN;
+  const hasRange = !Number.isNaN(fromMs) || !Number.isNaN(toMs);
+  const leads = hasRange
+    ? allLeads.filter((l) => {
+        const t = Date.parse(l.createdAt);
+        if (!Number.isNaN(fromMs) && t < fromMs) return false;
+        if (!Number.isNaN(toMs) && t > toMs) return false;
+        return true;
+      })
+    : allLeads;
 
   const now = new Date();
   const today0 = startOfToday(now).getTime();
@@ -134,8 +154,31 @@ export async function dashboardMetrics(target?: string): Promise<DashboardMetric
     })
     .map((d) => ({ id: d.id, leadId: d.leadId, startAt: d.startAt, status: d.status }));
 
+  const closed = won.length + lost.length;
+  const winRate = closed > 0 ? Math.round((won.length / closed) * 1000) / 10 : null;
+  const avgDaysToWon =
+    won.length > 0
+      ? Math.round(
+          (won.reduce((s, l) => s + (Date.parse(l.updatedAt ?? l.createdAt) - Date.parse(l.createdAt)), 0) /
+            won.length /
+            DAYS_MS) *
+            10,
+        ) / 10
+      : null;
+
+  const velocity = STAGE_ORDER.map((stage) => {
+    const bucket = leads.filter((l) => l.stage === stage);
+    if (!bucket.length) return { stage, label: STAGE_LABELS[stage], avgDays: null, count: 0 };
+    const avgDays =
+      Math.round(
+        (bucket.reduce((s, l) => s + (now.getTime() - Date.parse(l.updatedAt ?? l.createdAt)), 0) / bucket.length / DAYS_MS) * 10,
+      ) / 10;
+    return { stage, label: STAGE_LABELS[stage], avgDays, count: bucket.length };
+  });
+
   return {
     generatedAt: now.toISOString(),
+    range: hasRange ? { from: opts?.from, to: opts?.to } : undefined,
     kpis: {
       newLeadsToday: newToday.length,
       newLeads7d: new7d.length,
@@ -148,12 +191,15 @@ export async function dashboardMetrics(target?: string): Promise<DashboardMetric
       lost: lost.length,
       followUpsDue: followUpsDue.length,
       pipelineValue: totalPipelineValue(leads),
+      winRate,
+      avgDaysToWon,
       topLanding: byLanding[0] ?? null,
       topSource: bySource[0] ?? null,
       topCountry: byCountry[0] ?? null,
       topPlan: byPlan[0] ?? null,
     },
     funnel,
+    velocity,
     trend: last14,
     sources: bySource,
     countries: byCountry,
