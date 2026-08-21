@@ -88,8 +88,11 @@ export function clientIp(req: NextRequest): string {
 /**
  * Lightweight in-memory sliding-window rate limiter. Not distributed; good
  * enough to blunt abuse of public POST endpoints in a single-node deploy.
+ * Expired buckets are swept when the map grows, so unique-IP abuse cannot
+ * leak memory indefinitely.
  */
 const buckets = new Map<string, { at: number; count: number }>();
+const BUCKET_SWEEP_THRESHOLD = 5_000;
 
 export function rateLimit(
   key: string,
@@ -99,6 +102,11 @@ export function rateLimit(
   const now = Date.now();
   const bucket = buckets.get(key);
   if (!bucket || now - bucket.at >= windowMs) {
+    if (buckets.size >= BUCKET_SWEEP_THRESHOLD) {
+      for (const [k, b] of buckets) {
+        if (now - b.at >= windowMs) buckets.delete(k);
+      }
+    }
     buckets.set(key, { at: now, count: 1 });
     return true;
   }
