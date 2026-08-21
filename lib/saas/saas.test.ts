@@ -7,6 +7,9 @@ import { canTransition, computeMrr, isSubscriptionStatus } from "./subscriptions
 import { getPlanLimit } from "./usage";
 import { canTransitionCommission, calcCommissionAmount, COMMISSION_STATUSES } from "./commissions";
 import { canTransitionPayout, PAYOUT_STATUSES } from "./payouts";
+import { statusForScore } from "./health";
+import { nextRetryAfterAttempt, RETRY_SCHEDULE_DAYS } from "./dunning";
+import { validateCouponInput, computeDiscount } from "./coupons";
 
 describe("saas organizations validation", () => {
   it("rejects short legalName", () => {
@@ -146,5 +149,52 @@ describe("saas payouts", () => {
     expect(canTransitionPayout("requested", "paid")).toBe(false);
     expect(canTransitionPayout("paid", "failed")).toBe(false);
     expect(canTransitionPayout("failed", "requested")).toBe(true);
+  });
+});
+
+describe("saas customer health", () => {
+  it("churned is deterministic from subscription status", () => {
+    expect(statusForScore(95, "cancelled")).toBe("churned");
+    expect(statusForScore(95, "expired")).toBe("churned");
+    expect(statusForScore(null, "active")).toBe("stable");
+  });
+  it("maps scores to bands", () => {
+    expect(statusForScore(90, "active")).toBe("healthy");
+    expect(statusForScore(70, "active")).toBe("stable");
+    expect(statusForScore(50, "active")).toBe("at_risk");
+    expect(statusForScore(20, "active")).toBe("critical");
+  });
+});
+
+describe("saas dunning schedule", () => {
+  it("uses 1/3/5/7 day retry ladder", () => {
+    expect(RETRY_SCHEDULE_DAYS).toEqual([1, 3, 5, 7]);
+    const base = new Date("2026-01-01T00:00:00Z");
+    expect(nextRetryAfterAttempt(1, base)).toEqual(new Date("2026-01-02T00:00:00Z"));
+    expect(nextRetryAfterAttempt(2, base)).toEqual(new Date("2026-01-04T00:00:00Z"));
+    expect(nextRetryAfterAttempt(4, base)).toEqual(new Date("2026-01-08T00:00:00Z"));
+  });
+  it("returns null after final attempt", () => {
+    expect(nextRetryAfterAttempt(4 + 1)).toBeNull();
+    expect(nextRetryAfterAttempt(99)).toBeNull();
+  });
+});
+
+describe("saas coupons", () => {
+  it("validates coupon input", () => {
+    expect(validateCouponInput({ type: "percent", value: 2000, duration: "once" }).ok).toBe(true);
+    expect(validateCouponInput({ type: "bogus" as never, value: 100, duration: "once" }).ok).toBe(false);
+    expect(validateCouponInput({ type: "percent", value: 20000, duration: "once" }).ok).toBe(false); // >100%
+    expect(validateCouponInput({ type: "fixed", value: -5, duration: "once" }).ok).toBe(false);
+    expect(validateCouponInput({ type: "percent", value: 1000 }).ok).toBe(false); // missing duration
+    expect(validateCouponInput({ type: "percent", value: 1000, duration: "repeating" }).ok).toBe(false); // missing months
+    expect(validateCouponInput({ type: "percent", value: 1000, duration: "repeating", months: 40 }).ok).toBe(false);
+    expect(validateCouponInput({ type: "percent", value: 1000, duration: "repeating", months: 12 }).ok).toBe(true);
+  });
+  it("computes discounts correctly and never exceeds amount", () => {
+    expect(computeDiscount("percent", 2000, 9900)).toBe(1980); // 20% of $99
+    expect(computeDiscount("fixed", 5000, 9900)).toBe(5000); // $50 off
+    expect(computeDiscount("fixed", 50000, 9900)).toBe(9900); // capped at amount
+    expect(computeDiscount("percent", 10000, 9900)).toBe(9900); // 100%
   });
 });

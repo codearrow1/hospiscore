@@ -22,6 +22,7 @@ export async function createInvoice(input: {
   type?: string;
   dueAt?: Date;
   idempotencyKey?: string;
+  couponCode?: string;
   actorEmail: string;
   ip?: string;
 }): Promise<GatewayInvoice> {
@@ -34,18 +35,33 @@ export async function createInvoice(input: {
     });
     if (recent) return recent as GatewayInvoice;
   }
+  let amount = input.amount;
+  let couponApplied: string | null = null;
+  if (input.couponCode) {
+    const { applyCoupon } = await import("./coupons");
+    const res = await applyCoupon({ code: input.couponCode, organizationId: input.organizationId, subscriptionId: input.subscriptionId ?? null, amount });
+    amount = res.amountDue;
+    couponApplied = res.couponId;
+  }
   const inv = await prisma.invoice.create({
     data: {
       organizationId: input.organizationId,
       subscriptionId: input.subscriptionId || null,
-      amount: input.amount,
+      amount,
       currency: input.currency || "USD",
       type: input.type || "subscription",
       status: "issued",
       dueAt: input.dueAt || null,
     },
   });
-  await writeSaasAudit({ byEmail: input.actorEmail, action: "invoice.created", entity: "invoice", entityId: inv.id, detail: `${inv.type} ${(inv.amount/100).toFixed(2)}`, ip: input.ip });
+  await writeSaasAudit({
+    byEmail: input.actorEmail,
+    action: "invoice.created",
+    entity: "invoice",
+    entityId: inv.id,
+    detail: `${inv.type} ${(inv.amount/100).toFixed(2)}${couponApplied ? ` (coupon ${input.couponCode})` : ""}`,
+    ip: input.ip,
+  });
   return inv as GatewayInvoice;
 }
 
@@ -77,6 +93,36 @@ export async function recordPayment(input: {
     },
   });
   await writeSaasAudit({ byEmail: input.actorEmail, action: "payment.recorded", entity: "payment", entityId: pay.id, detail: `${pay.gateway} ${(pay.amount/100).toFixed(2)} ${pay.status}`, ip: input.ip });
+
+  // Dunning hooks
+  const { startDunning, recoverCase } = await import("./dunning");
+  if (pay.status === "failed" && input.invoiceId) {
+    let subscriptionId: string | null = null;
+    if (input.invoiceId) {
+      const inv = await prisma.invoice.findUnique({ where: { id: input.invoiceId }, select: { subscriptionId: true } });
+      subscriptionId = inv?.subscriptionId ?? null;
+      // mark invoice past_due and downgrade subscription to past_due
+      await prisma.invoice.update({ where: { id: input.invoiceId }, data: { status: "past_due" } });
+      if (subscriptionId) {
+        await prisma.subscription.updateMany({ where: { id: subscriptionId, status: "active" }, data: { status: "past_due" } });
+      }
+    }
+    await startDunning({ invoiceId: input.invoiceId, organizationId: input.organizationId, subscriptionId, reason: `payment ${pay.id} failed` });
+    try {
+      const { fireRule } = await import("./automation");
+      await fireRule("payment_failed", input.organizationId, { amount: (pay.amount / 100).toFixed(2) });
+    } catch {}
+  } else if (pay.status === "succeeded" && input.invoiceId) {
+    await recoverCase(input.invoiceId);
+    // mark invoice paid when fully settled
+    const paidAgg = await prisma.payment.aggregate({ where: { invoiceId: input.invoiceId, status: "succeeded" }, _sum: { amount: true } });
+    const inv = await prisma.invoice.findUnique({ where: { id: input.invoiceId }, select: { amount: true, status: true } });
+    if (inv && inv.status !== "void") {
+      const totalPaid = paidAgg._sum.amount ?? 0;
+      const newStatus = totalPaid >= inv.amount ? "paid" : totalPaid > 0 ? "partially_paid" : inv.status;
+      await prisma.invoice.update({ where: { id: input.invoiceId }, data: { status: newStatus, paidAt: newStatus === "paid" ? new Date() : null } });
+    }
+  }
   return pay;
 }
 

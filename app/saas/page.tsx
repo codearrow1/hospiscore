@@ -3,7 +3,8 @@ import { requireMarketingUser } from "@/lib/marketing/guard";
 import { restrictedPanel } from "@/app/marketing-admin/restricted";
 import { saasMetrics, centsToLabel } from "@/lib/saas/metrics";
 import { seedDefaultPlans } from "@/lib/saas/plans";
-import { KpiCard, SectionCard, EmptyState } from "@/components/marketing-admin/ui";
+import { listHealth } from "@/lib/saas/health";
+import { KpiCard, SectionCard, EmptyState, Badge } from "@/components/marketing-admin/ui";
 import { Bars, Line } from "@/components/marketing-admin/charts";
 
 export const dynamic = "force-dynamic";
@@ -14,7 +15,8 @@ export default async function SaasDashboardPage() {
   if (!guard.ok) return restrictedPanel("SaaS Command Center", "Platform owner access required.");
 
   await seedDefaultPlans();
-  const m = await saasMetrics();
+  const [m, health] = await Promise.all([saasMetrics(), listHealth({})]);
+  const atRisk = health.items.filter((h) => h.healthStatus === "at_risk" || h.healthStatus === "critical").slice(0, 6);
 
   return (
     <div className="space-y-6">
@@ -72,11 +74,30 @@ export default async function SaasDashboardPage() {
       </SectionCard>
 
       <div className="grid gap-5 lg:grid-cols-2">
+        <SectionCard title="Customer Health — At Risk">
+          {atRisk.length === 0 ? (
+            <EmptyState title="No at-risk customers" body="Health is computed from payments, usage recency, and subscription standing." />
+          ) : (
+            <ul className="space-y-2">
+              {atRisk.map((h) => (
+                <li key={h.id} className="flex items-center justify-between text-sm">
+                  <Link href={`/saas/organizations/${h.id}`} className="font-medium hover:underline">{h.legalName}</Link>
+                  <span className="flex items-center gap-2">
+                    <span className="tabular-nums text-xs text-zinc-500">{h.healthScore ?? "—"}</span>
+                    <Badge>{h.healthStatus}</Badge>
+                  </span>
+                </li>
+              ))}
+            </ul>
+          )}
+          <p className="mt-3 text-xs text-zinc-400">Recompute via POST /api/saas/health (CUSTOMER_MANAGE).</p>
+        </SectionCard>
         <SectionCard title="Quick actions">
           <div className="flex flex-wrap gap-2">
             <Link href="/saas/organizations" className="rounded-xl bg-indigo-600 px-4 py-2 text-sm font-semibold text-white">New Organization</Link>
             <Link href="/saas/plans" className="rounded-xl border bg-white px-4 py-2 text-sm dark:bg-zinc-900">Manage Plans</Link>
             <Link href="/saas/billing" className="rounded-xl border bg-white px-4 py-2 text-sm dark:bg-zinc-900">View Billing</Link>
+            <Link href="/saas/coupons" className="rounded-xl border bg-white px-4 py-2 text-sm dark:bg-zinc-900">Coupons</Link>
           </div>
         </SectionCard>
         <SectionCard title="System">

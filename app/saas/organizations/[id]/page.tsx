@@ -3,6 +3,7 @@ import Link from "next/link";
 import { requireMarketingUser } from "@/lib/marketing/guard";
 import { restrictedPanel } from "@/app/marketing-admin/restricted";
 import { getOrganization } from "@/lib/saas/organizations";
+import { computeHealth } from "@/lib/saas/health";
 import { SectionCard, Badge } from "@/components/marketing-admin/ui";
 import PropertyModal from "@/components/saas/PropertyModal";
 
@@ -21,8 +22,10 @@ export default async function OrgDetailPage({
   const { id } = await params;
   const sp = (await searchParams) ?? {};
   const tab = sp.tab ?? "overview";
-  const org = await getOrganization(id);
+  let org = await getOrganization(id);
   if (!org) notFound();
+  // refresh health on each view (cheap, real signals only)
+  try { await computeHealth(id); org = (await getOrganization(id)) ?? org; } catch {}
   const tabs = [
     { id: "overview", label: "Overview" },
     { id: "properties", label: `Properties (${org.properties.length})` },
@@ -35,7 +38,7 @@ export default async function OrgDetailPage({
       <div>
         <h1 className="text-2xl font-bold tracking-tight">{org.legalName}</h1>
         <p className="mt-1 text-sm text-zinc-500 dark:text-zinc-400">
-          {org.businessName || "—"} · {org.country || "—"} · <Badge>{org.status}</Badge> · MRR ${(org.mrr / 100).toFixed(2)} · Health {org.healthScore ?? "—"}
+          {org.businessName || "—"} · {org.country || "—"} · <Badge>{org.status}</Badge> · MRR ${(org.mrr / 100).toFixed(2)} · Health {org.healthScore ?? "—"} {org.healthStatus && <Badge>{org.healthStatus}</Badge>}
         </p>
       </div>
 

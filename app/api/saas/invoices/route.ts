@@ -36,6 +36,7 @@ export async function POST(req: NextRequest) {
       type: typeof body.type === "string" ? body.type : "subscription",
       dueAt: body.dueAt ? new Date(String(body.dueAt)) : undefined,
       idempotencyKey: typeof body.idempotencyKey === "string" ? body.idempotencyKey : undefined,
+      couponCode: typeof body.couponCode === "string" && body.couponCode ? body.couponCode : undefined,
       actorEmail: guard.user.email,
       ip: clientIp(req),
     });
