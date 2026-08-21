@@ -14,6 +14,7 @@ import { SITE_URL } from "@/lib/site";
 import type { AuthUser } from "@/lib/auth";
 import { hasCapability, roleFor, type Capability, type MarketingRole } from "./roles";
 import { isSaasRole } from "@/lib/saas/roles";
+import { initSaasDb } from "@/lib/saas/init";
 
 export interface MarketingUser {
   user: AuthUser;
@@ -52,6 +53,7 @@ export async function requireMarketingUser(): Promise<GuardResult> {
  * gate that locked SaaS-only roles out of APIs their permissions allow.
  */
 export async function requireSaasAccess(): Promise<GuardResult> {
+  await initSaasDb().catch(() => {});
   const user = await getCurrentUser();
   if (!user) {
     return {

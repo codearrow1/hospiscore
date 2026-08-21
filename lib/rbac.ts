@@ -95,6 +95,8 @@ export async function resolveAppRole(
 
   // Lazy import keeps this module importable from edge-safe contexts.
   const { prisma } = await import("@/lib/prisma");
+  const { initSaasDb } = await import("@/lib/saas/init");
+  await initSaasDb().catch(() => {});
 
   const [affiliate, partner, contact] = await Promise.all([
     prisma.affiliate.findFirst({

@@ -5,6 +5,7 @@ import Header from "@/components/Header";
 import PortalNav from "@/components/portal/PortalNav";
 import { SectionCard, Badge, EmptyState } from "@/components/marketing-admin/ui";
 import { resolveAppRole } from "@/lib/rbac";
+import { initSaasDb } from "@/lib/saas/init";
 
 export const dynamic = "force-dynamic";
 export const runtime = "nodejs";
@@ -17,6 +18,7 @@ function money(cents: number): string {
 export default async function CustomerPortal() {
   const user = await getCurrentUser();
   if (!user) redirect("/account?next=/customer");
+  await initSaasDb().catch(() => {});
 
   const contact = await prisma.orgContact.findFirst({
     where: { email: user.email, organization: { status: { not: "cancelled" } } },

@@ -25,13 +25,35 @@ Notes:
 
 ## 2. Migrations
 
-`npm start` now runs `prisma migrate deploy && next start`, so every boot
-applies pending migrations before serving (fail-fast if the DB is missing or
-locked). To migrate manually:
+The app **self-provisions** the SaaS database on first SaaS access: it creates
+the DB directory, replays every migration in `prisma/migrations` (tracked in
+`_prisma_migrations`, applied exactly once) and seeds the default plans. No
+prisma CLI is required on the server, and a fresh clone boots safely even
+without `var/`.
+
+Relative `file:` URLs in `DATABASE_URL` are resolved against the project cwd;
+an absolute path without spaces is still recommended.
+
+To migrate manually instead:
 
 ```bash
 npm run db:migrate
 ```
+
+## 2b. Seeding demo data (optional)
+
+After deploying, sign in as a super admin once, then — while `ALLOW_DEMO_SEED=1`
+is set in the server environment — call:
+
+```bash
+curl -fsS -X POST https://thebuddharice.online/api/saas/admin/seed-demo \
+  -H "Cookie: <your session cookie>"
+```
+
+This populates both planes with the one-month demo dataset (11 users incl.
+customer/customer2 portal identities, 8 orgs, invoices/payments, usage,
+tickets, commissions). It is idempotent (marker org) and double-gated:
+super-admin session AND `ALLOW_DEMO_SEED=1`. Remove the flag afterwards.
 
 ## 3. Cron registration (Hostinger → Advanced → Cron Jobs)
 

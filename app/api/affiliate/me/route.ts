@@ -2,12 +2,14 @@ import { NextResponse } from "next/server";
 import { getCurrentUser } from "@/lib/sessionCookie";
 import { getAffiliateByEmail } from "@/lib/saas/affiliates";
 import { prisma } from "@/lib/prisma";
+import { initSaasDb } from "@/lib/saas/init";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 
 // Affiliate portal — returns own affiliate + commissions/payouts, never others
 export async function GET() {
+  await initSaasDb().catch(() => {});
   const user = await getCurrentUser();
   if (!user) return NextResponse.json({ error: "Not signed in" }, { status: 401 });
   // Find affiliate by email (or userId link)

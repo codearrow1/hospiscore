@@ -3,6 +3,7 @@ import { requireMarketingUser } from "@/lib/marketing/guard";
 import { restrictedPanel } from "@/app/marketing-admin/restricted";
 import { saasMetrics, centsToLabel } from "@/lib/saas/metrics";
 import { seedDefaultPlans } from "@/lib/saas/plans";
+import { initSaasDb } from "@/lib/saas/init";
 import { listHealth } from "@/lib/saas/health";
 import { revenueByCountry, churnCohort } from "@/lib/saas/analytics";
 import { KpiCard, SectionCard, EmptyState, Badge } from "@/components/marketing-admin/ui";
@@ -15,6 +16,7 @@ export default async function SaasDashboardPage() {
   const guard = await requireMarketingUser();
   if (!guard.ok) return restrictedPanel("SaaS Command Center", "Platform owner access required.");
 
+  await initSaasDb();
   await seedDefaultPlans();
   const [m, health, country, churn] = await Promise.all([saasMetrics(), listHealth({}), revenueByCountry(), churnCohort(6)]);
   const atRisk = health.items.filter((h) => h.healthStatus === "at_risk" || h.healthStatus === "critical").slice(0, 6);

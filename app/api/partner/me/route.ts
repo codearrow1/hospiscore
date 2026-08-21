@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { getCurrentUser } from "@/lib/sessionCookie";
 import { prisma } from "@/lib/prisma";
+import { initSaasDb } from "@/lib/saas/init";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -8,6 +9,7 @@ export const dynamic = "force-dynamic";
 // Partner portal — returns own partner record + commissions/payouts/referred
 // orgs. Strictly scoped to the caller; never exposes other partners' data.
 export async function GET() {
+  await initSaasDb().catch(() => {});
   const user = await getCurrentUser();
   if (!user) return NextResponse.json({ error: "Not signed in" }, { status: 401 });
 

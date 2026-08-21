@@ -6,6 +6,7 @@ import Header from "@/components/Header";
 import PortalNav from "@/components/portal/PortalNav";
 import { SectionCard, Badge, EmptyState } from "@/components/marketing-admin/ui";
 import { resolveAppRole } from "@/lib/rbac";
+import { initSaasDb } from "@/lib/saas/init";
 
 export const dynamic = "force-dynamic";
 export const runtime = "nodejs";
@@ -13,6 +14,7 @@ export const runtime = "nodejs";
 export default async function AffiliatePortal() {
   const user = await getCurrentUser();
   if (!user) redirect("/account?next=/affiliate");
+  await initSaasDb().catch(() => {});
   let aff = await getAffiliateByEmail(user.email);
   if (!aff) {
     const byUser = await prisma.affiliate.findFirst({ where: { userId: user.id } });
