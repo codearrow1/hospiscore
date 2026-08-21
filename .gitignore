@@ -46,3 +46,12 @@ yarn-error.log*
 # typescript
 *.tsbuildinfo
 next-env.d.ts
+
+/lib/generated/prisma
+
+# local dev artifacts (session cookie jars, pid files)
+mk_c*.txt
+sl_c.txt
+dev-server.pid
+prisma/*.db
+prisma/var/

@@ -3,7 +3,6 @@ import Link from "next/link";
 import Header from "@/components/Header";
 import JsonLd from "@/components/JsonLd";
 import Footer from "@/components/marketing/Footer";
-import PageHero from "@/components/marketing/PageHero";
 import Reveal from "@/components/marketing/Reveal";
 import SectionHeading from "@/components/marketing/SectionHeading";
 import SpotlightCard from "@/components/marketing/SpotlightCard";
