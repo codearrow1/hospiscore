@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { requireMarketingUser } from "@/lib/marketing/guard";
+import { requireSaasAccess } from "@/lib/marketing/guard";
 import { hasSaasPerm } from "@/lib/saas/roles";
 import { runAutomationSweep, listAutomationEvents } from "@/lib/saas/automation";
 
@@ -15,7 +15,7 @@ async function authorized(req: NextRequest): Promise<boolean> {
   const cronSecret = process.env.CRON_SECRET?.trim();
   const headerSecret = req.headers.get("x-cron-secret")?.trim();
   if (cronSecret && headerSecret && cronSecret === headerSecret) return true;
-  const guard = await requireMarketingUser();
+  const guard = await requireSaasAccess();
   return guard.ok && hasSaasPerm(guard.user, "MARKETING_MANAGE");
 }
 

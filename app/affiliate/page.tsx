@@ -3,7 +3,9 @@ import { getCurrentUser } from "@/lib/sessionCookie";
 import { getAffiliateByEmail } from "@/lib/saas/affiliates";
 import { prisma } from "@/lib/prisma";
 import Header from "@/components/Header";
+import PortalNav from "@/components/portal/PortalNav";
 import { SectionCard, Badge, EmptyState } from "@/components/marketing-admin/ui";
+import { resolveAppRole } from "@/lib/rbac";
 
 export const dynamic = "force-dynamic";
 export const runtime = "nodejs";
@@ -36,6 +38,7 @@ export default async function AffiliatePortal() {
   return (
     <div className="min-h-screen flex flex-col">
       <Header />
+      <PortalNav role={(await resolveAppRole(user)) ?? "affiliate"} />
       <main className="mx-auto w-full max-w-5xl flex-1 px-4 py-8 space-y-6">
         <div>
           <h1 className="text-2xl font-bold">Affiliate Dashboard</h1>
@@ -56,11 +59,13 @@ export default async function AffiliatePortal() {
           <SectionCard title="Payouts"><p className="text-2xl font-bold">{payouts.length}</p><p className="text-xs text-zinc-500">Paid: {(payouts.filter(p=>p.status==="paid").reduce((s,p)=>s+p.amount,0)/100).toFixed(2)}</p></SectionCard>
         </div>
         <SectionCard title="Recent Commissions">
+          <div id="commissions" />
           {commissions.length===0 ? <EmptyState title="No commissions yet" body="When your referrals subscribe, commissions appear here." /> : (
             <table className="w-full text-left text-sm"><thead><tr className="text-xs uppercase text-zinc-400"><th>Amount</th><th>Status</th><th>Model</th><th>Date</th></tr></thead><tbody>{commissions.map(c=><tr key={c.id} className="border-t"><td className="py-1">${(c.amount/100).toFixed(2)}</td><td className="py-1"><Badge>{c.status}</Badge></td><td className="py-1 text-xs">{c.model}</td><td className="py-1 text-xs">{new Date(c.createdAt).toLocaleDateString()}</td></tr>)}</tbody></table>
           )}
         </SectionCard>
         <SectionCard title="Payouts">
+          <div id="payouts" />
           {payouts.length===0 ? <EmptyState title="No payouts yet" /> : (
             <table className="w-full text-left text-sm"><thead><tr className="text-xs uppercase text-zinc-400"><th>Amount</th><th>Method</th><th>Status</th><th>Date</th></tr></thead><tbody>{payouts.map(p=><tr key={p.id} className="border-t"><td className="py-1">${(p.amount/100).toFixed(2)}</td><td className="py-1">{p.method}</td><td className="py-1"><Badge>{p.status}</Badge></td><td className="py-1 text-xs">{new Date(p.createdAt).toLocaleDateString()}</td></tr>)}</tbody></table>
           )}

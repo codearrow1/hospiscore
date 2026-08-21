@@ -12,7 +12,8 @@ import { getCurrentUser } from "@/lib/sessionCookie";
 import { CONFIG } from "@/lib/config";
 import { SITE_URL } from "@/lib/site";
 import type { AuthUser } from "@/lib/auth";
-import { hasCapability, type Capability, type MarketingRole } from "./roles";
+import { hasCapability, roleFor, type Capability, type MarketingRole } from "./roles";
+import { isSaasRole } from "@/lib/saas/roles";
 
 export interface MarketingUser {
   user: AuthUser;
@@ -37,6 +38,33 @@ export async function requireMarketingUser(): Promise<GuardResult> {
       ok: false,
       response: NextResponse.json(
         { error: "Marketing admin access required" },
+        { status: 403 },
+      ),
+    };
+  }
+  return { ok: true, user };
+}
+
+/**
+ * Authenticate + require SaaS-plane access: any marketing role OR any
+ * SaaS-only role (support_admin, finance_admin, …). Permission checks stay
+ * with hasSaasPerm at each route; this only replaces the old marketing-only
+ * gate that locked SaaS-only roles out of APIs their permissions allow.
+ */
+export async function requireSaasAccess(): Promise<GuardResult> {
+  const user = await getCurrentUser();
+  if (!user) {
+    return {
+      ok: false,
+      response: NextResponse.json({ error: "Not signed in" }, { status: 401 }),
+    };
+  }
+  const marketing = roleFor(user);
+  if (!marketing && !isSaasRole(user.role ?? "")) {
+    return {
+      ok: false,
+      response: NextResponse.json(
+        { error: "SaaS access required" },
         { status: 403 },
       ),
     };

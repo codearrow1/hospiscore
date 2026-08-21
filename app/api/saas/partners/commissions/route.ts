@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { requireMarketingUser } from "@/lib/marketing/guard";
+import { requireSaasAccess } from "@/lib/marketing/guard";
 import { hasSaasPerm } from "@/lib/saas/roles";
 import { listPartnerCommissions } from "@/lib/saas/partners";
 
@@ -7,7 +7,7 @@ export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 
 export async function GET(req: NextRequest) {
-  const guard = await requireMarketingUser();
+  const guard = await requireSaasAccess();
   if (!guard.ok) return guard.response;
   if (!hasSaasPerm(guard.user, "PARTNER_VIEW")) return NextResponse.json({ error: "PARTNER_VIEW required" }, { status: 403 });
   const partnerId = req.nextUrl.searchParams.get("partnerId") || undefined;

@@ -2,7 +2,9 @@ import { redirect } from "next/navigation";
 import { getCurrentUser } from "@/lib/sessionCookie";
 import { prisma } from "@/lib/prisma";
 import Header from "@/components/Header";
+import PortalNav from "@/components/portal/PortalNav";
 import { SectionCard, Badge, EmptyState } from "@/components/marketing-admin/ui";
+import { resolveAppRole } from "@/lib/rbac";
 
 export const dynamic = "force-dynamic";
 export const runtime = "nodejs";
@@ -20,6 +22,8 @@ export default async function PartnerPortal() {
     where: { OR: [{ email: user.email }, { userId: user.id }] },
   });
   if (!partner) {
+    const appRole = await resolveAppRole(user);
+    if (appRole !== "super_admin") redirect("/account?next=/partner");
     return (
       <div className="min-h-screen flex flex-col">
         <Header />
@@ -55,10 +59,12 @@ export default async function PartnerPortal() {
   const earned = commissions.filter((c) => c.status !== "reversed").reduce((s, c) => s + c.amount, 0);
   const paid = payouts.reduce((s, p) => s + p.amount, 0);
   const referralLink = `${process.env.SITE_URL || "https://thebuddharice.online"}/?ref=${partner.referralCode}`;
+  const appRole = (await resolveAppRole(user)) ?? "partner";
 
   return (
     <div className="min-h-screen flex flex-col">
       <Header />
+      <PortalNav role={appRole} />
       <main className="mx-auto w-full max-w-5xl flex-1 px-4 py-8 space-y-6">
         <div className="flex items-center justify-between">
           <div>
@@ -100,6 +106,7 @@ export default async function PartnerPortal() {
         </SectionCard>
 
         <SectionCard title="Referred accounts">
+          <div id="referrals" />
           {referredOrgs.length === 0 ? (
             <EmptyState title="No referrals yet." body="Share your referral link to get started." />
           ) : (
@@ -118,6 +125,7 @@ export default async function PartnerPortal() {
         </SectionCard>
 
         <SectionCard title="Recent commissions">
+          <div id="commissions" />
           {commissions.length === 0 ? (
             <EmptyState title="No commissions yet." />
           ) : (
@@ -136,6 +144,7 @@ export default async function PartnerPortal() {
         </SectionCard>
 
         <SectionCard title="Payouts">
+          <div id="payouts" />
           {payouts.length === 0 ? (
             <EmptyState title="No payouts yet." />
           ) : (

@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { requireMarketingUser } from "@/lib/marketing/guard";
+import { requireSaasAccess } from "@/lib/marketing/guard";
 import { hasSaasPerm } from "@/lib/saas/roles";
 import { processDueCases } from "@/lib/saas/dunning";
 
@@ -17,7 +17,7 @@ async function handle(req: NextRequest) {
     const result = await processDueCases();
     return NextResponse.json({ ok: true, ...result });
   }
-  const guard = await requireMarketingUser();
+  const guard = await requireSaasAccess();
   if (!guard.ok) return guard.response;
   if (!hasSaasPerm(guard.user, "BILLING_MANAGE")) return NextResponse.json({ error: "BILLING_MANAGE required" }, { status: 403 });
   const result = await processDueCases();

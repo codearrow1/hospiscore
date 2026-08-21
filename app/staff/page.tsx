@@ -3,7 +3,9 @@ import { getCurrentUser } from "@/lib/sessionCookie";
 import { hasSaasPerm } from "@/lib/saas/roles";
 import { prisma } from "@/lib/prisma";
 import Header from "@/components/Header";
+import PortalNav from "@/components/portal/PortalNav";
 import { SectionCard, Badge, EmptyState } from "@/components/marketing-admin/ui";
+import { resolveAppRole } from "@/lib/rbac";
 
 export const dynamic = "force-dynamic";
 export const runtime = "nodejs";
@@ -25,10 +27,12 @@ export default async function StaffDashboard() {
   });
   const mine = tickets.filter((t) => t.assigneeEmail === user.email);
   const breached = tickets.filter((t) => t.slaDueAt && t.slaDueAt.getTime() < Date.now());
+  const appRole = (await resolveAppRole(user)) ?? "staff";
 
   return (
     <div className="min-h-screen flex flex-col">
       <Header />
+      <PortalNav role={appRole} />
       <main className="mx-auto w-full max-w-5xl flex-1 px-4 py-8 space-y-6">
         <div className="flex items-center justify-between">
           <div>

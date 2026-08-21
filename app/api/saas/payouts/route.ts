@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { requireMarketingUser } from "@/lib/marketing/guard";
+import { requireSaasAccess } from "@/lib/marketing/guard";
 import { hasSaasPerm } from "@/lib/saas/roles";
 import { listPayouts, createPayout } from "@/lib/saas/payouts";
 import { writeSaasAudit } from "@/lib/saas/audit";
@@ -9,7 +9,7 @@ export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 
 export async function GET(req: NextRequest) {
-  const guard = await requireMarketingUser();
+  const guard = await requireSaasAccess();
   if (!guard.ok) return guard.response;
   if (!hasSaasPerm(guard.user, "AFFILIATE_VIEW")) return NextResponse.json({ error: "AFFILIATE_VIEW required" }, { status: 403 });
   const affiliateId = req.nextUrl.searchParams.get("affiliateId") || undefined;
@@ -19,7 +19,7 @@ export async function GET(req: NextRequest) {
 }
 
 export async function POST(req: NextRequest) {
-  const guard = await requireMarketingUser();
+  const guard = await requireSaasAccess();
   if (!guard.ok) return guard.response;
   if (!hasSaasPerm(guard.user, "AFFILIATE_PAYOUT")) return NextResponse.json({ error: "AFFILIATE_PAYOUT required" }, { status: 403 });
   let body: Record<string, unknown>;

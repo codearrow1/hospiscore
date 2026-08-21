@@ -1,6 +1,13 @@
 import { describe, it, expect } from "vitest";
+import { readFileSync } from "node:fs";
+import { mkdtemp, rm } from "node:fs/promises";
+import { tmpdir } from "node:os";
+import path from "node:path";
 import { appRoleFromStoredRole, dashboardPathFor, APP_ROLE_DASHBOARDS } from "./rbac";
 import { hasSaasPerm } from "./saas/roles";
+import { ensureDemoUsers } from "./marketing/seed";
+import { readData } from "./db";
+import { verifyPassword } from "./auth";
 
 const u = (email: string, role?: string) => ({ email, role });
 
@@ -86,4 +93,63 @@ describe("rbac dashboard routing", () => {
     const paths = Object.values(APP_ROLE_DASHBOARDS);
     expect(new Set(paths).size).toBe(paths.length);
   });
+});
+
+describe("rbac staff boundary", () => {
+  const staff = u("staff@hospios.demo", "support_admin");
+  it("allows support operations", () => {
+    expect(hasSaasPerm(staff, "SUPPORT_VIEW")).toBe(true);
+    expect(hasSaasPerm(staff, "SUPPORT_MANAGE")).toBe(true);
+    expect(hasSaasPerm(staff, "CUSTOMER_VIEW")).toBe(true);
+  });
+  it("denies privileged billing and system configuration", () => {
+    expect(hasSaasPerm(staff, "BILLING_MANAGE")).toBe(false);
+    expect(hasSaasPerm(staff, "REFUND_APPROVE")).toBe(false);
+    expect(hasSaasPerm(staff, "SYSTEM_SETTINGS_MANAGE")).toBe(false);
+    expect(hasSaasPerm(staff, "PLAN_MANAGE")).toBe(false);
+    expect(hasSaasPerm(staff, "SUBSCRIPTION_MANAGE")).toBe(false);
+  });
+});
+
+describe("rbac demo credentials authenticate", () => {
+  const accounts: [string, string][] = [
+    ["superadmin@hospios.demo", "Hospios@Demo2026!"],
+    ["marketing@hospios.demo", "Marketing@Demo2026!"],
+    ["affiliate@hospios.demo", "Affiliate@Demo2026!"],
+    ["partner@hospios.demo", "Partner@Demo2026!"],
+    ["customer@hospios.demo", "Customer@Demo2026!"],
+    ["customer2@hospios.demo", "Customer2@Demo2026!"],
+    ["staff@hospios.demo", "Staff@Demo2026!"],
+  ];
+
+  it("creates every role user with a working password hash", async () => {
+    const dir = await mkdtemp(path.join(tmpdir(), "hs-rbac-"));
+    const target = path.join(dir, "data.json");
+    await ensureDemoUsers(target);
+    const data = await readData(target);
+    for (const [email, password] of accounts) {
+      const user = data.users.find((x) => x.email === email && x.passwordHash);
+      expect(user, `missing demo user ${email}`).toBeTruthy();
+      expect(await verifyPassword(password, user!.passwordHash)).toBe(true);
+      expect(await verifyPassword("wrong-password", user!.passwordHash)).toBe(false);
+    }
+    await rm(dir, { recursive: true, force: true });
+  });
+});
+
+describe("rbac portal APIs are structurally self-scoped (IDOR guard-rail)", () => {
+  const routes = [
+    "app/api/partner/me/route.ts",
+    "app/api/customer/me/route.ts",
+    "app/api/affiliate/me/route.ts",
+  ];
+  for (const route of routes) {
+    it(`${route} derives identity from the session only`, () => {
+      const src = readFileSync(route, "utf8");
+      expect(src).toContain("getCurrentUser");
+      expect(src).not.toMatch(/nextUrl\.searchParams/);
+      expect(src).not.toMatch(/body\.(organizationId|affiliateId|partnerId|userId)/);
+      expect(src).not.toMatch(/params\.id/);
+    });
+  }
 });

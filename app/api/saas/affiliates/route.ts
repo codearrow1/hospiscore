@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { requireMarketingUser } from "@/lib/marketing/guard";
+import { requireSaasAccess } from "@/lib/marketing/guard";
 import { hasSaasPerm } from "@/lib/saas/roles";
 import { listAffiliates, createAffiliate } from "@/lib/saas/affiliates";
 import { writeSaasAudit } from "@/lib/saas/audit";
@@ -9,7 +9,7 @@ export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 
 export async function GET(req: NextRequest) {
-  const guard = await requireMarketingUser();
+  const guard = await requireSaasAccess();
   if (!guard.ok) return guard.response;
   if (!hasSaasPerm(guard.user, "AFFILIATE_VIEW")) return NextResponse.json({ error: "AFFILIATE_VIEW required" }, { status: 403 });
   const status = req.nextUrl.searchParams.get("status") || undefined;
@@ -19,7 +19,7 @@ export async function GET(req: NextRequest) {
 }
 
 export async function POST(req: NextRequest) {
-  const guard = await requireMarketingUser();
+  const guard = await requireSaasAccess();
   if (!guard.ok) return guard.response;
   // Allow anyone to apply? For SaaS admin, need AFFILIATE_MANAGE to create; but public apply via same endpoint with no auth? For now require MANAGE, portal apply will use separate /api/affiliate/apply
   if (!hasSaasPerm(guard.user, "AFFILIATE_MANAGE")) return NextResponse.json({ error: "AFFILIATE_MANAGE required" }, { status: 403 });

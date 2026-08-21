@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { requireMarketingUser } from "@/lib/marketing/guard";
+import { requireSaasAccess } from "@/lib/marketing/guard";
 import { hasSaasPerm } from "@/lib/saas/roles";
 import { listCoupons, createCoupon } from "@/lib/saas/coupons";
 import { writeSaasAudit } from "@/lib/saas/audit";
@@ -9,7 +9,7 @@ export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 
 export async function GET(req: NextRequest) {
-  const guard = await requireMarketingUser();
+  const guard = await requireSaasAccess();
   if (!guard.ok) return guard.response;
   if (!hasSaasPerm(guard.user, "MARKETING_VIEW")) return NextResponse.json({ error: "MARKETING_VIEW required" }, { status: 403 });
   const activeOnly = req.nextUrl.searchParams.get("active") === "1";
@@ -18,7 +18,7 @@ export async function GET(req: NextRequest) {
 }
 
 export async function POST(req: NextRequest) {
-  const guard = await requireMarketingUser();
+  const guard = await requireSaasAccess();
   if (!guard.ok) return guard.response;
   if (!hasSaasPerm(guard.user, "MARKETING_MANAGE")) return NextResponse.json({ error: "MARKETING_MANAGE required" }, { status: 403 });
   let body: Record<string, unknown>;

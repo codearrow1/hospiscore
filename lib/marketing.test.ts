@@ -527,10 +527,10 @@ describe("marketing seed", () => {
   it("creates demo accounts once and skips existing on re-run", async () => {
     const target = await tempTarget();
     const first = await ensureDemoUsers(target);
-    expect(first.created).toHaveLength(10);
+    expect(first.created).toHaveLength(11);
     const second = await ensureDemoUsers(target);
     expect(second.created).toHaveLength(0);
-    expect(second.existing).toHaveLength(10);
+    expect(second.existing).toHaveLength(11);
 
     const { users } = await readData(target);
     expect(users.some((u) => u.email === "superadmin@hospios.demo" && u.role === "super_admin")).toBe(true);

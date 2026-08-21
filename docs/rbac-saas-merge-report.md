@@ -1,6 +1,78 @@
 # RBAC / SaaS Merge — Final Implementation Report
 
-Date: 2026-08-21 · Branch: `main` (uncommitted at time of writing)
+Date: 2026-08-21 · Branch: `main` · Commits: `5c7797c` + end-to-end completion pass
+
+## Verification summary (all executed live, not assumed)
+
+| Check | Result |
+| --- | --- |
+| Logins (superadmin, subadmin, affiliate, partner, customer, customer2, staff) | 7/7 → 200; bad password → 401 |
+| `/dashboard` role routing | 7/7 redirect to correct dashboard |
+| Cross-role direct URL access | affiliate/customer→`/subadmin` 307; partner→`/staff` 307; customer2→`/partner` 307; staff→`/customer` 307 |
+| Subadmin marketing read/write | GET leads 200; POST lead 201 (legitimate functions preserved) |
+| Subadmin SaaS writes | org create 403 `CUSTOMER_MANAGE required`; plan create 403 `PLAN_MANAGE required` |
+| Subadmin SaaS read visibility | GET organizations 200 (CUSTOMER_VIEW) |
+| Staff support read | 200 (after `requireSaasAccess` fix) |
+| Staff privileged ops | plans/payments POST → 403 |
+| Portal roles on admin APIs | affiliates/partners/support/subscriptions/metrics → 403 |
+| Customer A/B isolation | A sees only "Demo Grand Hotel"; B sees only "Demo Grand Resort" (API-level) |
+| Self-scoped APIs | partner sees only own code/commissions; affiliate only AFFDEMO01; no client-supplied IDs accepted (structural tests) |
+| Financial integrity | MRR consistent 10/10 orgs; paid invoices = succeeded payments (8 = 8, $1,692.00); commissions $591.55 vs payouts $144.60 internally consistent |
+
+## Issues found by verification and fixed in this pass
+
+1. **SaaS-only roles locked out of SaaS APIs** — every `/api/saas/*` route gated on
+   `requireMarketingUser()`, so `support_admin`/`finance_admin` etc. got 403 despite
+   holding the right `hasSaasPerm`. Fixed with new `requireSaasAccess()` guard
+   (`lib/marketing/guard.ts`) applied to all 37 SaaS route files. Permission checks
+   remain per-route via `hasSaasPerm`; portal identities still rejected ("SaaS access required").
+2. **Seeder financial inconsistency** — demo orgs had cached `mrr=0` and paid invoices
+   without Payment rows. Seeder now calls `syncOrgMrr()` (existing business logic) per
+   subscription and creates matching succeeded `Payment` records; `ensurePortalIdentities`
+   self-heals stale portal-org MRR on every run.
+3. **Wrong-role portal access was a soft page** — `/partner`, `/customer` now hard-redirect
+   non-members to `/account?next=…` (super admin keeps the explanatory empty state).
+4. **Missing role sidebars** — added permission-aware `components/portal/PortalNav.tsx`;
+   rendered on all five portals; links generated from canonical role only.
+
+## Sidebars/navigation
+
+- Super Admin → full SaaS control-plane nav (permission-filtered shell, existing).
+- Subadmin → Dashboard / Leads / Campaigns / Pipeline / Analytics / Profile.
+- Affiliate → Dashboard / Commissions / Payouts / Profile.
+- Partner → Dashboard / Referrals / Commissions / Payouts / Profile.
+- Customer → Dashboard / Subscription / Usage / Billing / Profile.
+- Staff → Queue / Profile.
+All nav items point at routes the backend enforces; nothing render-only.
+
+## Backend RBAC audit result
+
+All 33 SaaS API routes guarded (auth + `hasSaasPerm`); all marketing APIs use
+`requireCapability`; remaining public routes are public-by-design (auth, search,
+pricing, tracking pixels, public forms). No endpoint relies on frontend-only protection.
+Portal APIs accept no client-supplied identity parameters (IDOR-safe by construction;
+verified live + structural guard-rail tests).
+
+## Tests
+
+`npx tsc --noEmit` clean · `npm run lint` clean · `npm test` **222/222** (baseline 205 +
+17 RBAC/auth/isolation tests) · `npm run build` success. Live matrix above executed
+against a running dev server with real cookie sessions.
+
+## Known remaining issues (non-critical)
+
+- Granular SaaS owner roles (finance_admin, …) route to `/saas` but keep narrow perms — intentional.
+- Affiliate portal keeps its pre-existing soft "no account found" page for non-affiliates.
+- Demo seeding remains production-blocked by design (`ALLOW_DEMO_SEED` guard).
+
+## Files changed in completion pass
+
+`lib/marketing/guard.ts` (+requireSaasAccess), 37 × `app/api/saas/**/route.ts`
+(guard swap), `components/portal/PortalNav.tsx` (new), 5 portal pages (nav + anchors +
+hard redirects), `scripts/seed-demo-month.ts` (payments + MRR sync),
+`lib/marketing/seed.ts` (customer2 + self-healing MRR), `lib/rbac.test.ts`
+(+staff boundary, +credential auth, +IDOR guard-rail tests), `lib/marketing.test.ts`
+(count 11), docs updated.
 
 ## 1. Existing architecture discovered
 
@@ -83,7 +155,7 @@ clicks, 6 commissions (partner percent_first approved; affiliate percent_mrr_12 
 
 - `npm run typecheck` — clean
 - `npm run lint` — clean (fixed `<a>`→`Link`, unused import)
-- `npm test` — **216/216 pass** (incl. 11 new RBAC tests in `lib/rbac.test.ts`)
+- `npm test` — **222/222 pass** (incl. RBAC, credential-auth and IDOR guard-rail tests in `lib/rbac.test.ts`)
 - `npm run build` — success (all new routes compiled)
 - Live matrix (dev server): 6/6 logins 200; bad password 401; `/dashboard` routes each
   role correctly; cross-role page access → 307 `/account`; subadmin SaaS write → 403;

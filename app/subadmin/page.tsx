@@ -4,8 +4,10 @@ import { getCurrentUser } from "@/lib/sessionCookie";
 import { canAccess, ROLE_LABELS, roleFor } from "@/lib/marketing/roles";
 import { readData } from "@/lib/db";
 import Header from "@/components/Header";
+import PortalNav from "@/components/portal/PortalNav";
 import { SectionCard, Badge, EmptyState } from "@/components/marketing-admin/ui";
 import { PIPELINE_STAGES } from "@/lib/marketing/types";
+import { resolveAppRole } from "@/lib/rbac";
 
 export const dynamic = "force-dynamic";
 export const runtime = "nodejs";
@@ -32,6 +34,7 @@ export default async function SubadminDashboard() {
     .sort((a, b) => b.createdAt.localeCompare(a.createdAt))
     .slice(0, 8);
   const role = roleFor(user);
+  const appRole = (await resolveAppRole(user)) ?? "subadmin";
 
   const kpis: { label: string; value: string; hint?: string }[] = [
     { label: "Total leads", value: String(leads.length) },
@@ -43,6 +46,7 @@ export default async function SubadminDashboard() {
   return (
     <div className="min-h-screen flex flex-col">
       <Header />
+      <PortalNav role={appRole} />
       <main className="mx-auto w-full max-w-5xl flex-1 px-4 py-8 space-y-6">
         <div className="flex items-center justify-between">
           <div>

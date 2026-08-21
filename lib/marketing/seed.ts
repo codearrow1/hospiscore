@@ -95,6 +95,7 @@ export const DEMO_USERS: {
   { email: "affiliate@hospios.demo", password: "Affiliate@Demo2026!", name: "Demo Affiliate", role: "" },
   { email: "partner@hospios.demo", password: "Partner@Demo2026!", name: "Demo Partner", role: "" },
   { email: "customer@hospios.demo", password: "Customer@Demo2026!", name: "Demo Customer", role: "" },
+  { email: "customer2@hospios.demo", password: "Customer2@Demo2026!", name: "Second Demo Customer", role: "" },
   { email: "staff@hospios.demo", password: "Staff@Demo2026!", name: "Support Staff", role: "support_admin" },
 ];
 
@@ -217,22 +218,31 @@ export async function ensurePortalIdentities(): Promise<void> {
   }
   if (!plan) return;
 
-  const existingOrg = await prisma.organization.findFirst({
-    where: { contacts: { some: { email: "customer@hospios.demo" } } },
-  });
-  if (!existingOrg) {
+  const { syncOrgMrr } = await import("@/lib/saas/subscriptions");
+  const customerSpecs = [
+    { email: "customer@hospios.demo", name: "Demo Customer", org: "Demo Grand Hotel" },
+    { email: "customer2@hospios.demo", name: "Second Demo Customer", org: "Demo Grand Resort" },
+  ];
+  for (const spec of customerSpecs) {
+    const existingOrg = await prisma.organization.findFirst({
+      where: { contacts: { some: { email: spec.email } } },
+    });
+    if (existingOrg) {
+      await syncOrgMrr(existingOrg.id);
+      continue;
+    }
     const org = await prisma.organization.create({
       data: {
-        legalName: "Demo Grand Hotel",
-        businessName: "Demo Grand Hotel",
+        legalName: spec.org,
+        businessName: spec.org,
         country: "US",
         industry: "hospitality",
         status: "active",
         acquisitionSource: "organic",
         contacts: {
           create: {
-            name: "Demo Customer",
-            email: "customer@hospios.demo",
+            name: spec.name,
+            email: spec.email,
             role: "owner",
             isPrimary: true,
           },
@@ -252,5 +262,6 @@ export async function ensurePortalIdentities(): Promise<void> {
         currentPeriodEnd: new Date(now.getTime() + 30 * 86_400_000),
       },
     });
+    await syncOrgMrr(org.id);
   }
 }

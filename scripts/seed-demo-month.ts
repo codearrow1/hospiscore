@@ -11,6 +11,7 @@
 import { prisma } from "@/lib/prisma";
 import { writeData } from "@/lib/db";
 import { seedDefaultPlans } from "@/lib/saas/plans";
+import { syncOrgMrr } from "@/lib/saas/subscriptions";
 import { ensureDemoUsers, ensurePortalIdentities } from "@/lib/marketing/seed";
 import type { Campaign, LeadEvent, MarketingLead } from "@/lib/marketing/types";
 import { PIPELINE_STAGES } from "@/lib/marketing/types";
@@ -187,7 +188,8 @@ async function main(): Promise<void> {
         currentPeriodEnd: new Date(periodStart.getTime() + 30 * DAY),
       },
     });
-    await prisma.invoice.create({
+    const paidAt = new Date(created.getTime() + 2 * DAY);
+    const invoice = await prisma.invoice.create({
       data: {
         organizationId: org.id,
         subscriptionId: sub.id,
@@ -195,9 +197,20 @@ async function main(): Promise<void> {
         status: "paid",
         amount: plan.monthlyPrice,
         dueAt: new Date(created.getTime() + 7 * DAY),
-        paidAt: new Date(created.getTime() + 2 * DAY),
+        paidAt,
       },
     });
+    await prisma.payment.create({
+      data: {
+        organizationId: org.id,
+        invoiceId: invoice.id,
+        gateway: "manual",
+        amount: plan.monthlyPrice,
+        status: "succeeded",
+        createdAt: paidAt,
+      },
+    });
+    await syncOrgMrr(org.id);
     const weeks = Math.max(1, Math.floor((now.getTime() - created.getTime()) / (7 * DAY)));
     for (let w = 0; w < weeks; w++) {
       const recDate = new Date(created.getTime() + w * 7 * DAY);

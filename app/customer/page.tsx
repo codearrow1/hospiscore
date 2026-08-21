@@ -2,7 +2,9 @@ import { redirect } from "next/navigation";
 import { getCurrentUser } from "@/lib/sessionCookie";
 import { prisma } from "@/lib/prisma";
 import Header from "@/components/Header";
+import PortalNav from "@/components/portal/PortalNav";
 import { SectionCard, Badge, EmptyState } from "@/components/marketing-admin/ui";
+import { resolveAppRole } from "@/lib/rbac";
 
 export const dynamic = "force-dynamic";
 export const runtime = "nodejs";
@@ -22,6 +24,8 @@ export default async function CustomerPortal() {
     include: { organization: true },
   });
   if (!contact) {
+    const appRole = await resolveAppRole(user);
+    if (appRole !== "super_admin") redirect("/account?next=/customer");
     return (
       <div className="min-h-screen flex flex-col">
         <Header />
@@ -61,10 +65,12 @@ export default async function CustomerPortal() {
   const outstanding = invoices
     .filter((i) => i.status === "issued" || i.status === "past_due" || i.status === "partially_paid")
     .reduce((s, i) => s + i.amount, 0);
+  const appRole = (await resolveAppRole(user)) ?? "customer";
 
   return (
     <div className="min-h-screen flex flex-col">
       <Header />
+      <PortalNav role={appRole} />
       <main className="mx-auto w-full max-w-5xl flex-1 px-4 py-8 space-y-6">
         <div className="flex items-center justify-between">
           <div>
@@ -98,6 +104,7 @@ export default async function CustomerPortal() {
         </div>
 
         <SectionCard title="Subscription">
+          <div id="subscription" />
           {!active ? (
             <EmptyState title="No subscription yet." />
           ) : (
@@ -117,6 +124,7 @@ export default async function CustomerPortal() {
         </SectionCard>
 
         <SectionCard title="Usage by metric (last 30 days)">
+          <div id="usage" />
           {usage.length === 0 ? (
             <EmptyState title="No usage recorded." />
           ) : (
@@ -132,6 +140,7 @@ export default async function CustomerPortal() {
         </SectionCard>
 
         <SectionCard title="Billing history">
+          <div id="billing" />
           {invoices.length === 0 ? (
             <EmptyState title="No invoices yet." />
           ) : (

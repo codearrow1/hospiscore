@@ -18,6 +18,7 @@ Login URL for all roles: `/account` (or `/dashboard` after signing in — it rou
 | Affiliate | `affiliate@hospios.demo` | `Affiliate@Demo2026!` | `/affiliate` | Own referrals/clicks/commissions/payouts only (code `AFFDEMO01`) |
 | Partner | `partner@hospios.demo` | `Partner@Demo2026!` | `/partner` | Own referred accounts/commissions/payouts only (code `PTNDEMO01`) |
 | Customer | `customer@hospios.demo` | `Customer@Demo2026!` | `/customer` | Own organization only ("Demo Grand Hotel"): subscription, usage, invoices |
+| Customer B | `customer2@hospios.demo` | `Customer2@Demo2026!` | `/customer` | Own organization only ("Demo Grand Resort") — used for cross-customer isolation testing |
 | Staff (Support) | `staff@hospios.demo` | `Staff@Demo2026!` | `/staff` | Support ticket queue (SUPPORT_VIEW/MANAGE) |
 
 ## Environment assumptions
