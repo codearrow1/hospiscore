@@ -4,6 +4,7 @@ import { restrictedPanel } from "@/app/marketing-admin/restricted";
 import { saasMetrics, centsToLabel } from "@/lib/saas/metrics";
 import { seedDefaultPlans } from "@/lib/saas/plans";
 import { listHealth } from "@/lib/saas/health";
+import { revenueByCountry, churnCohort } from "@/lib/saas/analytics";
 import { KpiCard, SectionCard, EmptyState, Badge } from "@/components/marketing-admin/ui";
 import { Bars, Line } from "@/components/marketing-admin/charts";
 
@@ -15,7 +16,7 @@ export default async function SaasDashboardPage() {
   if (!guard.ok) return restrictedPanel("SaaS Command Center", "Platform owner access required.");
 
   await seedDefaultPlans();
-  const [m, health] = await Promise.all([saasMetrics(), listHealth({})]);
+  const [m, health, country, churn] = await Promise.all([saasMetrics(), listHealth({}), revenueByCountry(), churnCohort(6)]);
   const atRisk = health.items.filter((h) => h.healthStatus === "at_risk" || h.healthStatus === "critical").slice(0, 6);
 
   return (
@@ -53,6 +54,38 @@ export default async function SaasDashboardPage() {
           ) : (
             <Bars data={m.revenueByPlan.map((r) => ({ key: r.plan, count: Math.round(r.mrr / 100) }))} labelKey="MRR $" />
           )}
+        </SectionCard>
+      </div>
+
+      <div className="grid gap-5 lg:grid-cols-2">
+        <SectionCard title="MRR by Country (top 8)">
+          {country.length === 0 ? (
+            <EmptyState title="No active customers" />
+          ) : (
+            <table className="w-full text-left text-sm">
+              <thead><tr className="text-xs uppercase text-zinc-400"><th className="pb-1">Country</th><th className="pb-1">Customers</th><th className="pb-1 text-right">MRR</th></tr></thead>
+              <tbody>
+                {country.slice(0, 8).map((c) => (
+                  <tr key={c.key} className="border-t border-zinc-100 dark:border-zinc-800">
+                    <td className="py-1 font-medium">{c.key}</td>
+                    <td className="py-1 tabular-nums">{c.customers}</td>
+                    <td className="py-1 text-right tabular-nums">{centsToLabel(c.mrr)}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          )}
+          <p className="mt-2 text-xs text-zinc-400">Drilldowns: GET /api/saas/analytics?drilldown=country|plan|source|churn</p>
+        </SectionCard>
+        <SectionCard title="Churn Cohort (6mo)">
+          {churn.every((c) => c.lost === 0) ? (
+            <EmptyState title="No churn recorded" body="Cancelled/expired subscriptions appear here by month." />
+          ) : (
+            <Bars data={churn.map((c) => ({ key: c.month.slice(2), count: c.lost }))} labelKey="Lost subs" />
+          )}
+          <p className="mt-2 text-xs text-zinc-500">
+            {churn.reduce((s, c) => s + c.lost, 0)} lost · {centsToLabel(churn.reduce((s, c) => s + c.lostMrr, 0))} MRR lost over 6 months
+          </p>
         </SectionCard>
       </div>
 

@@ -2,7 +2,6 @@ import { NextRequest, NextResponse } from "next/server";
 import { requireMarketingUser } from "@/lib/marketing/guard";
 import { hasSaasPerm } from "@/lib/saas/roles";
 import { listOrganizations, createOrganization } from "@/lib/saas/organizations";
-import { getAffiliateByCode } from "@/lib/saas/affiliates";
 import { writeSaasAudit } from "@/lib/saas/audit";
 import { clientIp } from "@/lib/marketing/guard";
 
@@ -37,13 +36,22 @@ export async function POST(req: NextRequest) {
     const e = typeof pc.email === "string" ? pc.email.trim() : "";
     if (n && e) primaryContact = { name: n, email: e, phone: typeof pc.phone === "string" ? pc.phone : undefined };
   }
-  // affiliate attribution via explicit affiliateId / referralCode / aff_ref cookie
+  // affiliate/partner attribution via explicit ids / referral codes / aff_ref cookie
   let affiliateId: string | undefined;
+  let partnerId: string | undefined;
   const rawCode = typeof body.affiliateCode === "string" ? body.affiliateCode : typeof body.ref === "string" ? body.ref : req.cookies.get("aff_ref")?.value;
   if (typeof body.affiliateId === "string" && body.affiliateId) affiliateId = body.affiliateId;
   else if (rawCode) {
+    const { getAffiliateByCode } = await import("@/lib/saas/affiliates");
     const aff = await getAffiliateByCode(String(rawCode));
     if (aff && (aff.status === "active" || aff.status === "approved")) affiliateId = aff.id;
+  }
+  const rawPartner = typeof body.partnerCode === "string" ? body.partnerCode : undefined;
+  if (typeof body.partnerId === "string" && body.partnerId) partnerId = body.partnerId;
+  else if (rawPartner) {
+    const { getPartnerByCode } = await import("@/lib/saas/partners");
+    const p = await getPartnerByCode(String(rawPartner));
+    if (p && (p.status === "active" || p.status === "approved")) partnerId = p.id;
   }
   let org;
   try {
@@ -55,6 +63,7 @@ export async function POST(req: NextRequest) {
       acquisitionSource: typeof body.acquisitionSource === "string" ? body.acquisitionSource : undefined,
       acquisitionCampaign: typeof body.acquisitionCampaign === "string" ? body.acquisitionCampaign : undefined,
       affiliateId,
+      partnerId,
       primaryContact,
     });
   } catch (e) {
@@ -63,3 +72,4 @@ export async function POST(req: NextRequest) {
   await writeSaasAudit({ byEmail: guard.user.email, action: "org.created", entity: "organization", entityId: org.id, detail: legalName, ip: clientIp(req) });
   return NextResponse.json({ organization: org }, { status: 201 });
 }
+

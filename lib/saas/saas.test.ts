@@ -10,6 +10,9 @@ import { canTransitionPayout, PAYOUT_STATUSES } from "./payouts";
 import { statusForScore } from "./health";
 import { nextRetryAfterAttempt, RETRY_SCHEDULE_DAYS } from "./dunning";
 import { validateCouponInput, computeDiscount } from "./coupons";
+import { canTransitionTicket, slaDueFor, isSlaBreached, TICKET_CATEGORIES } from "./support";
+import { canTransitionFranchisee, FRANCHISEE_STATUSES } from "./franchise";
+import { PARTNER_STATUSES } from "./partners";
 
 describe("saas organizations validation", () => {
   it("rejects short legalName", () => {
@@ -196,5 +199,56 @@ describe("saas coupons", () => {
     expect(computeDiscount("fixed", 5000, 9900)).toBe(5000); // $50 off
     expect(computeDiscount("fixed", 50000, 9900)).toBe(9900); // capped at amount
     expect(computeDiscount("percent", 10000, 9900)).toBe(9900); // 100%
+  });
+});
+
+describe("saas support tickets", () => {
+  it("has a fixed category list", () => {
+    expect(TICKET_CATEGORIES).toContain("billing");
+    expect(TICKET_CATEGORIES).toContain("bug");
+    expect(TICKET_CATEGORIES).not.toContain("bogus");
+  });
+  it("enforces ticket status transitions incl. reopen path", () => {
+    expect(canTransitionTicket("open", "in_progress")).toBe(true);
+    expect(canTransitionTicket("open", "resolved")).toBe(true);
+    expect(canTransitionTicket("pending", "in_progress")).toBe(true);
+    expect(canTransitionTicket("in_progress", "resolved")).toBe(true);
+    expect(canTransitionTicket("resolved", "closed")).toBe(true);
+    expect(canTransitionTicket("resolved", "in_progress")).toBe(true); // reopen
+    expect(canTransitionTicket("closed", "open")).toBe(false); // terminal
+    expect(canTransitionTicket("closed", "in_progress")).toBe(false);
+    expect(canTransitionTicket("open", "bogus" as never)).toBe(false);
+  });
+  it("computes SLA due dates by priority", () => {
+    const base = new Date("2026-01-01T00:00:00Z");
+    expect(slaDueFor("urgent", base)).toEqual(new Date("2026-01-01T04:00:00Z"));
+    expect(slaDueFor("high", base)).toEqual(new Date("2026-01-01T08:00:00Z"));
+    expect(slaDueFor("medium", base)).toEqual(new Date("2026-01-02T00:00:00Z"));
+    expect(slaDueFor("low", base)).toEqual(new Date("2026-01-04T00:00:00Z"));
+  });
+  it("flags SLA breaches deterministically", () => {
+    const overdue = { status: "open", slaDueAt: new Date(Date.now() - 60000), resolvedAt: null, firstResponseAt: null };
+    const withinSla = { status: "open", slaDueAt: new Date(Date.now() + 3600000), resolvedAt: null, firstResponseAt: null };
+    expect(isSlaBreached(overdue)).toBe(true);
+    expect(isSlaBreached(withinSla)).toBe(false);
+    expect(isSlaBreached({ ...overdue, resolvedAt: new Date() })).toBe(false); // resolved in time
+    expect(isSlaBreached({ ...overdue, status: "closed" })).toBe(false);
+    expect(isSlaBreached({ status: "open", slaDueAt: null, resolvedAt: null, firstResponseAt: null })).toBe(false);
+  });
+});
+
+describe("saas partners & franchise", () => {
+  it("partner lifecycle statuses are well-formed", () => {
+    for (const s of ["applied", "review", "approved", "active", "suspended"]) expect(PARTNER_STATUSES).toContain(s as never);
+    expect(PARTNER_STATUSES).not.toContain("bogus" as never);
+  });
+  it("enforces franchisee agreement transitions", () => {
+    expect(FRANCHISEE_STATUSES).toContain("proposed");
+    expect(canTransitionFranchisee("proposed", "signed")).toBe(true);
+    expect(canTransitionFranchisee("signed", "active")).toBe(true);
+    expect(canTransitionFranchisee("active", "terminated")).toBe(true);
+    expect(canTransitionFranchisee("proposed", "active")).toBe(false);
+    expect(canTransitionFranchisee("terminated", "active")).toBe(false);
+    expect(canTransitionFranchisee("active", "active")).toBe(false);
   });
 });

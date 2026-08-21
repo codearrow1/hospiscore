@@ -47,6 +47,10 @@ export async function recoverCase(invoiceId: string): Promise<boolean> {
     const sub = await prisma.subscription.findUnique({ where: { id: dc.subscriptionId }, select: { status: true } });
     if (sub && (sub.status === "past_due" || sub.status === "grace")) {
       await prisma.subscription.update({ where: { id: dc.subscriptionId }, data: { status: "active" } });
+      try {
+        const { syncOrgMrr } = await import("./subscriptions");
+        await syncOrgMrr(dc.organizationId);
+      } catch {}
     }
   }
   return true;
@@ -72,6 +76,10 @@ export async function processDueCases(now = new Date()): Promise<{ processed: nu
       await prisma.dunningCase.update({ where: { id: dc.id }, data: { status: "given_up", nextRetryAt: null } });
       if (dc.subscriptionId) {
         await prisma.subscription.updateMany({ where: { id: dc.subscriptionId, status: { in: ["past_due", "grace"] } }, data: { status: "suspended" } });
+        try {
+          const { syncOrgMrr } = await import("./subscriptions");
+          await syncOrgMrr(dc.organizationId);
+        } catch {}
       }
       suspended++;
       continue;

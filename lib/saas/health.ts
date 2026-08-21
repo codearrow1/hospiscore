@@ -41,11 +41,12 @@ export async function computeHealth(orgId: string): Promise<{ score: number | nu
   }
 
   const since90 = new Date(Date.now() - 90 * DAY);
-  const [failedPayments, totalPayments, lastUsage, usageAgg] = await Promise.all([
+  const [failedPayments, totalPayments, lastUsage, usageAgg, openTickets] = await Promise.all([
     prisma.payment.count({ where: { organizationId: orgId, status: "failed", createdAt: { gte: since90 } } }),
     prisma.payment.count({ where: { organizationId: orgId, createdAt: { gte: since90 } } }),
     prisma.usageRecord.findFirst({ where: { organizationId: orgId }, orderBy: { recordedAt: "desc" }, select: { recordedAt: true } }),
     prisma.usageRecord.aggregate({ where: { organizationId: orgId, metric: "users" }, _max: { quantity: true } }),
+    prisma.supportTicket.count({ where: { organizationId: orgId, status: { in: ["open", "pending", "in_progress"] } } }),
   ]);
 
   let score = 50; // neutral baseline
@@ -73,6 +74,12 @@ export async function computeHealth(orgId: string): Promise<{ score: number | nu
     signals.failedPayments90d = failedPayments;
   } else if (totalPayments > 0) {
     score += 5;
+  }
+
+  // Unresolved support burden (-6 per open ticket, capped -18)
+  if (openTickets > 0) {
+    score -= Math.min(18, openTickets * 6);
+    signals.openTickets = openTickets;
   }
 
   // Usage recency (+/- up to 20)

@@ -105,6 +105,10 @@ export async function recordPayment(input: {
       await prisma.invoice.update({ where: { id: input.invoiceId }, data: { status: "past_due" } });
       if (subscriptionId) {
         await prisma.subscription.updateMany({ where: { id: subscriptionId, status: "active" }, data: { status: "past_due" } });
+        try {
+          const { syncOrgMrr } = await import("./subscriptions");
+          if (input.organizationId) await syncOrgMrr(input.organizationId);
+        } catch {}
       }
     }
     await startDunning({ invoiceId: input.invoiceId, organizationId: input.organizationId, subscriptionId, reason: `payment ${pay.id} failed` });

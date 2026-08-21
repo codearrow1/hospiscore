@@ -9,6 +9,7 @@ export type OrgInput = {
   acquisitionSource?: string;
   acquisitionCampaign?: string;
   affiliateId?: string;
+  partnerId?: string;
   primaryContact?: { name: string; email: string; phone?: string };
 };
 
@@ -64,6 +65,14 @@ export async function createOrganization(input: OrgInput) {
     if (!aff) throw new Error("Affiliate not found");
     if (aff.status !== "active" && aff.status !== "approved") throw new Error("Affiliate not active");
   }
+  // validate partner if provided
+  let validPartnerId: string | null = null;
+  if (input.partnerId) {
+    const p = await prisma.partner.findUnique({ where: { id: input.partnerId }, select: { id: true, status: true } });
+    if (!p) throw new Error("Partner not found");
+    if (p.status !== "active" && p.status !== "approved") throw new Error("Partner not active");
+    validPartnerId = p.id;
+  }
   return prisma.organization.create({
     data: {
       legalName: input.legalName.trim(),
@@ -74,6 +83,7 @@ export async function createOrganization(input: OrgInput) {
       acquisitionSource: input.acquisitionSource || null,
       acquisitionCampaign: input.acquisitionCampaign || null,
       affiliateId: input.affiliateId || null,
+      partnerId: validPartnerId,
       contacts: input.primaryContact
         ? {
             create: {

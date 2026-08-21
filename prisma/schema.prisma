@@ -22,6 +22,7 @@ model Organization {
   primaryContactId String?
   affiliateId      String?
   partnerId        String?
+  franchiseTerritoryId String?
   acquisitionSource String?
   acquisitionCampaign String?
   healthScore      Int?         // 0-100
@@ -43,6 +44,9 @@ model Organization {
   dunningCases          DunningCase[]
   couponRedemptions     CouponRedemption[]
   automationEvents      AutomationEvent[]
+  supportTickets        SupportTicket[]
+  partner               Partner?             @relation(fields: [partnerId], references: [id])
+  franchiseTerritory    FranchiseTerritory?  @relation(fields: [franchiseTerritoryId], references: [id])
 
   @@index([country])
   @@index([status])
@@ -271,8 +275,10 @@ model AffiliateClick {
 
 model AffiliateCommission {
   id             String   @id @default(cuid())
-  affiliateId    String
-  affiliate      Affiliate @relation(fields: [affiliateId], references: [id], onDelete: Cascade)
+  affiliateId    String?
+  affiliate      Affiliate? @relation(fields: [affiliateId], references: [id], onDelete: Cascade)
+  partnerId      String?
+  partner        Partner?   @relation(fields: [partnerId], references: [id])
   organizationId String?
   organization   Organization? @relation(fields: [organizationId], references: [id])
   subscriptionId String?
@@ -286,14 +292,17 @@ model AffiliateCommission {
   updatedAt      DateTime @updatedAt
 
   @@index([affiliateId])
+  @@index([partnerId])
   @@index([status])
   @@index([organizationId])
 }
 
 model AffiliatePayout {
   id          String   @id @default(cuid())
-  affiliateId String
-  affiliate   Affiliate @relation(fields: [affiliateId], references: [id], onDelete: Cascade)
+  affiliateId String?
+  affiliate   Affiliate? @relation(fields: [affiliateId], references: [id], onDelete: Cascade)
+  partnerId   String?
+  partner     Partner?   @relation(fields: [partnerId], references: [id])
   amount      Int
   currency    String   @default("USD")
   method      String   @default("bank") // upi|bank|paypal
@@ -302,6 +311,7 @@ model AffiliatePayout {
   updatedAt   DateTime @updatedAt
 
   @@index([affiliateId])
+  @@index([partnerId])
   @@index([status])
 }
 
@@ -374,4 +384,95 @@ model AutomationEvent {
 
   @@index([rule, organizationId, createdAt])
   @@index([createdAt])
+}
+
+model SupportTicket {
+  id             String    @id @default(cuid())
+  organizationId String
+  organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  subscriptionId String?
+  category       String    // billing|technical|subscription|account|integration|bug|onboarding|affiliate|partner|franchise
+  priority       String    @default("medium") // low|medium|high|urgent
+  status         String    @default("open") // open|pending|in_progress|resolved|closed
+  subject        String
+  description    String?
+  requesterEmail String?
+  assigneeEmail  String?
+  slaDueAt       DateTime?
+  firstResponseAt DateTime?
+  resolvedAt     DateTime?
+  createdAt      DateTime  @default(now())
+  updatedAt      DateTime  @updatedAt
+
+  @@index([organizationId])
+  @@index([status])
+  @@index([slaDueAt])
+}
+
+model Partner {
+  id              String   @id @default(cuid())
+  name            String
+  company         String?
+  email           String   @unique
+  phone           String?
+  country         String?
+  website         String?
+  type            String   @default("reseller") // it_agency|consultant|reseller|implementation|hmc
+  tier            String   @default("bronze") // bronze|silver|gold|platinum
+  status          String   @default("applied") // applied|review|approved|active|suspended
+  commissionModel String   @default("percent_first") // fixed|percent_first|percent_mrr_12|percent_mrr_recurring
+  commissionValue Int      @default(1500) // cents or bps
+  referralCode    String   @unique
+  userId          String?
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+
+  organizations Organization[]
+  commissions   AffiliateCommission[]
+  payouts       AffiliatePayout[]
+
+  @@index([status])
+}
+
+model Franchisee {
+  id               String    @id @default(cuid())
+  company          String
+  contactName      String
+  email            String    @unique
+  phone            String?
+  country          String?
+  revenueShareBps  Int       @default(1500)
+  agreementStartAt DateTime?
+  agreementEndAt   DateTime?
+  status           String    @default("proposed") // proposed|signed|active|terminated
+  notes            String?
+  createdAt        DateTime  @default(now())
+  updatedAt        DateTime  @updatedAt
+
+  territories FranchiseTerritory[]
+
+  @@index([status])
+}
+
+model FranchiseTerritory {
+  id                String   @id @default(cuid())
+  parentTerritoryId String?
+  parent            FranchiseTerritory?  @relation("TerritoryTree", fields: [parentTerritoryId], references: [id])
+  children          FranchiseTerritory[] @relation("TerritoryTree")
+  franchiseeId      String?
+  franchisee        Franchisee? @relation(fields: [franchiseeId], references: [id])
+  name              String
+  country           String
+  region            String?
+  city              String?
+  type              String   @default("region") // master|region|city
+  exclusive         Boolean  @default(false)
+  status            String   @default("active") // active|inactive
+  createdAt         DateTime @default(now())
+  updatedAt         DateTime @updatedAt
+
+  organizations Organization[]
+
+  @@unique([country, region, city, type, status])
+  @@index([franchiseeId])
 }
