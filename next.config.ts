@@ -15,15 +15,18 @@ const nextConfig: NextConfig = {
     ],
   },
   webpack(config) {
-    // Force the CJS Prisma runtime even if a stale generated client still
-    // imports library.mjs. The ESM runtime imports node:process, which crashes
-    // under Passenger (fd0 pre-bound) with "Error: open EEXIST" at getStdin.
+    // Belt and braces: force every possible spelling of the Prisma runtime
+    // specifier onto the CJS file. (scripts/fix-prisma-runtime.mjs rewrites
+    // the generated client itself; this covers stale copies.)
+    const cjsRuntime = path.resolve(
+      process.cwd(),
+      "node_modules/@prisma/client/runtime/library.js",
+    );
     config.resolve.alias = {
       ...config.resolve.alias,
-      "@prisma/client/runtime/library.mjs$": path.resolve(
-        process.cwd(),
-        "node_modules/@prisma/client/runtime/library.js",
-      ),
+      "@prisma/client/runtime/library.mjs$": cjsRuntime,
+      // Exact-match syntax ($ suffix); webpack aliases have no ^ prefix form.
+      "@prisma/client/runtime/library$": cjsRuntime,
     };
     return config;
   },
