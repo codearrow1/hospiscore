@@ -14,6 +14,19 @@ const nextConfig: NextConfig = {
       },
     ],
   },
+  webpack(config) {
+    // Force the CJS Prisma runtime even if a stale generated client still
+    // imports library.mjs. The ESM runtime imports node:process, which crashes
+    // under Passenger (fd0 pre-bound) with "Error: open EEXIST" at getStdin.
+    config.resolve.alias = {
+      ...config.resolve.alias,
+      "@prisma/client/runtime/library.mjs$": path.resolve(
+        process.cwd(),
+        "node_modules/@prisma/client/runtime/library.js",
+      ),
+    };
+    return config;
+  },
 };
 
 export default nextConfig;
