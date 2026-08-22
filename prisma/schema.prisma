@@ -3,8 +3,11 @@
 // Keep marketing DataFile (var/data.json) intact; this is the SaaS commerce plane.
 
 generator client {
-  provider = "prisma-client"
-  output   = "../lib/generated/prisma"
+  provider     = "prisma-client"
+  output       = "../lib/generated/prisma"
+  // CJS runtime avoids Passenger's ESM node:process facade bug on shared hosts
+  // ("Error: open EEXIST" at process.getStdin when loading library.mjs).
+  moduleFormat = "cjs"
 }
 
 datasource db {
