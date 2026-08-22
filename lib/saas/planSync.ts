@@ -18,6 +18,7 @@ import type { AuthUser } from "@/lib/auth";
 import { hasSaasPerm } from "@/lib/saas/roles";
 import { validatePlanInput, updatePlan, createPlan, archivePlan, type PlanInput } from "@/lib/saas/plans";
 import { writeSaasAudit } from "@/lib/saas/audit";
+import { validateCountryPriceEntries, applyCountryPrices, type ValidatedEntry } from "@/lib/saas/pricingSync";
 
 // ---------------------------------------------------------------------------
 // Pure helpers (unit-tested)
@@ -97,6 +98,25 @@ export function patchFromDiff(before: PlanSnapshot, after: PlanSnapshot): Partia
 
 export function isStaleRequest(baseVersion: number, currentVersion: number): boolean {
   return baseVersion !== currentVersion;
+}
+
+/**
+ * Separate per-country price changes ({countryPrices:[…]}) from plan-field
+ * changes in an incoming patch. Country entries are validated against the
+ * existing country catalog — unknown markets or mismatched currencies are
+ * rejected before anything is persisted.
+ */
+export function splitCountryPrices(patch: Record<string, unknown>): {
+  planPatch: Record<string, unknown>;
+  countryPrices?: ValidatedEntry[];
+  error?: string;
+} {
+  if (patch.countryPrices === undefined) return { planPatch: patch };
+  const v = validateCountryPriceEntries(patch.countryPrices);
+  if (!v.ok) return { planPatch: {}, error: v.error };
+  const { countryPrices, ...rest } = patch;
+  void countryPrices;
+  return { planPatch: rest, countryPrices: v.value };
 }
 
 export function isSuperTier(user: Pick<AuthUser, "email" | "role">): boolean {
@@ -204,7 +224,9 @@ export async function submitMarketingPlanChange(opts: {
   ip?: string | null;
 }): Promise<SubmitResult> {
   const action = normalizeAction(opts.action);
-  const clean = pickProposable(opts.patch);
+  const split = splitCountryPrices(opts.patch);
+  if (split.error) return { outcome: "error", error: split.error };
+  const clean = pickProposable(split.planPatch);
   const ip = opts.ip ?? null;
 
   if (action === "create") {
@@ -215,6 +237,9 @@ export async function submitMarketingPlanChange(opts: {
     const { defaultApprovalRequirement } = await import("@/lib/saas/settings");
     if (!(await defaultApprovalRequirement())) {
       const plan = await createPlan(clean as PlanInput);
+      if (split.countryPrices?.length) {
+        await applyCountryPrices(plan.id, split.countryPrices, opts.user.email).catch(() => {});
+      }
       await writeSaasAudit({
         byEmail: opts.user.email,
         action: "plan.created_direct",
@@ -228,13 +253,15 @@ export async function submitMarketingPlanChange(opts: {
       await syncUsBaseline(plan as never, opts.user.email);
       return { outcome: "applied", planId: plan.id };
     }
+    const proposedCreate: Record<string, unknown> = { ...(clean as Record<string, unknown>) };
+    if (split.countryPrices?.length) proposedCreate.countryPrices = split.countryPrices;
     const req = await prisma.planChangeRequest.create({
       data: {
         action: "create",
         requestedByEmail: opts.user.email.trim().toLowerCase(),
         status: "pending",
         beforeSnapshot: {} as never,
-        proposedSnapshot: clean as never,
+        proposedSnapshot: proposedCreate as never,
         reason: opts.reason ?? null,
         baseVersion: 0,
       },
@@ -270,9 +297,33 @@ export async function submitMarketingPlanChange(opts: {
     patch = { isActive: false };
   } else {
     patch = clean;
-    if (Object.keys(patch).length === 0) return { outcome: "error", error: "nothing to change" };
-    const v = validatePlanInput(patch, false);
-    if (!v.ok) return { outcome: "error", error: v.error };
+    if (Object.keys(patch).length === 0 && !split.countryPrices) return { outcome: "error", error: "nothing to change" };
+    if (Object.keys(patch).length > 0) {
+      const v = validatePlanInput(patch, false);
+      if (!v.ok) return { outcome: "error", error: v.error };
+    }
+  }
+
+  // Country-price proposals: capture authoritative before-values for audit
+  // (previous value / requested value per market+currency).
+  let countryBefore: ValidatedEntry[] | undefined;
+  const countryPrices = split.countryPrices;
+  if (countryPrices) {
+    const rows = await prisma.planCountryPrice.findMany({
+      where: { planId: plan.id, country: { in: countryPrices.map((e) => e.country) } },
+    });
+    const rowByCountry = new Map(rows.map((r) => [r.country, r]));
+    countryBefore = countryPrices.map((e) => {
+      const r = rowByCountry.get(e.country);
+      return r
+        ? { country: r.country, currency: r.currency, monthly: r.monthly, annual: r.annual }
+        : { ...e, monthly: 0, annual: 0 };
+    });
+    const changed = countryPrices.some((e) => {
+      const b = countryBefore!.find((x) => x.country === e.country)!;
+      return b.monthly !== e.monthly || b.annual !== e.annual;
+    });
+    if (!changed && Object.keys(patch).length === 0) return { outcome: "error", error: "nothing to change" };
   }
 
   const { getApprovalRequirement } = await import("@/lib/saas/settings");
@@ -283,14 +334,17 @@ export async function submitMarketingPlanChange(opts: {
     if (action === "archive") {
       updated = await archivePlan(plan.id);
     } else {
-      updated = await updatePlan(plan.id, patch);
+      updated = Object.keys(patch).length > 0 ? await updatePlan(plan.id, patch) : plan;
+    }
+    if (countryPrices?.length && action !== "archive") {
+      await applyCountryPrices(plan.id, countryPrices, opts.user.email).catch(() => {});
     }
     await writeSaasAudit({
       byEmail: opts.user.email,
       action: "plan.changed_direct",
       entity: "plan",
       entityId: plan.id,
-      detail: `${action} applied directly (approval disabled)`,
+      detail: `${action} applied directly (approval disabled)${countryPrices ? ` (${countryPrices.map((e) => e.country).join(",")})` : ""}`,
       before,
       after: updated,
       ip: ip ?? undefined,
@@ -300,6 +354,8 @@ export async function submitMarketingPlanChange(opts: {
   }
 
   const proposed = mergeProposal(before, patch);
+  if (countryPrices) (proposed as Record<string, unknown>).countryPrices = countryPrices;
+  if (countryBefore) (before as Record<string, unknown>).countryPrices = countryBefore;
   const req = await prisma.planChangeRequest.create({
     data: {
       planId: plan.id,
@@ -317,7 +373,7 @@ export async function submitMarketingPlanChange(opts: {
     action: "plan.change_submitted",
     entity: "plan_request",
     entityId: req.id,
-    detail: `${action} proposal for ${plan.slug}`,
+    detail: `${action} proposal for ${plan.slug}${countryPrices ? ` (${countryPrices.map((e) => e.country).join(",")})` : ""}`,
     after: proposed,
     ip: ip ?? undefined,
   });
@@ -379,11 +435,22 @@ export async function approvePlanChange(requestId: string, reviewer: Pick<AuthUs
         : req.action === "deactivate"
           ? { isActive: false }
           : patchFromDiff(before, req.proposedSnapshot as PlanSnapshot);
-    await updatePlan(plan!.id, patch as Partial<PlanInput>);
+    if (Object.keys(patch).length > 0) {
+      await updatePlan(plan!.id, patch as Partial<PlanInput>);
+    }
+  }
+
+  // Approved country prices → canonical rows + US invariant + PricingDoc
+  // mirror, via the same applier the SaaS side uses (single write path).
+  const proposedCountryPrices = (req.proposedSnapshot as Record<string, unknown> | null)?.countryPrices;
+  if (planId && Array.isArray(proposedCountryPrices) && proposedCountryPrices.length > 0 && req.action !== "archive") {
+    const v = validateCountryPriceEntries(proposedCountryPrices);
+    if (!v.ok) return { ok: false, status: 422, error: `stored proposal invalid: ${v.error}` };
+    await applyCountryPrices(planId, v.value, reviewer.email).catch(() => {});
   }
 
   const updatedPlan = planId ? await prisma.plan.findUnique({ where: { id: planId } }) : null;
-  if (updatedPlan) await syncUsBaseline(updatedPlan as never, reviewer.email).catch(() => {});
+  if (updatedPlan && !proposedCountryPrices) await syncUsBaseline(updatedPlan as never, reviewer.email).catch(() => {});
 
   await prisma.planChangeRequest.update({
     where: { id: req.id },

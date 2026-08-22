@@ -4,6 +4,7 @@ import { hasSaasPerm } from "@/lib/saas/roles";
 import { getPlan, updatePlan, archivePlan } from "@/lib/saas/plans";
 import { writeSaasAudit } from "@/lib/saas/audit";
 import { clientIp } from "@/lib/marketing/guard";
+import { validateCountryPriceEntries, applyCountryPrices } from "@/lib/saas/pricingSync";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -55,8 +56,22 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id
   try {
     const before = await getPlan(id);
     const plan = await updatePlan(id, patch as never);
-    await writeSaasAudit({ byEmail: guard.user.email, action: "plan.updated", entity: "plan", entityId: id, detail: Object.keys(patch).join(","), ip: clientIp(req), before: { slug: before?.slug }, after: { slug: plan.slug } });
-    return NextResponse.json({ plan });
+    // SaaS → Marketing automatic synchronization: country price edits flow
+    // through the canonical applier (PlanCountryPrice rows + US billing
+    // invariant + storefront PricingDoc mirror) in one deterministic path.
+    let syncedCountries: string[] = [];
+    if (body.countryPrices !== undefined) {
+      const v = validateCountryPriceEntries(body.countryPrices);
+      if (!v.ok) return NextResponse.json({ error: v.error }, { status: 422 });
+      const applied = await applyCountryPrices(id, v.value, guard.user.email);
+      syncedCountries = applied.applied.map((e) => e.country);
+      if (applied.billingUpdated) {
+        // US entry moved the billing cents — refetch for the response.
+      }
+    }
+    const finalPlan = await getPlan(id);
+    await writeSaasAudit({ byEmail: guard.user.email, action: "plan.updated", entity: "plan", entityId: id, detail: [Object.keys(patch).join(","), ...(syncedCountries.length ? [`countryPrices:${syncedCountries.join(",")}`] : [])].filter(Boolean).join(" | "), ip: clientIp(req), before: { slug: before?.slug }, after: { slug: plan.slug } });
+    return NextResponse.json({ plan: finalPlan ?? plan });
   } catch (e) {
     return NextResponse.json({ error: e instanceof Error ? e.message : "Update failed" }, { status: 400 });
   }

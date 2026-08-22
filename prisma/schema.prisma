@@ -198,7 +198,17 @@ model Subscription {
   plan               Plan     @relation(fields: [planId], references: [id])
   status             String   @default("trial") // trial|active|past_due|grace|suspended|cancelled|expired|paused
   billingCycle       String   @default("monthly") // monthly|yearly
-  mrr                Int      // cents snapshot
+  mrr                Int      // USD-cents snapshot (normalized MRR metric; never converted)
+  /// Market this subscription was sold in (ISO2). Authoritative for which
+  /// country price applied at creation; legacy rows default to US.
+  country            String   @default("US")
+  /// Currency actually charged (ISO 4217). Mirrors the market's catalog
+  /// currency; never re-derived or converted after creation.
+  currency           String   @default("USD")
+  /// Recurring amount in `currency` UNITS (not cents) as charged, matching
+  /// the PlanCountryPrice row for (planId, country). Null = legacy row whose
+  /// USD-cents `mrr` remains authoritative.
+  unitAmount         Int?
   quantity           Int      @default(1)
   currentPeriodStart DateTime
   currentPeriodEnd   DateTime
@@ -214,6 +224,7 @@ model Subscription {
   @@index([planId])
   @@index([status])
   @@index([currentPeriodEnd])
+  @@index([country])
 }
 
 model Invoice {
