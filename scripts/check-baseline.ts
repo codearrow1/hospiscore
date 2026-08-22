@@ -1,10 +1,10 @@
-/* eslint-disable @typescript-eslint/no-explicit-any */
 import { prisma } from "../lib/prisma";
 
 async function main() {
   const plans = await prisma.plan.findMany({ orderBy: { displayOrder: "asc" } });
   for (const p of plans) {
-    console.log(p.slug + ": monthly=" + p.monthlyPrice + " annual=" + p.annualPrice + " status=" + p.status);
+    const state = p.isActive ? "active" : p.archivedAt ? "archived" : "inactive";
+    console.log(p.slug + ": monthly=" + p.monthlyPrice + " annual=" + p.annualPrice + " " + state);
   }
   const pending = await prisma.planChangeRequest.count({ where: { status: "pending" } });
   console.log("pending requests: " + pending);
