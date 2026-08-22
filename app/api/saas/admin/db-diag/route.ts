@@ -92,12 +92,25 @@ export async function GET() {
   } catch (e) {
     steps.push({ step: "import generated client", ok: false, detail: errText(e) });
   }
+  void client;
 
   try {
     const { absoluteSqliteUrl } = await import("@/lib/saas/dbUrl");
     steps.push({ step: "resolve db url", ok: true, detail: absoluteSqliteUrl() });
   } catch (e) {
     steps.push({ step: "resolve db url", ok: false, detail: errText(e) });
+  }
+
+  try {
+    const { queryEngineStatus } = await import("@/lib/saas/enginePath");
+    const st = queryEngineStatus();
+    steps.push({
+      step: "query engine",
+      ok: st.envSet,
+      detail: st.path ?? "no engine found in any candidate dir",
+    });
+  } catch (e) {
+    steps.push({ step: "query engine", ok: false, detail: errText(e) });
   }
 
   try {

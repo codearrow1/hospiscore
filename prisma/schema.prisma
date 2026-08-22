@@ -8,6 +8,9 @@ generator client {
   // CJS runtime avoids Passenger's ESM node:process facade bug on shared hosts
   // ("Error: open EEXIST" at process.getStdin when loading library.mjs).
   moduleFormat = "cjs"
+  // Hostinger's Node runtime detects debian-openssl-1.1.x at runtime (see
+  // /api/saas/admin/db-diag). "native" keeps local dev working on Windows.
+  binaryTargets = ["native", "debian-openssl-1.1.x"]
 }
 
 datasource db {

@@ -1,9 +1,17 @@
+import os from "node:os";
 import path from "node:path";
 
-const FALLBACK = "file:./var/saas.db";
+// Windows dev keeps the repo-relative var/saas.db. On Linux production the
+// app runs inside a versioned deploy dir (hbuilds/versions/<id>/nodejs) that
+// is replaced on every deployment, so a repo-relative DB would be wiped each
+// time; fall back to a persistent path in the user home instead.
+function fallbackUrl(): string {
+  if (process.platform === "win32") return "file:./var/saas.db";
+  return "file:" + path.join(os.homedir(), "saas-data", "saas.db");
+}
 
 export function rawDatabaseUrl(): string {
-  return process.env.DATABASE_URL || FALLBACK;
+  return process.env.DATABASE_URL || fallbackUrl();
 }
 
 export function absoluteSqliteUrl(url: string = rawDatabaseUrl()): string {

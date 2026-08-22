@@ -1,9 +1,14 @@
 import { PrismaClient } from "@/lib/generated/prisma/client";
 import { absoluteSqliteUrl } from "@/lib/saas/dbUrl";
+import { ensureQueryEngineEnv } from "@/lib/saas/enginePath";
 
 declare global {
   var __prisma: PrismaClient | undefined;
 }
+
+// Must run before PrismaClient construction: points the engine env var at the
+// packaged native engine (vendor/engines on production, native on dev).
+ensureQueryEngineEnv();
 
 // Runtime fallback mirrors prisma.config.ts so the app boots (and migrations
 // land in the same file) even when DATABASE_URL is not provisioned yet.
