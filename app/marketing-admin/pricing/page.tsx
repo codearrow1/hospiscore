@@ -3,7 +3,7 @@ import { restrictedPanel } from "@/app/marketing-admin/restricted";
 import { getPricingDoc } from "@/lib/pricing/db";
 import { SEED_COUNTRIES } from "@/lib/pricing/countries";
 import { listPlans } from "@/lib/saas/plans";
-import { ensureDefaultPlanLinks, getRequestsForEmail } from "@/lib/saas/planSync";
+import { getRequestsForEmail } from "@/lib/saas/planSync";
 import { getApprovalRequirement } from "@/lib/saas/settings";
 import PricingManager from "@/components/pricing/PricingManager";
 import PlanProposalPanel, {
@@ -24,7 +24,7 @@ export default async function PricingAdminPage() {
     getPricingDoc(),
     listPlans().catch(() => []),
     (async () => {
-      await ensureDefaultPlanLinks().catch(() => {});
+      
       return getRequestsForEmail(guard.user.email);
     })(),
     getApprovalRequirement().catch(() => true),

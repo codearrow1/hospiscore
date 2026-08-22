@@ -93,9 +93,13 @@ model Property {
 model Plan {
   id             String   @id @default(cuid())
   name           String   @unique
-  slug           String   @unique // starter|professional|business|enterprise
-  monthlyPrice   Int      // cents
-  annualPrice    Int      // cents
+  slug           String   @unique // catalog id from lib/pricing/catalog.ts PLAN_IDS
+  /// Stable cross-system identity. The Marketing Admin pricing catalog defines
+  /// the commercial structure; this column IS the canonical link (replaces the
+  /// former PlanLink join table).
+  marketingPlanId String? @unique
+  monthlyPrice   Int      // USD cents — billing canonical (computeMrr/invoices)
+  annualPrice    Int      // USD cents — billing canonical
   currency       String   @default("USD")
   trialDays      Int      @default(14)
   maxProperties  Int?
@@ -104,6 +108,22 @@ model Plan {
   storageGb      Int?
   features       Json?    // {api, reports, marketing, automation, supportLevel}
   isActive       Boolean  @default(true)
+  // Commercial definition mirrored from the Marketing pricing catalog.
+  description     String?
+  tagline         String?
+  descriptor      String?
+  roomMin         Int?    // recommended room band (inclusive lower bound)
+  roomMax         Int?    // inclusive upper bound; null = custom/unlimited
+  adminLimit      Int?    // null = custom/unlimited
+  staffLimit      Int?    // null = custom/unlimited
+  featured        Boolean @default(false) // "Most Popular" badge
+  displayOrder    Int     @default(0)     // catalog ordering
+  /// Contact-sales plan (Enterprise): numeric prices are placeholders and must
+  /// never be used for self-serve checkout.
+  isCustomPrice   Boolean @default(false)
+  /// Set when a plan is retired from the active catalog. Historical rows keep
+  /// referencing the archived plan id.
+  archivedAt      DateTime?
   // Optimistic-concurrency counter for pricing approvals: every canonical
   // mutation increments it so stale approval requests can be detected.
   version        Int      @default(1)
@@ -112,27 +132,39 @@ model Plan {
 
   subscriptions  Subscription[]
   featureFlags   FeatureFlag[]
-  links          PlanLink[]
   changeRequests PlanChangeRequest[]
+  countryPrices  PlanCountryPrice[]
 }
 
-/// Explicit stable identity between a marketing-catalog plan id and the
-/// canonical SaaS Plan. Never key by name.
-model PlanLink {
-  id              String   @id @default(cuid())
-  marketingPlanId String   @unique // lib/pricing/catalog.ts PLAN_IDS entry
-  planId          String   @unique
-  plan            Plan     @relation(fields: [planId], references: [id], onDelete: Cascade)
-  createdAt       DateTime @default(now())
-  updatedAt       DateTime @updatedAt
+/// Localized storefront price point for one plan in one market. Stored in the
+/// SAME units as the marketing PricingDoc (local currency units, not cents).
+/// Invariant enforced by the sync service: for the US baseline,
+/// monthly × 100 == Plan.monthlyPrice (billing canonical, USD cents).
+model PlanCountryPrice {
+  id       String   @id @default(cuid())
+  planId   String
+  plan     Plan     @relation(fields: [planId], references: [id], onDelete: Cascade)
+  country  String // ISO 3166-1 alpha-2, e.g. "US"
+  currency String
+  monthly  Int // local currency units per month
+  annual   Int // local currency units per year
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@unique([planId, country])
+  @@index([country])
 }
 
 /// Marketing-proposed plan change awaiting Super Admin decision. Snapshots are
 /// full Plan JSON so approval is deterministic; baseVersion detects staleness.
+/// Supports structural actions: create|update|archive|activate|deactivate
+/// (create requests have a null planId until approved).
 model PlanChangeRequest {
   id               String    @id @default(cuid())
-  planId           String
-  plan             Plan      @relation(fields: [planId], references: [id], onDelete: Cascade)
+  planId           String?
+  plan             Plan?     @relation(fields: [planId], references: [id], onDelete: Cascade)
+  /// update|create|archive|deactivate|activate
+  action           String    @default("update")
   requestedByEmail String
   status           String    @default("pending") // pending|approved|rejected|cancelled
   beforeSnapshot   Json

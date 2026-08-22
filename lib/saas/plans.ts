@@ -1,7 +1,10 @@
 import { prisma } from "@/lib/prisma";
 
-export async function listPlans() {
-  return prisma.plan.findMany({ orderBy: { monthlyPrice: "asc" } });
+export async function listPlans(opts?: { includeArchived?: boolean }) {
+  return prisma.plan.findMany({
+    where: opts?.includeArchived ? {} : { archivedAt: null },
+    orderBy: [{ displayOrder: "asc" }, { monthlyPrice: "asc" }],
+  });
 }
 
 export async function getPlan(id: string) {
@@ -15,7 +18,9 @@ export async function getPlanBySlug(slug: string) {
 export type PlanInput = {
   name: string;
   slug: string;
-  monthlyPrice: number; // cents
+  /** Stable cross-system identity — lib/pricing/catalog.ts PLAN_IDS entry. */
+  marketingPlanId?: string | null;
+  monthlyPrice: number; // USD cents — billing canonical
   annualPrice: number;
   currency?: string;
   trialDays?: number;
@@ -25,17 +30,29 @@ export type PlanInput = {
   storageGb?: number | null;
   features?: Record<string, unknown>;
   isActive?: boolean;
+  description?: string | null;
+  tagline?: string | null;
+  descriptor?: string | null;
+  roomMin?: number | null;
+  roomMax?: number | null;
+  adminLimit?: number | null;
+  staffLimit?: number | null;
+  featured?: boolean;
+  displayOrder?: number;
+  isCustomPrice?: boolean;
 };
 
 export async function createPlan(input: PlanInput) {
   const v = validatePlanInput(input, true);
   if (!v.ok) throw new Error(v.error);
-  const existing = await prisma.plan.findUnique({ where: { slug: input.slug.trim().toLowerCase() } });
+  const slug = input.slug.trim().toLowerCase();
+  const existing = await prisma.plan.findUnique({ where: { slug } });
   if (existing) throw new Error("slug already exists");
   return prisma.plan.create({
     data: {
       name: input.name.trim(),
-      slug: input.slug.trim().toLowerCase(),
+      slug,
+      marketingPlanId: input.marketingPlanId ?? slug,
       monthlyPrice: input.monthlyPrice,
       annualPrice: input.annualPrice,
       currency: input.currency || "USD",
@@ -46,24 +63,49 @@ export async function createPlan(input: PlanInput) {
       storageGb: input.storageGb ?? null,
       features: (input.features as never) ?? undefined,
       isActive: input.isActive ?? true,
+      description: input.description ?? null,
+      tagline: input.tagline ?? null,
+      descriptor: input.descriptor ?? null,
+      roomMin: input.roomMin ?? null,
+      roomMax: input.roomMax ?? null,
+      adminLimit: input.adminLimit ?? null,
+      staffLimit: input.staffLimit ?? null,
+      featured: input.featured ?? false,
+      displayOrder: input.displayOrder ?? 0,
+      isCustomPrice: input.isCustomPrice ?? false,
     },
   });
 }
 
-export function validatePlanInput(input: Partial<PlanInput>, isCreate = true): { ok: true } | { ok: false; error: string } {
+export function validatePlanInput(
+  input: Partial<PlanInput>,
+  isCreate = true,
+): { ok: true } | { ok: false; error: string } {
   if (isCreate) {
-    if (!input.name?.trim() || input.name.trim().length < 2) return { ok: false, error: "name must be at least 2 characters" };
-    if (!input.slug?.trim() || !/^[a-z0-9-]+$/.test(input.slug.trim().toLowerCase())) return { ok: false, error: "slug must be lowercase alphanumeric/hyphen" };
-    if (typeof input.monthlyPrice !== "number" || input.monthlyPrice < 0) return { ok: false, error: "monthlyPrice must be >= 0" };
-    if (typeof input.annualPrice !== "number" || input.annualPrice < 0) return { ok: false, error: "annualPrice must be >= 0" };
+    if (!input.name?.trim() || input.name.trim().length < 2)
+      return { ok: false, error: "name must be at least 2 characters" };
+    if (!input.slug?.trim() || !/^[a-z0-9-]+$/.test(input.slug.trim().toLowerCase()))
+      return { ok: false, error: "slug must be lowercase alphanumeric/hyphen" };
+    if (typeof input.monthlyPrice !== "number" || input.monthlyPrice < 0)
+      return { ok: false, error: "monthlyPrice must be >= 0" };
+    if (typeof input.annualPrice !== "number" || input.annualPrice < 0)
+      return { ok: false, error: "annualPrice must be >= 0" };
   } else {
-    if (input.name !== undefined && (!input.name.trim() || input.name.trim().length < 2)) return { ok: false, error: "name must be at least 2 characters" };
-    if (input.slug !== undefined && !/^[a-z0-9-]+$/.test(input.slug.trim().toLowerCase())) return { ok: false, error: "slug invalid" };
-    if (input.monthlyPrice !== undefined && (typeof input.monthlyPrice !== "number" || input.monthlyPrice < 0)) return { ok: false, error: "monthlyPrice must be >= 0" };
-    if (input.annualPrice !== undefined && (typeof input.annualPrice !== "number" || input.annualPrice < 0)) return { ok: false, error: "annualPrice must be >= 0" };
+    if (input.name !== undefined && (!input.name.trim() || input.name.trim().length < 2))
+      return { ok: false, error: "name must be at least 2 characters" };
+    if (input.slug !== undefined && !/^[a-z0-9-]+$/.test(input.slug.trim().toLowerCase()))
+      return { ok: false, error: "slug invalid" };
+    if (input.monthlyPrice !== undefined && (typeof input.monthlyPrice !== "number" || input.monthlyPrice < 0))
+      return { ok: false, error: "monthlyPrice must be >= 0" };
+    if (input.annualPrice !== undefined && (typeof input.annualPrice !== "number" || input.annualPrice < 0))
+      return { ok: false, error: "annualPrice must be >= 0" };
   }
-  if (input.trialDays !== undefined && (input.trialDays < 0 || input.trialDays > 365)) return { ok: false, error: "trialDays must be 0-365" };
-  if (input.currency !== undefined && input.currency && !/^[A-Z]{3}$/.test(input.currency)) return { ok: false, error: "currency must be 3-letter ISO" };
+  if (input.trialDays !== undefined && (input.trialDays < 0 || input.trialDays > 365))
+    return { ok: false, error: "trialDays must be 0-365" };
+  if (input.currency !== undefined && input.currency && !/^[A-Z]{3}$/.test(input.currency))
+    return { ok: false, error: "currency must be 3-letter ISO" };
+  if (input.displayOrder !== undefined && (typeof input.displayOrder !== "number" || input.displayOrder < 0))
+    return { ok: false, error: "displayOrder must be >= 0" };
   return { ok: true };
 }
 
@@ -80,6 +122,7 @@ export async function updatePlan(id: string, patch: Partial<PlanInput>) {
     data: {
       name: patch.name?.trim(),
       slug: patch.slug?.trim().toLowerCase(),
+      marketingPlanId: patch.marketingPlanId !== undefined ? patch.marketingPlanId : undefined,
       monthlyPrice: patch.monthlyPrice,
       annualPrice: patch.annualPrice,
       currency: patch.currency,
@@ -90,9 +133,35 @@ export async function updatePlan(id: string, patch: Partial<PlanInput>) {
       storageGb: patch.storageGb,
       features: patch.features !== undefined ? (patch.features as never) : undefined,
       isActive: patch.isActive,
+      description: patch.description,
+      tagline: patch.tagline,
+      descriptor: patch.descriptor,
+      roomMin: patch.roomMin,
+      roomMax: patch.roomMax,
+      adminLimit: patch.adminLimit,
+      staffLimit: patch.staffLimit,
+      featured: patch.featured,
+      displayOrder: patch.displayOrder,
+      isCustomPrice: patch.isCustomPrice,
       // Optimistic-concurrency counter consumed by the approval workflow.
       version: { increment: 1 },
     },
+  });
+}
+
+/**
+ * Archive a plan instead of deleting it: subscriptions, invoices and other
+ * historical rows keep referencing the original plan id forever.
+ */
+export async function archivePlan(id: string) {
+  const count = await prisma.subscription.count({ where: { planId: id } });
+  if (count === 0) {
+    // Nothing references it — a hard delete is safe, but archiving keeps the
+    // audit story uniform, so archive either way.
+  }
+  return prisma.plan.update({
+    where: { id },
+    data: { isActive: false, archivedAt: new Date(), version: { increment: 1 } },
   });
 }
 
@@ -102,14 +171,14 @@ export async function deletePlan(id: string) {
   await prisma.plan.delete({ where: { id } });
 }
 
+/**
+ * Bootstrap an EMPTY database with the Marketing pricing catalog (US baseline
+ * ×100). Existing databases are structured by the reconcile service instead.
+ */
 export async function seedDefaultPlans() {
   const existing = await prisma.plan.count();
   if (existing > 0) return;
-  const defaults: PlanInput[] = [
-    { name: "Starter", slug: "starter", monthlyPrice: 4900, annualPrice: 49000, trialDays: 14, maxProperties: 1, maxUsers: 3, storageGb: 5, features: { reports: false, api: false, marketing: false } },
-    { name: "Professional", slug: "professional", monthlyPrice: 9900, annualPrice: 99000, trialDays: 14, maxProperties: 5, maxUsers: 15, storageGb: 20, features: { reports: true, api: true, marketing: true } },
-    { name: "Business", slug: "business", monthlyPrice: 19900, annualPrice: 199000, trialDays: 14, maxProperties: 20, maxUsers: 50, storageGb: 100, features: { reports: true, api: true, marketing: true, automation: true } },
-    { name: "Enterprise", slug: "enterprise", monthlyPrice: 49900, annualPrice: 499000, trialDays: 14, maxProperties: null, maxUsers: null, storageGb: null, features: { reports: true, api: true, marketing: true, automation: true, prioritySupport: true } },
-  ];
-  for (const p of defaults) await createPlan(p);
+  const { buildCatalogPlanInputs } = await import("@/lib/saas/planCatalog");
+  const inputs = buildCatalogPlanInputs();
+  for (const p of inputs) await createPlan(p);
 }

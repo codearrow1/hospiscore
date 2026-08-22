@@ -1,6 +1,7 @@
 import { describe, it, expect } from "vitest";
 import {
   PROPOSABLE_FIELDS,
+  REQUEST_ACTIONS,
   planSnapshot,
   pickProposable,
   mergeProposal,
@@ -10,8 +11,12 @@ import {
   isSuperTier,
   selfApprovalError,
   baselineMatches,
-  withBaseline,
 } from "./planSync";
+import {
+  buildCatalogPlanInputs,
+  looksLikeCentContamination,
+  type PricingPlanSyncAudit,
+} from "./planCatalog";
 import { hasSaasPerm } from "./roles";
 import {
   coerceApprovalRequirement,
@@ -19,21 +24,33 @@ import {
   SETTING_REQUIRE_MARKETING_PRICING_APPROVAL,
 } from "./settings";
 import { hasCapability } from "@/lib/marketing/roles";
+import { PLANS } from "@/lib/pricing/catalog";
 
-const basePlan = {
+const basePlan: Record<string, unknown> = {
   id: "p1",
   slug: "starter",
   name: "Starter",
-  monthlyPrice: 2900,
-  annualPrice: 27900,
+  marketingPlanId: "starter",
+  monthlyPrice: 8900,
+  annualPrice: 89000,
   currency: "USD",
   trialDays: 14,
-  maxProperties: 2,
-  maxUsers: 5,
-  maxBookings: 500,
-  storageGb: 5,
-  features: { core: true },
+  maxProperties: null,
+  maxUsers: null,
+  maxBookings: null,
+  storageGb: null,
+  features: { cardFeatures: ["A", "B"] },
   isActive: true,
+  description: null,
+  tagline: "For small hotels & growing guesthouses",
+  descriptor: "Best for growing properties",
+  roomMin: 7,
+  roomMax: 15,
+  adminLimit: 2,
+  staffLimit: 10,
+  featured: false,
+  displayOrder: 1,
+  isCustomPrice: false,
 };
 
 const marketingUser = { email: "marketing@hospios.demo", role: "marketing_admin" as const };
@@ -60,18 +77,16 @@ describe("settings coercion", () => {
 });
 
 describe("proposal field whitelist", () => {
-  it("never allows slug or financial-foreign fields through", () => {
-    const dirty = {
-      ...basePlan,
-      slug: "hacked",
-      id: "other",
-      amount: 999999,
-      createdAt: "2020-01-01",
-      extra: true,
-    } as Record<string, unknown>;
+  it("covers the full commercial structure but never financial-foreign fields", () => {
+    for (const f of [
+      "name", "slug", "monthlyPrice", "annualPrice", "trialDays", "roomMin", "roomMax",
+      "adminLimit", "staffLimit", "featured", "displayOrder", "isCustomPrice", "isActive",
+    ]) {
+      expect(PROPOSABLE_FIELDS).toContain(f);
+    }
+    const dirty = { ...basePlan, id: "other", amount: 999999, createdAt: "2020" } as Record<string, unknown>;
     const clean = pickProposable(dirty) as Record<string, unknown>;
-    expect(Object.keys(clean).every((k) => PROPOSABLE_FIELDS.includes(k as never))).toBe(true);
-    expect(clean.slug).toBeUndefined();
+    expect(Object.keys(clean).every((k) => (PROPOSABLE_FIELDS as readonly string[]).includes(k))).toBe(true);
     expect(clean.id).toBeUndefined();
     expect(clean.amount).toBeUndefined();
   });
@@ -80,28 +95,33 @@ describe("proposal field whitelist", () => {
 describe("snapshot / diff / apply roundtrip", () => {
   it("captures only whitelisted fields in snapshots", () => {
     const snap = planSnapshot(basePlan) as unknown as Record<string, unknown>;
-    expect(snap.monthlyPrice).toBe(2900);
-    expect(snap.slug).toBeUndefined();
+    expect(snap.monthlyPrice).toBe(8900);
+    expect(snap.roomMin).toBe(7);
+    expect(snap.id).toBeUndefined(); // identity fields never snapshot
   });
 
-  it("merges proposals onto snapshots and diffs them", () => {
+  it("merges proposals onto snapshots and diffs them — including structural fields", () => {
     const before = planSnapshot(basePlan);
-    const after = mergeProposal(before, { monthlyPrice: 3900, trialDays: 0 });
+    const after = mergeProposal(before, { monthlyPrice: 9900, adminLimit: 3, featured: true });
     const diff = diffSnapshots(before, after);
-    expect(diff.map((d) => d.field).sort()).toEqual(["monthlyPrice", "trialDays"]);
-    expect(diff.find((d) => d.field === "monthlyPrice")).toMatchObject({ before: 2900, after: 3900 });
+    expect(diff.map((d) => d.field).sort()).toEqual(["adminLimit", "featured", "monthlyPrice"]);
+    expect(diff.find((d) => d.field === "monthlyPrice")).toMatchObject({ before: 8900, after: 9900 });
     expect(after.name).toBe("Starter"); // untouched fields survive
   });
 
   it("patchFromDiff emits only whitelisted keys (financial integrity)", () => {
     const before = planSnapshot(basePlan);
-    const after = mergeProposal(before, { annualPrice: 19900, features: { core: true, sso: true } });
+    const after = mergeProposal(before, {
+      annualPrice: 99000,
+      staffLimit: 20,
+      features: { cardFeatures: ["A"] },
+    });
     const patch = patchFromDiff(before, after) as Record<string, unknown>;
     for (const key of Object.keys(patch)) {
       expect(PROPOSABLE_FIELDS).toContain(key);
     }
-    // A price change can never mutate invoices/payments — different tables,
-    // enforced structurally because the patch contains nothing else.
+    // A price/limits change can never mutate invoices/payments — different
+    // tables, enforced structurally because the patch contains nothing else.
     expect(Object.keys(patch)).toEqual(expect.arrayContaining(["annualPrice"]));
   });
 
@@ -124,7 +144,7 @@ describe("staleness + self-approval guards", () => {
   });
 });
 
-describe("tier helpers", () => {
+describe("tier helpers + security matrix", () => {
   it("recognizes the super tier via SYSTEM_SETTINGS_MANAGE", () => {
     expect(isSuperTier(superUser)).toBe(true);
     expect(isSuperTier(platformAdmin)).toBe(true);
@@ -132,9 +152,6 @@ describe("tier helpers", () => {
     expect(hasSaasPerm(marketingUser, "SYSTEM_SETTINGS_MANAGE")).toBe(false);
     expect(hasSaasPerm(platformAdmin, "PLAN_MANAGE")).toBe(true);
   });
-});
-
-describe("security matrix (RBAC merge spec §9/§20/§25)", () => {
   it("marketing admins may propose but never approve their own work", () => {
     expect(hasCapability(marketingUser, "pricing.manage")).toBe(true);
     expect(selfApprovalError(marketingUser.email, marketingUser.email)).toMatch(/self-approval/i);
@@ -147,35 +164,91 @@ describe("security matrix (RBAC merge spec §9/§20/§25)", () => {
   });
 });
 
-describe("baseline sync invariant (canonical Plan → storefront US profile)", () => {
-  const profiles = {
-    US: { prices: { starter: { monthly: 2900, annual: 27900 } } },
-    IN: { prices: { starter: { monthly: 190000, annual: 1900000 } } },
-  };
-
-  it("detects drift between storefront baseline and canonical plan", () => {
-    expect(baselineMatches(profiles.US.prices.starter, { monthlyPrice: 2900, annualPrice: 27900 })).toBe(true);
-    expect(baselineMatches(profiles.US.prices.starter, { monthlyPrice: 3900, annual: 27900 } as never)).toBe(false);
-    expect(baselineMatches(undefined, { monthlyPrice: 2900, annualPrice: 27900 })).toBe(false);
+describe("catalog-derived canonical inputs (Marketing authority)", () => {
+  it("represents every Marketing commercial plan with full structure", () => {
+    const inputs = buildCatalogPlanInputs();
+    expect(inputs.map((i) => i.slug)).toEqual(PLANS.map((p) => p.id));
+    for (const i of inputs) {
+      expect(i.marketingPlanId).toBe(i.slug);
+      expect(i.tagline).toBeTruthy();
+      expect(typeof i.displayOrder).toBe("number");
+      expect(Array.isArray((i.features as { cardFeatures?: string[] }).cardFeatures)).toBe(true);
+    }
   });
 
-  it("applies plan prices to the baseline profile without touching other countries", () => {
-    const next = withBaseline(
-      profiles as typeof profiles,
-      "US",
-      "starter",
-      { monthlyPrice: 3900, annualPrice: 39900 },
-    );
-    expect(next.US.prices.starter).toEqual({ monthly: 3900, annual: 39900 });
-    expect(next.IN.prices.starter).toEqual(profiles.IN.prices.starter); // localization preserved
-    expect(profiles.US.prices.starter.monthly).toBe(2900); // input not mutated
+  it("derives billing cents from the US storefront baseline ×100", () => {
+    const inputs = Object.fromEntries(buildCatalogPlanInputs().map((i) => [i.slug, i]));
+    expect(inputs.solopreneur.monthlyPrice).toBe(4900); // $49 → 4900¢
+    expect(inputs.starter.monthlyPrice).toBe(8900); // $89 → 8900¢
+    expect(inputs.growth.monthlyPrice).toBe(17900);
+    expect(inputs.professional.monthlyPrice).toBe(29900);
   });
 
-  it("leaves profiles alone when the catalog entry is missing", () => {
-    const next = withBaseline(profiles as typeof profiles, "US", "ghost-plan", {
-      monthlyPrice: 100,
-      annualPrice: 1000,
-    });
-    expect(next).toBe(profiles);
+  it("marks Enterprise as contact-sales custom pricing", () => {
+    const ent = buildCatalogPlanInputs().find((i) => i.slug === "enterprise");
+    expect(ent?.isCustomPrice).toBe(true);
+    expect(ent?.monthlyPrice).toBe(0);
+    expect(ent?.adminLimit).toBeNull();
+    expect(ent?.staffLimit).toBeNull();
+    const others = buildCatalogPlanInputs().filter((i) => i.slug !== "enterprise");
+    expect(others.every((i) => !i.isCustomPrice)).toBe(true);
+  });
+
+  it("flags growth as the featured plan and orders by catalog position", () => {
+    const inputs = buildCatalogPlanInputs();
+    expect(inputs.find((i) => i.featured)?.slug).toBe("growth");
+    expect(inputs.map((i) => i.displayOrder)).toEqual([0, 1, 2, 3, 4]);
+  });
+});
+
+describe("cent contamination detection (storefront unit repair)", () => {
+  it("detects leaked billing cents in US storefront cells", () => {
+    expect(looksLikeCentContamination({ monthly: 4900, annual: 44000 }, "starter")).toBe(true); // prod corruption
+    expect(looksLikeCentContamination({ monthly: 3600, annual: 49000 }, "starter")).toBe(true); // local corruption
+    expect(looksLikeCentContamination({ monthly: 9900, annual: 99000 }, "professional")).toBe(true);
+    expect(looksLikeCentContamination({ monthly: 89, annual: 890 }, "starter")).toBe(false); // healthy
+    expect(looksLikeCentContamination({ monthly: 299, annual: 2990 }, "professional")).toBe(false);
+    expect(looksLikeCentContamination(undefined, "starter")).toBe(false);
+    expect(looksLikeCentContamination({ monthly: 0, annual: 0 }, "enterprise")).toBe(false); // custom has no truth
+  });
+});
+
+describe("baseline invariant (billing cents ↔ storefront units)", () => {
+  it("matches when US units ×100 equal billing cents", () => {
+    expect(baselineMatches({ monthly: 89, annual: 890 }, { monthlyPrice: 8900, annualPrice: 89000 })).toBe(true);
+    expect(baselineMatches({ monthly: 49, annual: 490 }, { monthlyPrice: 4900, annualPrice: 49000 })).toBe(true);
+  });
+  it("reports drift on any mismatch or missing row", () => {
+    expect(baselineMatches({ monthly: 89, annual: 890 }, { monthlyPrice: 4900, annualPrice: 89000 })).toBe(false);
+    expect(baselineMatches({ monthly: 4900, annual: 44000 }, { monthlyPrice: 490000, annualPrice: 4400000 })).toBe(true); // contaminated-but-consistent pair is still *consistent*
+    expect(baselineMatches(undefined, { monthlyPrice: 100, annualPrice: 1000 })).toBe(false);
+  });
+});
+
+describe("request actions", () => {
+  it("supports structural actions", () => {
+    expect(REQUEST_ACTIONS).toContain("create");
+    expect(REQUEST_ACTIONS).toContain("archive");
+    expect(REQUEST_ACTIONS).toContain("activate");
+    expect(REQUEST_ACTIONS).toContain("deactivate");
+  });
+});
+
+describe("audit shape contract", () => {
+  it("exposes every category required by the sync spec", () => {
+    const audit: PricingPlanSyncAudit = {
+      matched: [], marketingOnly: [], saasOnly: [], priceMismatch: [],
+      featureMismatch: [], limitMismatch: [], currencyMismatch: [], countryMismatch: [],
+      customPlans: [], ok: true,
+    };
+    expect(audit).toHaveProperty("matched");
+    expect(audit).toHaveProperty("marketingOnly");
+    expect(audit).toHaveProperty("saasOnly");
+    expect(audit).toHaveProperty("priceMismatch");
+    expect(audit).toHaveProperty("featureMismatch");
+    expect(audit).toHaveProperty("limitMismatch");
+    expect(audit).toHaveProperty("currencyMismatch");
+    expect(audit).toHaveProperty("countryMismatch");
+    expect(audit).toHaveProperty("customPlans");
   });
 });

@@ -16,7 +16,7 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
   } catch {
     return NextResponse.json({ error: "Invalid JSON" }, { status: 400 });
   }
-  const result = await rejectPlanChange(guard.user, id, String(body.reason ?? ""));
+  const result = await rejectPlanChange(id, guard.user, String(body.reason ?? ""));
   if (!result.ok) return NextResponse.json({ error: result.error }, { status: result.status });
   return NextResponse.json({ ok: true });
 }

@@ -5,7 +5,8 @@ import { useRouter } from "next/navigation";
 
 export interface ApprovalRequestView {
   id: string;
-  planId: string;
+  planId: string | null;
+  action: string;
   status: string;
   requestedByEmail: string;
   reason: string | null;
@@ -15,28 +16,38 @@ export interface ApprovalRequestView {
   rejectionReason: string | null;
   createdAt: string;
   beforeSnapshot: Record<string, unknown>;
-  proposedSnapshot: Record<string, unknown>;
+  proposedSnapshot: Record<string, unknown> | null;
   plan?: { name?: string; slug?: string; version?: number } | null;
 }
 
 const FIELDS: [string, string][] = [
   ["name", "Name"],
+  ["slug", "Slug"],
   ["monthlyPrice", "Monthly price"],
   ["annualPrice", "Annual price"],
   ["trialDays", "Trial days"],
-  ["maxProperties", "Max properties"],
-  ["maxUsers", "Max users"],
-  ["maxBookings", "Max bookings"],
-  ["storageGb", "Storage GB"],
-  ["features", "Features"],
+  ["roomMin", "Room min"],
+  ["roomMax", "Room max"],
+  ["adminLimit", "Admin seats"],
+  ["staffLimit", "Staff seats"],
+  ["featured", "Featured"],
+  ["displayOrder", "Display order"],
+  ["isCustomPrice", "Custom pricing"],
   ["isActive", "Active"],
 ];
+
+const ACTION_LABELS: Record<string, string> = {
+  update: "Update",
+  create: "Create new plan",
+  archive: "Archive",
+  activate: "Activate",
+  deactivate: "Deactivate",
+};
 
 function fmt(field: string, v: unknown): string {
   if (v === undefined || v === null) return "—";
   if (field.endsWith("Price")) return `$${((v as number) / 100).toFixed(2)}`;
-  if (typeof v === "boolean") return v ? "Active" : "Inactive";
-  if (field === "features") return JSON.stringify(v);
+  if (typeof v === "boolean") return field === "featured" ? (v ? "Featured" : "—") : v ? "Yes" : "No";
   return String(v);
 }
 
@@ -107,27 +118,33 @@ export default function PlanApprovals({ requests, isSuper }: { requests: Approva
       {error && <p className="text-sm text-rose-600">{error}</p>}
       {visible.length === 0 && <p className="text-sm text-zinc-500">No {filter} requests.</p>}
       {visible.map((r) => {
-        const diffs = FIELDS.filter(([f]) => JSON.stringify(r.beforeSnapshot[f]) !== JSON.stringify(r.proposedSnapshot[f]));
+        const diffs = r.proposedSnapshot
+          ? FIELDS.filter(([f]) => JSON.stringify(r.beforeSnapshot?.[f]) !== JSON.stringify(r.proposedSnapshot![f]))
+          : [];
         return (
           <div key={r.id} className="rounded-lg border border-zinc-200 p-4 dark:border-zinc-800">
             <div className="flex flex-wrap items-center justify-between gap-2">
               <div>
-                <span className="font-semibold">{r.plan?.name ?? "Plan"}</span>
+                <span className="rounded bg-indigo-50 px-1.5 py-0.5 text-[10px] font-bold uppercase tracking-wide text-indigo-700 dark:bg-indigo-500/15 dark:text-indigo-300">
+                  {ACTION_LABELS[r.action] ?? r.action}
+                </span>
+                <span className="ml-2 font-semibold">{String(r.plan?.name ?? r.proposedSnapshot?.name ?? "Plan")}</span>
                 <span className="ml-2 text-xs text-zinc-500">
-                  slug:{r.plan?.slug} · requested by {r.requestedByEmail} · {new Date(r.createdAt).toLocaleString()}
+                  slug:{r.plan?.slug ?? String(r.proposedSnapshot?.slug ?? "")} · requested by {r.requestedByEmail} ·{" "}
+                  {new Date(r.createdAt).toLocaleString()}
                 </span>
               </div>
               <StatusBadge status={r.status} />
             </div>
             <dl className="mt-3 grid gap-x-6 gap-y-1 text-sm sm:grid-cols-2">
-              {diffs.length === 0 && <dt className="text-zinc-500">No field changes.</dt>}
+              {diffs.length === 0 && r.action === "update" && <dt className="text-zinc-500">No field changes.</dt>}
               {diffs.map(([f, label]) => (
                 <div key={f} className="flex gap-2">
                   <dt className="w-32 shrink-0 text-zinc-500">{label}</dt>
                   <dd>
-                    <span className="line-through opacity-60">{fmt(f, r.beforeSnapshot[f])}</span>{" "}
+                    <span className="line-through opacity-60">{fmt(f, r.beforeSnapshot?.[f])}</span>{" "}
                     <span className="font-medium text-emerald-700 dark:text-emerald-400">
-                      {fmt(f, r.proposedSnapshot[f])}
+                      {fmt(f, r.proposedSnapshot![f])}
                     </span>
                   </dd>
                 </div>

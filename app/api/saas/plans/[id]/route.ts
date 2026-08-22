@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { requireSaasAccess } from "@/lib/marketing/guard";
 import { hasSaasPerm } from "@/lib/saas/roles";
-import { getPlan, updatePlan, deletePlan } from "@/lib/saas/plans";
+import { getPlan, updatePlan, archivePlan } from "@/lib/saas/plans";
 import { writeSaasAudit } from "@/lib/saas/audit";
 import { clientIp } from "@/lib/marketing/guard";
 
@@ -42,6 +42,16 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id
   if (body.storageGb !== undefined) patch.storageGb = body.storageGb == null ? null : Number(body.storageGb);
   if (body.features !== undefined) patch.features = body.features as Record<string, unknown>;
   if (body.isActive !== undefined) patch.isActive = Boolean(body.isActive);
+  if (body.description !== undefined) patch.description = body.description == null ? null : String(body.description);
+  if (body.tagline !== undefined) patch.tagline = body.tagline == null ? null : String(body.tagline);
+  if (body.descriptor !== undefined) patch.descriptor = body.descriptor == null ? null : String(body.descriptor);
+  if (body.roomMin !== undefined) patch.roomMin = body.roomMin == null ? null : Number(body.roomMin);
+  if (body.roomMax !== undefined) patch.roomMax = body.roomMax == null ? null : Number(body.roomMax);
+  if (body.adminLimit !== undefined) patch.adminLimit = body.adminLimit == null ? null : Number(body.adminLimit);
+  if (body.staffLimit !== undefined) patch.staffLimit = body.staffLimit == null ? null : Number(body.staffLimit);
+  if (body.featured !== undefined) patch.featured = Boolean(body.featured);
+  if (body.displayOrder !== undefined) patch.displayOrder = Number(body.displayOrder);
+  if (body.isCustomPrice !== undefined) patch.isCustomPrice = Boolean(body.isCustomPrice);
   try {
     const before = await getPlan(id);
     const plan = await updatePlan(id, patch as never);
@@ -60,10 +70,11 @@ export async function DELETE(req: NextRequest, { params }: { params: Promise<{ i
   try {
     const plan = await getPlan(id);
     if (!plan) return NextResponse.json({ error: "Plan not found" }, { status: 404 });
-    await deletePlan(id);
-    await writeSaasAudit({ byEmail: guard.user.email, action: "plan.deleted", entity: "plan", entityId: id, detail: plan.slug, ip: clientIp(req) });
-    return NextResponse.json({ ok: true });
+    // Archive, never delete: subscriptions/invoices keep referencing this id.
+    await archivePlan(id);
+    await writeSaasAudit({ byEmail: guard.user.email, action: "plan.archived", entity: "plan", entityId: id, detail: plan.slug, ip: clientIp(req), before: { isActive: plan.isActive }, after: { isActive: false } });
+    return NextResponse.json({ ok: true, archived: true });
   } catch (e) {
-    return NextResponse.json({ error: e instanceof Error ? e.message : "Delete failed" }, { status: 400 });
+    return NextResponse.json({ error: e instanceof Error ? e.message : "Archive failed" }, { status: 400 });
   }
 }

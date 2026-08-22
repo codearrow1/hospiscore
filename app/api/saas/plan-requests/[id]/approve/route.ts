@@ -10,9 +10,8 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
   const guard = await requireSaasAccess();
   if (!guard.ok) return guard.response;
   const { id } = await params;
-  const result = await approvePlanChange(guard.user, id);
+  const result = await approvePlanChange(id, guard.user, clientIp(req));
   if (!result.ok) {
-    void clientIp(req);
     return NextResponse.json({ error: result.error }, { status: result.status });
   }
   return NextResponse.json({ ok: true, planId: result.planId });

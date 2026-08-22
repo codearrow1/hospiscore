@@ -40,6 +40,15 @@ export async function POST(req: NextRequest) {
       storageGb: body.storageGb != null ? Number(body.storageGb) : null,
       features: typeof body.features === "object" && body.features !== null ? (body.features as Record<string, unknown>) : undefined,
       isActive: body.isActive !== false,
+      tagline: typeof body.tagline === "string" ? body.tagline : undefined,
+      descriptor: typeof body.descriptor === "string" ? body.descriptor : undefined,
+      roomMin: body.roomMin != null ? Number(body.roomMin) : null,
+      roomMax: body.roomMax != null ? Number(body.roomMax) : null,
+      adminLimit: body.adminLimit != null ? Number(body.adminLimit) : null,
+      staffLimit: body.staffLimit != null ? Number(body.staffLimit) : null,
+      featured: body.featured === true,
+      displayOrder: body.displayOrder != null ? Number(body.displayOrder) : 0,
+      isCustomPrice: body.isCustomPrice === true,
     });
     await writeSaasAudit({ byEmail: guard.user.email, action: "plan.created", entity: "plan", entityId: plan.id, detail: plan.slug, ip: clientIp(req) });
     return NextResponse.json({ plan }, { status: 201 });

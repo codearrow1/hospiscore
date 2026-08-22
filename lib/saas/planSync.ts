@@ -1,29 +1,38 @@
 /**
- * Plan synchronization + pricing approval workflow.
+ * Pricing approval workflow service.
  *
- * Canonical source: the Prisma `Plan` table. Marketing's localized pricing
- * document (`lib/pricing/db.ts`) remains the per-country storefront layer;
- * its US baseline is kept in sync with the linked canonical plan.
+ * Marketing Admin users propose commercial changes to the canonical SaaS Plan
+ * catalog; with `require_marketing_pricing_approval` ON nothing applies until a
+ * Super Admin approves. Supports structural actions:
+ *   update | create | archive | activate | deactivate
  *
- * Marketing Admin (capability `pricing.manage`) proposes changes; when the
- * approval setting is ON, proposals become PlanChangeRequest rows and only a
- * Super Admin can apply them. Every decision is audited via writeSaasAudit.
+ * Guarantees:
+ * - Whitelist-only patches (financial tables are structurally unreachable)
+ * - Self-approval blocked by email identity
+ * - Staleness via Plan.version (409 + auto-reject on drift)
+ * - Approval re-syncs the US baseline (storefront units ↔ billing cents)
+ * - Every decision writes an audit record
  */
 import { prisma } from "@/lib/prisma";
-import { hasSaasPerm } from "@/lib/saas/roles";
-import { validatePlanInput, updatePlan, type PlanInput } from "@/lib/saas/plans";
-import { getApprovalRequirement } from "@/lib/saas/settings";
-import { writeSaasAudit } from "@/lib/saas/audit";
 import type { AuthUser } from "@/lib/auth";
+import { hasSaasPerm } from "@/lib/saas/roles";
+import { validatePlanInput, updatePlan, createPlan, archivePlan, type PlanInput } from "@/lib/saas/plans";
+import { writeSaasAudit } from "@/lib/saas/audit";
 
-export const REQUEST_STATUSES = ["pending", "approved", "rejected", "cancelled"] as const;
-export type RequestStatus = (typeof REQUEST_STATUSES)[number];
+// ---------------------------------------------------------------------------
+// Pure helpers (unit-tested)
+// ---------------------------------------------------------------------------
 
-/** Fields Marketing Admin may propose changing on a canonical plan. */
+export const REQUEST_ACTIONS = ["update", "create", "archive", "activate", "deactivate"] as const;
+export type RequestAction = (typeof REQUEST_ACTIONS)[number];
+
+/** Every field a proposal may ever touch. Nothing else gets through. */
 export const PROPOSABLE_FIELDS = [
   "name",
+  "slug",
   "monthlyPrice",
   "annualPrice",
+  "currency",
   "trialDays",
   "maxProperties",
   "maxUsers",
@@ -31,41 +40,26 @@ export const PROPOSABLE_FIELDS = [
   "storageGb",
   "features",
   "isActive",
+  "description",
+  "tagline",
+  "descriptor",
+  "roomMin",
+  "roomMax",
+  "adminLimit",
+  "staffLimit",
+  "featured",
+  "displayOrder",
+  "isCustomPrice",
 ] as const;
 
 export interface PlanSnapshot {
-  name: string;
-  monthlyPrice: number;
-  annualPrice: number;
-  currency: string;
-  trialDays: number;
-  maxProperties: number | null;
-  maxUsers: number | null;
-  maxBookings: number | null;
-  storageGb: number | null;
-  features: Record<string, unknown> | null;
-  isActive: boolean;
+  [key: string]: unknown;
 }
 
-export function planSnapshot(plan: {
-  name: string; monthlyPrice: number; annualPrice: number; currency: string;
-  trialDays: number; maxProperties: number | null; maxUsers: number | null;
-  maxBookings: number | null; storageGb: number | null;
-  features: unknown; isActive: boolean;
-}): PlanSnapshot {
-  return {
-    name: plan.name,
-    monthlyPrice: plan.monthlyPrice,
-    annualPrice: plan.annualPrice,
-    currency: plan.currency,
-    trialDays: plan.trialDays,
-    maxProperties: plan.maxProperties,
-    maxUsers: plan.maxUsers,
-    maxBookings: plan.maxBookings,
-    storageGb: plan.storageGb,
-    features: (plan.features as Record<string, unknown> | null) ?? null,
-    isActive: plan.isActive,
-  };
+export function planSnapshot(plan: Record<string, unknown>): PlanSnapshot {
+  const out: Record<string, unknown> = {};
+  for (const f of PROPOSABLE_FIELDS) if (plan[f] !== undefined) out[f] = plan[f];
+  return out;
 }
 
 /** Keep only proposalable fields from an arbitrary payload. */
@@ -76,7 +70,7 @@ export function pickProposable(patch: Record<string, unknown>): Partial<PlanInpu
 }
 
 export function mergeProposal(before: PlanSnapshot, patch: Partial<PlanInput>): PlanSnapshot {
-  return { ...before, ...(patch as Partial<PlanSnapshot>) };
+  return { ...before, ...(patch as Record<string, unknown>) };
 }
 
 export function diffSnapshots(
@@ -115,20 +109,16 @@ export function selfApprovalError(requestedByEmail: string, reviewerEmail: strin
     : null;
 }
 
-export async function ensureDefaultPlanLinks(): Promise<{ linked: number }> {
-  const plans = await prisma.plan.findMany({ select: { id: true, slug: true } });
-  const bySlug = new Map(plans.map((p) => [p.slug, p.id]));
-  const catalogIds = ["solopreneur", "starter", "growth", "professional", "enterprise"];
-  let linked = 0;
-  for (const marketingPlanId of catalogIds) {
-    const planId = bySlug.get(marketingPlanId);
-    if (!planId) continue;
-    const existing = await prisma.planLink.findUnique({ where: { marketingPlanId } });
-    if (existing) continue;
-    await prisma.planLink.create({ data: { marketingPlanId, planId } });
-    linked++;
-  }
-  return { linked };
+/**
+ * Does the canonical billing price match the storefront baseline?
+ * Billing is USD cents; the US storefront row is local units (= USD here).
+ */
+export function baselineMatches(
+  usUnits: { monthly: number; annual: number } | undefined,
+  plan: { monthlyPrice: number; annualPrice: number },
+): boolean {
+  if (!usUnits) return false;
+  return usUnits.monthly * 100 === plan.monthlyPrice && usUnits.annual * 100 === plan.annualPrice;
 }
 
 // ---------------------------------------------------------------------------
@@ -136,185 +126,332 @@ export async function ensureDefaultPlanLinks(): Promise<{ linked: number }> {
 // ---------------------------------------------------------------------------
 
 export type SubmitResult =
-  | { outcome: "applied"; plan: Awaited<ReturnType<typeof updatePlan>> }
+  | { outcome: "applied"; planId?: string }
   | { outcome: "pending"; requestId: string }
   | { outcome: "error"; error: string };
 
+function normalizeAction(raw: unknown): RequestAction {
+  const a = String(raw ?? "update").trim().toLowerCase();
+  return (REQUEST_ACTIONS as readonly string[]).includes(a) ? (a as RequestAction) : "update";
+}
+
+async function syncUsBaseline(
+  plan: {
+    id: string;
+    slug: string | null;
+    marketingPlanId: string | null;
+    name: string;
+    monthlyPrice: number;
+    annualPrice: number;
+    isCustomPrice?: boolean;
+  },
+  byEmail: string,
+): Promise<void> {
+  const marketingId = plan.marketingPlanId ?? plan.slug;
+  if (!marketingId) return;
+  const { getPricingDoc, savePricingDoc } = await import("@/lib/pricing/db");
+  const doc = await getPricingDoc();
+  const profiles = structuredClone(doc.profiles);
+  const us = profiles.US as { prices: Record<string, { monthly: number; annual: number }> } | undefined;
+  const units = { monthly: Math.round(plan.monthlyPrice / 100), annual: Math.round(plan.annualPrice / 100) };
+  let changed = false;
+  if (us?.prices?.[marketingId]) {
+    if (!baselineMatches(us.prices[marketingId], plan)) {
+      // Custom/contact-sales plans keep the 0/0 "Contact us" marker.
+      us.prices[marketingId] = plan.isCustomPrice ? { monthly: 0, annual: 0 } : units;
+      changed = true;
+    }
+  } else if (us) {
+    us.prices[marketingId] = plan.isCustomPrice ? { monthly: 0, annual: 0 } : units;
+    changed = true;
+  }
+  if (changed) {
+    await savePricingDoc({
+      profiles,
+      label: `US baseline synced from plan "${plan.name}" (${marketingId})`,
+      byEmail,
+    });
+  }
+  // Canonical country-price row for the US market.
+  await prisma.planCountryPrice.upsert({
+    where: { planId_country: { planId: plan.id, country: "US" } },
+    create: {
+      planId: plan.id,
+      country: "US",
+      currency: "USD",
+      monthly: Math.round(plan.monthlyPrice / 100),
+      annual: Math.round(plan.annualPrice / 100),
+    },
+    update: {
+      currency: "USD",
+      monthly: Math.round(plan.monthlyPrice / 100),
+      annual: Math.round(plan.annualPrice / 100),
+    },
+  });
+}
+
 /**
- * Marketing-side entry point. With approval OFF the change applies
- * immediately (still audited); with ON it becomes a pending request.
+ * Marketing-side entry point. With approval OFF the change applies immediately
+ * (audited); with approval ON a pending PlanChangeRequest is created.
+ * `action` supports structural proposals: create plans, archive, toggle.
  */
-export async function submitMarketingPlanChange(
-  user: Pick<AuthUser, "email" | "role" | "name">,
-  planId: string,
-  rawPatch: Record<string, unknown>,
-  reason?: string,
-): Promise<SubmitResult> {
-  if (!user?.email) return { outcome: "error", error: "Authentication required" };
-  const patch = pickProposable(rawPatch);
-  const v = validatePlanInput(patch, false);
-  if (!v.ok) return { outcome: "error", error: v.error };
-  if (Object.keys(patch).length === 0) return { outcome: "error", error: "No changeable fields provided" };
+export async function submitMarketingPlanChange(opts: {
+  user: Pick<AuthUser, "email" | "role">;
+  action?: string;
+  planId?: string;
+  patch: Record<string, unknown>;
+  reason?: string;
+  ip?: string | null;
+}): Promise<SubmitResult> {
+  const action = normalizeAction(opts.action);
+  const clean = pickProposable(opts.patch);
+  const ip = opts.ip ?? null;
 
-  const plan = await prisma.plan.findUnique({ where: { id: planId } });
-  if (!plan) return { outcome: "error", error: "Plan not found" };
+  if (action === "create") {
+    const v = validatePlanInput(clean as Partial<PlanInput>, true);
+    if (!v.ok) return { outcome: "error", error: v.error };
+    const dup = await prisma.plan.findUnique({ where: { slug: String(clean.slug).toLowerCase() } });
+    if (dup) return { outcome: "error", error: "slug already exists" };
+    const { defaultApprovalRequirement } = await import("@/lib/saas/settings");
+    if (!(await defaultApprovalRequirement())) {
+      const plan = await createPlan(clean as PlanInput);
+      await writeSaasAudit({
+        byEmail: opts.user.email,
+        action: "plan.created_direct",
+        entity: "plan",
+        entityId: plan.id,
+        detail: `created ${plan.slug}`,
+        before: null,
+        after: plan,
+        ip: ip ?? undefined,
+      });
+      await syncUsBaseline(plan as never, opts.user.email);
+      return { outcome: "applied", planId: plan.id };
+    }
+    const req = await prisma.planChangeRequest.create({
+      data: {
+        action: "create",
+        requestedByEmail: opts.user.email.trim().toLowerCase(),
+        status: "pending",
+        beforeSnapshot: {} as never,
+        proposedSnapshot: clean as never,
+        reason: opts.reason ?? null,
+        baseVersion: 0,
+      },
+    });
+    await writeSaasAudit({
+      byEmail: opts.user.email,
+      action: "plan.change_submitted",
+      entity: "plan_request",
+      entityId: req.id,
+      detail: `create proposal for "${clean.slug}"`,
+      after: clean,
+      ip: ip ?? undefined,
+    });
+    return { outcome: "pending", requestId: req.id };
+  }
 
-  const before = planSnapshot(plan);
+  // All other actions require an existing plan.
+  if (!opts.planId) return { outcome: "error", error: "planId required" };
+  const plan = await prisma.plan.findUnique({
+    where: { id: opts.planId },
+    include: { countryPrices: { where: { country: "US" } } },
+  });
+  if (!plan) return { outcome: "error", error: "plan not found" };
+
+  const before = planSnapshot(plan as unknown as Record<string, unknown>);
+  let patch: Partial<PlanInput> = {};
+
+  if (action === "archive") {
+    patch = { isActive: false };
+  } else if (action === "activate") {
+    patch = { isActive: true };
+  } else if (action === "deactivate") {
+    patch = { isActive: false };
+  } else {
+    patch = clean;
+    if (Object.keys(patch).length === 0) return { outcome: "error", error: "nothing to change" };
+    const v = validatePlanInput(patch, false);
+    if (!v.ok) return { outcome: "error", error: v.error };
+  }
+
+  const { getApprovalRequirement } = await import("@/lib/saas/settings");
+  const needsApproval = await getApprovalRequirement();
+
+  if (!needsApproval) {
+    let updated;
+    if (action === "archive") {
+      updated = await archivePlan(plan.id);
+    } else {
+      updated = await updatePlan(plan.id, patch);
+    }
+    await writeSaasAudit({
+      byEmail: opts.user.email,
+      action: "plan.changed_direct",
+      entity: "plan",
+      entityId: plan.id,
+      detail: `${action} applied directly (approval disabled)`,
+      before,
+      after: updated,
+      ip: ip ?? undefined,
+    });
+    await syncUsBaseline(updated as never, opts.user.email).catch(() => {});
+    return { outcome: "applied", planId: plan.id };
+  }
+
   const proposed = mergeProposal(before, patch);
-  const requiresApproval = await getApprovalRequirement();
-
-  if (!requiresApproval && isSuperTier(user)) {
-    // Super Admin editing directly through this endpoint: immediate.
-    const updated = await updatePlan(planId, patch);
-    await writeSaasAudit({
-      byEmail: user.email,
-      action: "plan.updated_direct",
-      entity: "plan",
-      entityId: planId,
-      detail: Object.keys(patch).join(","),
-      before: before as never,
-      after: planSnapshot(updated) as never,
-    });
-    return { outcome: "applied", plan: updated };
-  }
-
-  if (!requiresApproval) {
-    // Approval disabled: trusted marketing change applies immediately.
-    const updated = await updatePlan(planId, patch);
-    await writeSaasAudit({
-      byEmail: user.email,
-      action: "plan.updated_by_marketing",
-      entity: "plan",
-      entityId: planId,
-      detail: Object.keys(patch).join(","),
-      before: before as never,
-      after: planSnapshot(updated) as never,
-    });
-    await syncBaselineAfterPlanChange(planId, user.email).catch(() => {});
-    return { outcome: "applied", plan: updated };
-  }
-
-  const request = await prisma.planChangeRequest.create({
+  const req = await prisma.planChangeRequest.create({
     data: {
-      planId,
-      requestedByEmail: user.email.toLowerCase(),
+      planId: plan.id,
+      action,
+      requestedByEmail: opts.user.email.trim().toLowerCase(),
       status: "pending",
       beforeSnapshot: before as never,
       proposedSnapshot: proposed as never,
-      reason: reason?.trim() || null,
+      reason: opts.reason ?? null,
       baseVersion: plan.version,
     },
   });
   await writeSaasAudit({
-    byEmail: user.email,
-    action: "plan.change_requested",
-    entity: "plan",
-    entityId: planId,
-    detail: `${Object.keys(patch).join(",")} (request ${request.id})`,
+    byEmail: opts.user.email,
+    action: "plan.change_submitted",
+    entity: "plan_request",
+    entityId: req.id,
+    detail: `${action} proposal for ${plan.slug}`,
+    after: proposed,
+    ip: ip ?? undefined,
   });
-  return { outcome: "pending", requestId: request.id };
+  return { outcome: "pending", requestId: req.id };
 }
 
-export async function approvePlanChange(
-  reviewer: Pick<AuthUser, "email" | "role">,
-  requestId: string,
-): Promise<{ ok: true; planId: string } | { ok: false; status: number; error: string }> {
+export interface ApproveResult {
+  ok: boolean;
+  status: number;
+  error?: string;
+  planId?: string;
+}
+
+export async function approvePlanChange(requestId: string, reviewer: Pick<AuthUser, "email" | "role">, ip?: string | null): Promise<ApproveResult> {
+  const req = await prisma.planChangeRequest.findUnique({ where: { id: requestId } });
+  if (!req) return { ok: false, status: 404, error: "request not found" };
+  if (req.status !== "pending") return { ok: false, status: 409, error: `Request already ${req.status}` };
   if (!isSuperTier(reviewer)) return { ok: false, status: 403, error: "Super Admin access required" };
-  const request = await prisma.planChangeRequest.findUnique({ where: { id: requestId } });
-  if (!request) return { ok: false, status: 404, error: "Request not found" };
-  if (request.status !== "pending") {
-    return { ok: false, status: 409, error: `Request already ${request.status}` };
-  }
-  const selfErr = selfApprovalError(request.requestedByEmail, reviewer.email);
+  const selfErr = selfApprovalError(req.requestedByEmail, reviewer.email);
   if (selfErr) return { ok: false, status: 403, error: selfErr };
 
-  const plan = await prisma.plan.findUnique({ where: { id: request.planId } });
-  if (!plan) return { ok: false, status: 404, error: "Plan not found" };
-  if (isStaleRequest(request.baseVersion, plan.version)) {
-    await prisma.planChangeRequest.update({
-      where: { id: requestId },
-      data: {
-        status: "rejected",
-        rejectionReason: "Plan changed after this request was submitted.",
-        reviewedByEmail: reviewer.email,
-        reviewedAt: new Date(),
-      },
-    });
-    return { ok: false, status: 409, error: "Plan changed after this request was submitted." };
+  // Create requests have no plan/version to go stale.
+  if (req.action !== "create") {
+    if (!req.planId) return { ok: false, status: 404, error: "plan not found" };
+    const plan = await prisma.plan.findUnique({ where: { id: req.planId } });
+    if (!plan) return { ok: false, status: 404, error: "plan not found" };
+    if (isStaleRequest(req.baseVersion, plan.version)) {
+      await prisma.planChangeRequest.update({
+        where: { id: req.id },
+        data: {
+          status: "rejected",
+          reviewedByEmail: reviewer.email,
+          reviewedAt: new Date(),
+          rejectionReason: "Plan changed after this request was submitted.",
+        },
+      });
+      return { ok: false, status: 409, error: "Plan changed after this request was submitted." };
+    }
   }
 
-  const before = planSnapshot(plan);
-  const proposed = request.proposedSnapshot as unknown as PlanSnapshot;
-  const patch = patchFromDiff(before, proposed);
-  const updated = await updatePlan(plan.id, patch);
-  await syncBaselineAfterPlanChange(plan.id, reviewer.email).catch(() => {});
+  let planId = req.planId ?? undefined;
+
+  if (req.action === "create") {
+    const input = pickProposable(req.proposedSnapshot as Record<string, unknown>) as PlanInput;
+    try {
+      const created = await createPlan(input);
+      planId = created.id;
+    } catch (e) {
+      return { ok: false, status: 409, error: e instanceof Error ? e.message : "create failed" };
+    }
+  } else if (req.action === "archive") {
+    await archivePlan(req.planId!);
+  } else {
+    const plan = await prisma.plan.findUnique({ where: { id: req.planId! } });
+    const before = planSnapshot(plan as unknown as Record<string, unknown>);
+    const patch =
+      req.action === "activate"
+        ? { isActive: true }
+        : req.action === "deactivate"
+          ? { isActive: false }
+          : patchFromDiff(before, req.proposedSnapshot as PlanSnapshot);
+    await updatePlan(plan!.id, patch as Partial<PlanInput>);
+  }
+
+  const updatedPlan = planId ? await prisma.plan.findUnique({ where: { id: planId } }) : null;
+  if (updatedPlan) await syncUsBaseline(updatedPlan as never, reviewer.email).catch(() => {});
+
   await prisma.planChangeRequest.update({
-    where: { id: requestId },
-    data: { status: "approved", reviewedByEmail: reviewer.email, reviewedAt: new Date() },
+    where: { id: req.id },
+    data: {
+      status: "approved",
+      reviewedByEmail: reviewer.email,
+      reviewedAt: new Date(),
+      ...(planId ? { planId } : {}),
+    },
   });
   await writeSaasAudit({
     byEmail: reviewer.email,
     action: "plan.change_approved",
-    entity: "plan",
-    entityId: plan.id,
-    detail: `request ${requestId} by ${request.requestedByEmail}`,
-    before: before as never,
-    after: planSnapshot(updated) as never,
+    entity: "plan_request",
+    entityId: req.id,
+    detail: `${req.action} approved`,
+    before: req.beforeSnapshot,
+    after: req.proposedSnapshot,
+    ip: ip ?? undefined,
   });
-  return { ok: true, planId: plan.id };
+  return { ok: true, status: 200, planId };
 }
 
-export async function rejectPlanChange(
-  reviewer: Pick<AuthUser, "email" | "role">,
-  requestId: string,
-  rejectionReason: string,
-): Promise<{ ok: true } | { ok: false; status: number; error: string }> {
+export async function rejectPlanChange(requestId: string, reviewer: Pick<AuthUser, "email" | "role">, reason: string, ip?: string | null): Promise<ApproveResult> {
+  const trimmed = reason?.trim() ?? "";
+  if (!trimmed) return { ok: false, status: 400, error: "Rejection reason is required" };
+  const req = await prisma.planChangeRequest.findUnique({ where: { id: requestId } });
+  if (!req) return { ok: false, status: 404, error: "request not found" };
+  if (req.status !== "pending") return { ok: false, status: 409, error: `Request already ${req.status}` };
   if (!isSuperTier(reviewer)) return { ok: false, status: 403, error: "Super Admin access required" };
-  const reason = rejectionReason?.trim();
-  if (!reason) return { ok: false, status: 400, error: "A rejection reason is required" };
-  const request = await prisma.planChangeRequest.findUnique({ where: { id: requestId } });
-  if (!request) return { ok: false, status: 404, error: "Request not found" };
-  if (request.status !== "pending") {
-    return { ok: false, status: 409, error: `Request already ${request.status}` };
-  }
-  const selfErr = selfApprovalError(request.requestedByEmail, reviewer.email);
-  if (selfErr) return { ok: false, status: 403, error: selfErr };
   await prisma.planChangeRequest.update({
-    where: { id: requestId },
+    where: { id: req.id },
     data: {
       status: "rejected",
-      rejectionReason: reason,
       reviewedByEmail: reviewer.email,
       reviewedAt: new Date(),
+      rejectionReason: trimmed,
     },
   });
   await writeSaasAudit({
     byEmail: reviewer.email,
     action: "plan.change_rejected",
-    entity: "plan",
-    entityId: request.planId,
-    detail: `request ${requestId}: ${reason}`,
+    entity: "plan_request",
+    entityId: req.id,
+    detail: `${req.action} rejected: ${trimmed}`,
+    before: req.beforeSnapshot,
+    after: req.proposedSnapshot,
+    ip: ip ?? undefined,
   });
-  return { ok: true };
+  return { ok: true, status: 200 };
 }
 
-export async function cancelPlanChange(
-  requesterEmail: string,
-  requestId: string,
-): Promise<{ ok: true } | { ok: false; status: number; error: string }> {
-  const request = await prisma.planChangeRequest.findUnique({ where: { id: requestId } });
-  if (!request) return { ok: false, status: 404, error: "Request not found" };
-  if (request.requestedByEmail.toLowerCase() !== requesterEmail.toLowerCase()) {
-    return { ok: false, status: 403, error: "Only the requester can cancel" };
+export async function cancelPlanChange(requestId: string, user: Pick<AuthUser, "email" | "role">): Promise<ApproveResult> {
+  const req = await prisma.planChangeRequest.findUnique({ where: { id: requestId } });
+  if (!req) return { ok: false, status: 404, error: "request not found" };
+  if (req.status !== "pending") return { ok: false, status: 409, error: `Request already ${req.status}` };
+  if (req.requestedByEmail !== user.email.trim().toLowerCase()) {
+    return { ok: false, status: 403, error: "Only the requester can cancel this request" };
   }
-  if (request.status !== "pending") {
-    return { ok: false, status: 409, error: `Request already ${request.status}` };
-  }
-  await prisma.planChangeRequest.update({
-    where: { id: requestId },
-    data: { status: "cancelled", reviewedAt: new Date() },
+  await prisma.planChangeRequest.update({ where: { id: req.id }, data: { status: "cancelled" } });
+  await writeSaasAudit({
+    byEmail: user.email,
+    action: "plan.change_cancelled",
+    entity: "plan_request",
+    entityId: req.id,
+    detail: `${req.action} proposal withdrawn`,
   });
-  return { ok: true };
+  return { ok: true, status: 200 };
 }
 
 export async function listRequests(status?: string, planId?: string) {
@@ -337,121 +474,4 @@ export async function getRequestsForEmail(email: string) {
     take: 50,
     include: { plan: { select: { name: true, slug: true } } },
   });
-}
-
-// ---------------------------------------------------------------------------
-// Baseline synchronization (canonical Plan → marketing PricingDoc US profile)
-// ---------------------------------------------------------------------------
-
-function baselineProfileCode(): string {
-  return "US";
-}
-
-/** Pure: does the storefront price point equal the canonical plan price? */
-export function baselineMatches(
-  price: { monthly: number; annual: number } | undefined,
-  plan: { monthlyPrice: number; annualPrice: number },
-): boolean {
-  if (!price) return false;
-  return price.monthly === plan.monthlyPrice && price.annual === plan.annualPrice;
-}
-
-/** Pure: return profiles with the baseline price point set from the plan. */
-export function withBaseline<P extends { prices: Record<string, { monthly: number; annual: number }> }>(
-  profiles: Record<string, P>,
-  code: string,
-  marketingPlanId: string,
-  plan: { monthlyPrice: number; annualPrice: number },
-): Record<string, P> {
-  if (!profiles[code]?.prices?.[marketingPlanId]) return profiles;
-  const next = structuredClone(profiles);
-  next[code].prices[marketingPlanId] = {
-    ...next[code].prices[marketingPlanId],
-    monthly: plan.monthlyPrice,
-    annual: plan.annualPrice,
-  };
-  return next;
-}
-
-/**
- * Keeps the marketing storefront baseline (US profile of the PricingDoc)
- * equal to the canonical plan prices for every linked plan. Localized
- * country profiles remain deliberate marketing edits — only the US baseline
- * is derived, so there is never a second independent USD active price.
- */
-export async function syncBaselineAfterPlanChange(planId: string, byEmail: string): Promise<void> {
-  const link = await prisma.planLink.findFirst({ where: { planId }, include: { plan: true } });
-  if (!link) return;
-  // The storefront marks "enterprise" as custom-priced (0/0 by validation rule);
-  // canonical list prices must never overwrite that marker.
-  if (link.marketingPlanId === "enterprise") return;
-  const { getPricingDoc, savePricingDoc } = await import("@/lib/pricing/db");
-  const doc = await getPricingDoc();
-  const profile = doc.profiles[baselineProfileCode()];
-  const price = (profile?.prices as Record<string, { monthly: number; annual: number }> | undefined)?.[
-    link.marketingPlanId
-  ];
-  if (!price) return;
-  const plan = link.plan;
-  if (baselineMatches(price, plan)) return;
-  const nextProfiles = withBaseline(doc.profiles, baselineProfileCode(), link.marketingPlanId, plan);
-  await savePricingDoc({
-    profiles: nextProfiles,
-    label: `Baseline sync from plan "${plan.name}" (${plan.slug})`,
-    byEmail,
-  });
-}
-
-export interface SyncDriftRow {
-  marketingPlanId: string;
-  planId: string;
-  planName: string;
-  planMonthly: number;
-  planAnnual: number;
-  storeMonthly: number;
-  storeAnnual: number;
-  /** Storefront entry is a custom-quote marker (0/0) — intentionally not synced. */
-  custom?: boolean;
-}
-
-/** Report drift between canonical plan prices and the storefront baseline. */
-export async function pricingSyncStatus(): Promise<{
-  drift: SyncDriftRow[];
-  unlinkedMarketingIds: string[];
-  unlinkedPlans: { id: string; name: string; slug: string }[];
-}> {
-  await ensureDefaultPlanLinks().catch(() => {});
-  const links = await prisma.planLink.findMany({ include: { plan: true } });
-  const { getPricingDoc } = await import("@/lib/pricing/db");
-  const doc = await getPricingDoc();
-  const baseline = (doc.profiles[baselineProfileCode()]?.prices ?? {}) as Record<
-    string,
-    { monthly: number; annual: number }
-  >;
-  const drift: SyncDriftRow[] = [];
-  for (const l of links) {
-    const p = baseline[l.marketingPlanId];
-    if (!p) continue;
-    if (!baselineMatches(p, l.plan)) {
-      const custom = p.monthly === 0 && p.annual === 0;
-      drift.push({
-        marketingPlanId: l.marketingPlanId,
-        planId: l.plan.id,
-        planName: l.plan.name,
-        planMonthly: l.plan.monthlyPrice,
-        planAnnual: l.plan.annualPrice,
-        storeMonthly: p.monthly,
-        storeAnnual: p.annual,
-        ...(custom ? { custom } : {}),
-      });
-    }
-  }
-  const linkedIds = new Set(links.map((l) => l.marketingPlanId));
-  const unlinkedMarketingIds = ["solopreneur", "starter", "growth", "professional", "enterprise"].filter(
-    (id) => !linkedIds.has(id),
-  );
-  const linkedPlanIds = new Set(links.map((l) => l.planId));
-  const allPlans = await prisma.plan.findMany({ select: { id: true, name: true, slug: true } });
-  const unlinkedPlans = allPlans.filter((pl) => !linkedPlanIds.has(pl.id));
-  return { drift, unlinkedMarketingIds, unlinkedPlans };
 }

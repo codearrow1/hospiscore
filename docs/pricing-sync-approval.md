@@ -7,13 +7,22 @@ financial-integrity guarantees.
 
 ## Architecture
 
+> **Superseded (2026-08-22):** the `PlanLink` indirection was folded into
+> `Plan.marketingPlanId` and the SaaS Plan table now mirrors the *full*
+> Marketing catalog structure (5 plans, room bands, admin/staff seats,
+> featured flag, display order, custom pricing, per-country storefront
+> prices). See **docs/pricing-structure-audit.md** for the authoritative
+> data model. The flow below remains accurate except that identity is a
+> column, not a separate table.
+
 ```
 canonical source of truth          localization / storefront layer
-┌─────────────────────────┐   sync  ┌──────────────────────────────┐
-│ Prisma Plan (versioned) │ ──────► │ PricingDoc JSON (DataFile)   │
-│ /saas/plans             │         │ US baseline profile per plan │
-│ PlanLink (1:1 by slug)  │         │ country profiles stay local  │
-└─────────────────────────┘         └──────────────────────────────┘
+┌──────────────────────────────┐ sync  ┌──────────────────────────────┐
+│ Prisma Plan (versioned)      │ ────► │ PricingDoc JSON (DataFile)   │
+│ /saas/plans                  │       │ US baseline profile per plan │
+│ marketingPlanId column       │       │ + PlanCountryPrice rows      │
+│ = Marketing catalog id       │       │ country profiles stay local  │
+└──────────────────────────────┘       └──────────────────────────────┘
             ▲                                  ▲
             │ propose (PlanChangeRequest)      │ full doc edits
             └── /marketing-admin/pricing ──────┘

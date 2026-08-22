@@ -2,7 +2,7 @@ import Link from "next/link";
 import { requireMarketingUser } from "@/lib/marketing/guard";
 import { restrictedPanel } from "@/app/marketing-admin/restricted";
 import { listPlans, seedDefaultPlans } from "@/lib/saas/plans";
-import { listRequests, ensureDefaultPlanLinks } from "@/lib/saas/planSync";
+import { listRequests } from "@/lib/saas/planSync";
 import { hasSaasPerm } from "@/lib/saas/roles";
 import PlansManager from "@/components/saas/PlansManager";
 
@@ -13,7 +13,6 @@ export default async function PlansPage() {
   const guard = await requireMarketingUser();
   if (!guard.ok) return restrictedPanel("Plans", "Platform access required.");
   await seedDefaultPlans();
-  await ensureDefaultPlanLinks().catch(() => {});
   const [plans, pending] = await Promise.all([
     listPlans(),
     listRequests("pending"),
