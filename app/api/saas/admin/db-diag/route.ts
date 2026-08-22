@@ -32,6 +32,58 @@ export async function GET() {
     allowDemoSeed: process.env.ALLOW_DEMO_SEED === "1",
   };
 
+  try {
+    const { readFile } = await import("node:fs/promises");
+    const pathMod = await import("node:path");
+    const cwd = process.cwd();
+    const classPath = pathMod.join(cwd, "lib/generated/prisma/internal/class.ts");
+    let classSrc = "";
+    try {
+      classSrc = await readFile(classPath, "utf8");
+    } catch (e) {
+      steps.push({ step: "read generated class.ts", ok: false, detail: errText(e) });
+    }
+    if (classSrc) {
+      const stale = classSrc.includes("library.mjs");
+      steps.push({
+        step: "generated client freshness",
+        ok: true,
+        detail: stale ? "STALE (explicit library.mjs import)" : "FRESH (extensionless/CJS import)",
+      });
+    }
+    const rtDir = pathMod.join(cwd, "node_modules/@prisma/client/runtime");
+    for (const f of ["library.js", "library.mjs"]) {
+      try {
+        await readFile(pathMod.join(rtDir, f));
+        steps.push({ step: `runtime file exists: ${f}`, ok: true });
+      } catch {
+        steps.push({ step: `runtime file exists: ${f}`, ok: false });
+      }
+    }
+  } catch (e) {
+    steps.push({ step: "fs probes", ok: false, detail: errText(e) });
+  }
+
+  // Native runtime import that webpack cannot rewrite — probes the real
+  // files in node_modules instead of bundled copies.
+  const nativeImport = new Function("s", "return import(s)") as (s: string) => Promise<unknown>;
+
+  try {
+    const mod = await nativeImport("@prisma/client/runtime/library.js");
+    steps.push({ step: "import runtime/library.js (CJS)", ok: true });
+    void mod;
+  } catch (e) {
+    steps.push({ step: "import runtime/library.js (CJS)", ok: false, detail: errText(e) });
+  }
+
+  try {
+    const mod = await nativeImport("@prisma/client/runtime/library.mjs");
+    steps.push({ step: "import runtime/library.mjs (ESM)", ok: true });
+    void mod;
+  } catch (e) {
+    steps.push({ step: "import runtime/library.mjs (ESM)", ok: false, detail: errText(e) });
+  }
+
   let client: unknown = null;
   try {
     const mod = await import("@/lib/generated/prisma/client");
