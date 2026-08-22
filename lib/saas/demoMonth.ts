@@ -117,12 +117,88 @@ async function seedDemoProperties(): Promise<number> {
 }
 
 /**
+ * Demo pricing-approval history: one approved, one rejected, one pending
+ * request against the cheapest active plan. Self-guarded; runs before the
+ * month marker check like seedDemoProperties.
+ */
+async function seedDemoApprovals(): Promise<void> {
+  if ((await prisma.planChangeRequest.count()) > 0) return;
+  const plans = await prisma.plan.findMany({ where: { isActive: true }, orderBy: { monthlyPrice: "asc" } });
+  if (plans.length === 0) return;
+  const plan = plans[0];
+  const snap = {
+    name: plan.name,
+    monthlyPrice: plan.monthlyPrice,
+    annualPrice: plan.annualPrice,
+    currency: plan.currency,
+    trialDays: plan.trialDays,
+    maxProperties: plan.maxProperties,
+    maxUsers: plan.maxUsers,
+    maxBookings: plan.maxBookings,
+    storageGb: plan.storageGb,
+    features: (plan.features as Record<string, unknown> | null) ?? null,
+    isActive: plan.isActive,
+  };
+  const requester = "marketing@hospios.demo";
+  const reviewer = "superadmin@hospios.demo";
+  const daysAgo = (d: number) => new Date(Date.now() - d * 86_400_000);
+
+  // 1) Approved price increase (historical example).
+  await prisma.planChangeRequest.create({
+    data: {
+      planId: plan.id,
+      requestedByEmail: requester,
+      status: "approved",
+      beforeSnapshot: { ...snap } as never,
+      proposedSnapshot: { ...snap, monthlyPrice: snap.monthlyPrice + 1000 } as never,
+      reason: "Launch-month promo ended — restore list price.",
+      baseVersion: plan.version,
+      reviewedByEmail: reviewer,
+      reviewedAt: daysAgo(9),
+      createdAt: daysAgo(10),
+    },
+  });
+
+  // 2) Rejected rename (example of governance).
+  await prisma.planChangeRequest.create({
+    data: {
+      planId: plan.id,
+      requestedByEmail: requester,
+      status: "rejected",
+      beforeSnapshot: { ...snap } as never,
+      proposedSnapshot: { ...snap, name: `${snap.name} Lite` } as never,
+      reason: "A/B test a lighter label on the landing page.",
+      baseVersion: plan.version,
+      reviewedByEmail: reviewer,
+      reviewedAt: daysAgo(6),
+      rejectionReason: "Renaming the entry plan confuses existing customers — keep as is.",
+      createdAt: daysAgo(7),
+    },
+  });
+
+  // 3) Pending proposal reviewers can act on for real.
+  await prisma.planChangeRequest.create({
+    data: {
+      planId: plan.id,
+      requestedByEmail: requester,
+      status: "pending",
+      beforeSnapshot: { ...snap } as never,
+      proposedSnapshot: { ...snap, annualPrice: Math.max(0, snap.annualPrice - 5000) } as never,
+      reason: "Match competitor annual pricing ahead of Q4 campaign.",
+      baseVersion: plan.version,
+      createdAt: daysAgo(1),
+    },
+  });
+}
+
+/**
  * One-month launch demo seeder (RBAC merge spec §13). Idempotent via marker
  * org unless `force`. Safe to call from scripts or the admin seed route.
  */
 export async function seedDemoMonth(force = false): Promise<DemoSeedSummary> {
   const propsCreated = await seedDemoProperties();
   if (propsCreated > 0) console.log(`[demo-month] created ${propsCreated} properties`);
+  await seedDemoApprovals();
   const marker = await prisma.organization.findFirst({ where: { legalName: { startsWith: "Demo Month Org" } } });
   if (marker && !force) {
     return {

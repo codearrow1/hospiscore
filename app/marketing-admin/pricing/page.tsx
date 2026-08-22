@@ -2,7 +2,14 @@ import { requireCapability } from "@/lib/marketing/guard";
 import { restrictedPanel } from "@/app/marketing-admin/restricted";
 import { getPricingDoc } from "@/lib/pricing/db";
 import { SEED_COUNTRIES } from "@/lib/pricing/countries";
+import { listPlans } from "@/lib/saas/plans";
+import { ensureDefaultPlanLinks, getRequestsForEmail } from "@/lib/saas/planSync";
+import { getApprovalRequirement } from "@/lib/saas/settings";
 import PricingManager from "@/components/pricing/PricingManager";
+import PlanProposalPanel, {
+  type ProposalPlanView,
+  type ProposalRequestView,
+} from "@/components/pricing/PlanProposalPanel";
 
 export const dynamic = "force-dynamic";
 export const runtime = "nodejs";
@@ -13,7 +20,15 @@ export default async function PricingAdminPage() {
     return restrictedPanel("Pricing", "You need pricing.manage permission to edit pricing.");
   }
 
-  const doc = await getPricingDoc();
+  const [doc, plans, requests, approvalRequired] = await Promise.all([
+    getPricingDoc(),
+    listPlans().catch(() => []),
+    (async () => {
+      await ensureDefaultPlanLinks().catch(() => {});
+      return getRequestsForEmail(guard.user.email);
+    })(),
+    getApprovalRequirement().catch(() => true),
+  ]);
 
   return (
     <div className="space-y-6">
@@ -26,6 +41,11 @@ export default async function PricingAdminPage() {
         </p>
       </div>
       <PricingManager initial={doc} seeds={[...SEED_COUNTRIES]} />
+      <PlanProposalPanel
+        approvalRequired={approvalRequired}
+        plans={plans as unknown as ProposalPlanView[]}
+        requests={requests as unknown as ProposalRequestView[]}
+      />
     </div>
   );
 }

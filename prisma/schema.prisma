@@ -104,11 +104,58 @@ model Plan {
   storageGb      Int?
   features       Json?    // {api, reports, marketing, automation, supportLevel}
   isActive       Boolean  @default(true)
+  // Optimistic-concurrency counter for pricing approvals: every canonical
+  // mutation increments it so stale approval requests can be detected.
+  version        Int      @default(1)
   createdAt      DateTime @default(now())
   updatedAt      DateTime @updatedAt
 
   subscriptions  Subscription[]
   featureFlags   FeatureFlag[]
+  links          PlanLink[]
+  changeRequests PlanChangeRequest[]
+}
+
+/// Explicit stable identity between a marketing-catalog plan id and the
+/// canonical SaaS Plan. Never key by name.
+model PlanLink {
+  id              String   @id @default(cuid())
+  marketingPlanId String   @unique // lib/pricing/catalog.ts PLAN_IDS entry
+  planId          String   @unique
+  plan            Plan     @relation(fields: [planId], references: [id], onDelete: Cascade)
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+}
+
+/// Marketing-proposed plan change awaiting Super Admin decision. Snapshots are
+/// full Plan JSON so approval is deterministic; baseVersion detects staleness.
+model PlanChangeRequest {
+  id               String    @id @default(cuid())
+  planId           String
+  plan             Plan      @relation(fields: [planId], references: [id], onDelete: Cascade)
+  requestedByEmail String
+  status           String    @default("pending") // pending|approved|rejected|cancelled
+  beforeSnapshot   Json
+  proposedSnapshot Json
+  reason           String?
+  baseVersion      Int
+  reviewedByEmail  String?
+  reviewedAt       DateTime?
+  rejectionReason  String?
+  createdAt        DateTime  @default(now())
+  updatedAt        DateTime  @updatedAt
+
+  @@index([planId, status])
+  @@index([status])
+}
+
+/// Platform-level toggles (Super Admin only). JSON value keeps future
+/// settings schema-free.
+model SystemSetting {
+  key            String   @id
+  value          Json
+  updatedByEmail String?
+  updatedAt      DateTime @updatedAt
 }
 
 model Subscription {

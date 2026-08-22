@@ -90,6 +90,8 @@ export async function updatePlan(id: string, patch: Partial<PlanInput>) {
       storageGb: patch.storageGb,
       features: patch.features !== undefined ? (patch.features as never) : undefined,
       isActive: patch.isActive,
+      // Optimistic-concurrency counter consumed by the approval workflow.
+      version: { increment: 1 },
     },
   });
 }

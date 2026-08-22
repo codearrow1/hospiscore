@@ -15,6 +15,8 @@ const SAAS_NAV: AdminNavItem[] = [
   { href: "/saas/organizations", label: "Organizations", icon: "leads" },
   { href: "/saas/subscriptions", label: "Subscriptions", icon: "pipeline" },
   { href: "/saas/plans", label: "Plans", icon: "pricing" },
+  { href: "/saas/plan-approvals", label: "Plan Approvals", icon: "audit" },
+  { href: "/saas/settings", label: "Settings", icon: "forms" },
   { href: "/saas/billing", label: "Billing", icon: "analytics" },
   { href: "/saas/usage", label: "Usage", icon: "campaigns" },
   { href: "/saas/coupons", label: "Coupons", icon: "pricing" },
