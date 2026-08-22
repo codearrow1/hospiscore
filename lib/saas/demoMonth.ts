@@ -47,6 +47,18 @@ const COUNTRIES = ["US", "GB", "IN", "AE", "SG", "DE", "AU"];
 const SOURCES = ["organic", "demo_page", "campaign", "referral", "country_page", "blog"] as const;
 const OWNERS = ["sales@hospios.demo", "salesmanager@hospios.demo", "marketing@hospios.demo"];
 
+// District-flavoured property names per supported country.
+const DISTRICTS: Record<string, string[]> = {
+  US: ["Downtown", "Riverside", "Midtown", "Bayfront"],
+  GB: ["Kensington", "Shoreditch", "Canal Quarter", "Old Docks"],
+  IN: ["Bandra West", "Candolim Beach", "Cyber Hub", "Lake Road"],
+  AE: ["Marina", "Downtown", "Palm Crescent", "Deira Corniche"],
+  SG: ["Clarke Quay", "Orchard", "Keong Saik", "Sentian Cove"],
+  DE: ["Mitte", "Hafenviertel", "Altstadt", "Gartenstadt"],
+  AU: ["Harbourside", "Fitzroy", "South Bank", "Bondi Rise"],
+};
+const ROOM_COUNTS = [18, 26, 34, 48, 62, 90, 140];
+
 function stageFor(day: number): (typeof PIPELINE_STAGES)[number] {
   const r = rnd();
   if (day <= 7) return r < 0.45 ? "new" : r < 0.75 ? "contacted" : r < 0.9 ? "qualified" : "lost";
@@ -65,10 +77,52 @@ function bandFor(stage: string): "cold" | "warm" | "hot" | "very_hot" {
 }
 
 /**
+ * Properties for every demo organization. Idempotent on its own (orgs that
+ * already own properties are skipped) and deliberately executed before the
+ * demo-month marker check so it also backfills an already-seeded database.
+ */
+async function seedDemoProperties(): Promise<number> {
+  const orgs = await prisma.organization.findMany({
+    where: {
+      OR: [
+        { legalName: { startsWith: "Demo Month Org" } },
+        { legalName: { startsWith: "Demo Grand" } },
+      ],
+    },
+    include: { properties: true },
+  });
+  let created = 0;
+  for (const org of orgs) {
+    if (org.properties.length > 0) continue;
+    const districts = DISTRICTS[org.country ?? ""] ?? DISTRICTS.US;
+    const count = int(2, 3);
+    for (let p = 0; p < count; p++) {
+      // A few inactive properties keep the dashboards honest.
+      const status = org.properties.length + created > 0 && rnd() < 0.12 ? "inactive" : "active";
+      await prisma.property.create({
+        data: {
+          organizationId: org.id,
+          name: `${org.businessName ?? org.legalName} — ${districts[p % districts.length]}`,
+          city: districts[p % districts.length],
+          country: org.country ?? "US",
+          rooms: pick(ROOM_COUNTS),
+          status,
+          createdAt: at(int(1, 20)),
+        },
+      });
+      created++;
+    }
+  }
+  return created;
+}
+
+/**
  * One-month launch demo seeder (RBAC merge spec §13). Idempotent via marker
  * org unless `force`. Safe to call from scripts or the admin seed route.
  */
 export async function seedDemoMonth(force = false): Promise<DemoSeedSummary> {
+  const propsCreated = await seedDemoProperties();
+  if (propsCreated > 0) console.log(`[demo-month] created ${propsCreated} properties`);
   const marker = await prisma.organization.findFirst({ where: { legalName: { startsWith: "Demo Month Org" } } });
   if (marker && !force) {
     return {
