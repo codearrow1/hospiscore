@@ -47,11 +47,13 @@ export function profileErrors(profile: PricingProfile): string[] {
       continue;
     }
     const isEnterprise = id === "enterprise";
-    if (!Number.isFinite(p.monthly) || p.monthly < 0) {
-      errors.push(`Invalid monthly price for plan "${id}" in ${code}`);
+    // Storefront prices are whole currency units — fractions crash the
+    // reconcile service when mirrored into integer billing cents.
+    if (!Number.isInteger(p.monthly) || p.monthly < 0) {
+      errors.push(`Invalid monthly price for plan "${id}" in ${code} (whole numbers only)`);
     }
-    if (!isEnterprise && (!Number.isFinite(p.annual) || p.annual <= 0)) {
-      errors.push(`Invalid annual price for plan "${id}" in ${code}`);
+    if (!isEnterprise && (!Number.isInteger(p.annual) || p.annual <= 0)) {
+      errors.push(`Invalid annual price for plan "${id}" in ${code} (whole numbers only)`);
     }
     if (isEnterprise && p.monthly !== 0 && p.annual !== 0) {
       errors.push(`Enterprise prices must be 0 (custom) in ${code}`);
@@ -90,41 +92,52 @@ export async function getPricingDoc(
  * Persist a new pricing version. `profiles` replaces the active set; the
  * current active set is snapshotted into `history` first. No-op (and no new
  * version) when nothing changed. Throws listing validation errors.
+ *
+ * The version bump + snapshot are computed INSIDE the serialized write so a
+ * concurrent save cannot be lost (read-modify-write under the store lock).
+ * A throw from the mutator aborts the write — nothing is persisted.
  */
 export async function savePricingDoc(
   input: { profiles: Record<string, PricingProfile>; label: string; byEmail: string },
   target?: string,
 ): Promise<PricingDoc> {
-  const current = await getPricingDoc(target);
-
-  const next: PricingDoc = {
-    version: current.version + 1,
-    updatedAt: new Date().toISOString(),
-    profiles: input.profiles,
-    history: [
-      ...current.history,
-      {
-        version: current.version,
-        createdAt: current.updatedAt || new Date().toISOString(),
-        label: current.version === 1 ? "Initial configuration" : input.label,
-        byEmail: current.version === 1 ? "" : input.byEmail,
-        profiles: cloneProfiles(current.profiles),
-      },
-    ],
-  };
-
-  const errors = pricingDocErrors(next);
-  if (errors.length > 0) {
-    throw new Error(`Invalid pricing: ${errors[0]}`);
+  // Fast pre-validation without taking the lock (same rules as below).
+  const preflight = pricingDocErrors({ profiles: input.profiles });
+  if (preflight.length > 0) {
+    throw new Error(`Invalid pricing: ${preflight[0]}`);
   }
 
-  const unchanged =
-    JSON.stringify(next.profiles) === JSON.stringify(current.profiles);
+  const result = await writeData((d) => {
+    const current = d.pricing ?? seedPricingDoc();
+    const next: PricingDoc = {
+      version: current.version + 1,
+      updatedAt: new Date().toISOString(),
+      profiles: input.profiles,
+      history: [
+        ...current.history,
+        {
+          version: current.version,
+          createdAt: current.updatedAt || new Date().toISOString(),
+          label: current.version === 1 ? "Initial configuration" : input.label,
+          byEmail: current.version === 1 ? "" : input.byEmail,
+          profiles: cloneProfiles(current.profiles),
+        },
+      ],
+    };
 
-  if (unchanged) return current;
+    const errors = pricingDocErrors(next);
+    if (errors.length > 0) {
+      throw new Error(`Invalid pricing: ${errors[0]}`);
+    }
 
-  await writeData((d) => ({ ...d, pricing: next }), target);
-  return next;
+    const unchanged =
+      JSON.stringify(next.profiles) === JSON.stringify(current.profiles);
+
+    return unchanged ? d : { ...d, pricing: next };
+  }, target);
+
+  if (!result.pricing) return getPricingDoc(target);
+  return result.pricing;
 }
 
 /** Reset to seed defaults (new version, previous state preserved in history). */

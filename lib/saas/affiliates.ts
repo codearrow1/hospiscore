@@ -85,8 +85,25 @@ export async function getAffiliateByEmail(email: string) {
   return prisma.affiliate.findUnique({ where: { email: email.toLowerCase() } });
 }
 
+/** Enforced lifecycle: applied → review → approved → active; active ⇄ suspended. */
+const ALLOWED_AFFILIATE_STATUS: Record<AffiliateStatus, AffiliateStatus[]> = {
+  applied: ["review"],
+  review: ["approved"],
+  approved: ["active"],
+  active: ["suspended"],
+  suspended: ["active"],
+};
+
+export function canTransitionAffiliate(from: AffiliateStatus, to: AffiliateStatus): boolean {
+  if (from === to) return false;
+  return ALLOWED_AFFILIATE_STATUS[from]?.includes(to) ?? false;
+}
+
 export async function updateAffiliateStatus(id: string, status: AffiliateStatus) {
   if (!AFFILIATE_STATUSES.includes(status as never)) throw new Error("Invalid status");
+  const cur = await prisma.affiliate.findUnique({ where: { id }, select: { status: true } });
+  if (!cur) throw new Error("Affiliate not found");
+  if (!canTransitionAffiliate(cur.status as AffiliateStatus, status)) throw new Error(`Cannot transition ${cur.status} → ${status}`);
   return prisma.affiliate.update({ where: { id }, data: { status } });
 }
 
@@ -108,6 +125,9 @@ export async function attributeLeadToAffiliate(leadId: string, referralCode: str
   const aff = await getAffiliateByCode(referralCode);
   if (!aff) return null;
   if (aff.status !== "active" && aff.status !== "approved") return null;
+  // One attribution row per lead — repeated submissions must not spam the ledger.
+  const dupe = await prisma.affiliateCommission.findFirst({ where: { affiliateId: aff.id, leadId }, select: { id: true } });
+  if (dupe) return aff.id;
   await prisma.affiliateCommission.create({
     data: {
       affiliateId: aff.id,

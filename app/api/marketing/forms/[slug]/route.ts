@@ -85,8 +85,10 @@ export async function POST(
   if (!result.ok) {
     return NextResponse.json({ error: result.error }, { status: 400 });
   }
-  // Affiliate attribution: if visitor arrived via ?ref=CODE (cookie aff_ref), link lead to affiliate
-  const refCode = req.cookies.get("aff_ref")?.value || url.searchParams.get("ref") || (typeof body.ref === "string" ? body.ref : undefined);
+  // Affiliate attribution: honor the aff_ref cookie (set by the tracked
+  // ?ref= click) first, then the URL param. body.ref is NOT accepted — a
+  // forged form field would let anyone claim attribution without a click.
+  const refCode = req.cookies.get("aff_ref")?.value || url.searchParams.get("ref");
   if (refCode && result.leadId) {
     try {
       const { attributeLeadToAffiliate } = await import("@/lib/saas/affiliates");

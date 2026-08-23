@@ -1,9 +1,21 @@
 import { NextRequest, NextResponse } from "next/server";
+import { timingSafeEqual } from "node:crypto";
 import { requireCapability } from "@/lib/marketing/guard";
 import { getFollowUpDigest, sendFollowUpDigest, buildDigestHtml } from "@/lib/marketing/followups";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
+
+/** Constant-time string comparison — never leaks prefix matches via timing. */
+function secretsMatch(a: string, b: string): boolean {
+  const ha = Buffer.from(a, "utf8");
+  const hb = Buffer.from(b, "utf8");
+  if (ha.length !== hb.length) {
+    timingSafeEqual(ha, ha);
+    return false;
+  }
+  return timingSafeEqual(ha, hb);
+}
 
 /**
  * GET /api/marketing/cron/followups?send=1
@@ -15,7 +27,7 @@ export async function GET(req: NextRequest) {
   const cronSecret = process.env.CRON_SECRET?.trim();
   const headerSecret = req.headers.get("x-cron-secret")?.trim();
   let authorized = false;
-  if (cronSecret && headerSecret && cronSecret === headerSecret) {
+  if (cronSecret && headerSecret && secretsMatch(cronSecret, headerSecret)) {
     authorized = true;
   } else {
     const guard = await requireCapability("leads.read");

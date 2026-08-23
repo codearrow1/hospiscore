@@ -27,19 +27,20 @@ export async function createInvoice(input: {
   ip?: string;
 }): Promise<GatewayInvoice> {
   if (input.amount < 0) throw new Error("amount must be >= 0");
-  // idempotency: if key provided, check existing invoice with same key in detail? For now stub: check recent duplicate within 60s
-  if (input.idempotencyKey) {
-    const recent = await prisma.invoice.findFirst({
-      where: { organizationId: input.organizationId, amount: input.amount, createdAt: { gte: new Date(Date.now() - 60000) } },
-      orderBy: { createdAt: "desc" },
-    });
-    if (recent) return recent as GatewayInvoice;
-  }
+  // NOTE: idempotencyKey is accepted for API compatibility but not yet enforced
+  // (no stored key column). Two legitimate identical invoices may coexist.
   let amount = input.amount;
   let couponApplied: string | null = null;
   if (input.couponCode) {
+    // Resolve the subscription's plan so plan-scoped coupons are honored
+    // (and enforced) against the right plan.
+    let couponPlanId: string | undefined;
+    if (input.subscriptionId) {
+      const sub = await prisma.subscription.findUnique({ where: { id: input.subscriptionId }, select: { planId: true } });
+      couponPlanId = sub?.planId;
+    }
     const { applyCoupon } = await import("./coupons");
-    const res = await applyCoupon({ code: input.couponCode, organizationId: input.organizationId, subscriptionId: input.subscriptionId ?? null, amount });
+    const res = await applyCoupon({ code: input.couponCode, organizationId: input.organizationId, subscriptionId: input.subscriptionId ?? null, amount, planId: couponPlanId });
     amount = res.amountDue;
     couponApplied = res.couponId;
   }
@@ -69,25 +70,32 @@ export async function recordPayment(input: {
   organizationId: string;
   invoiceId?: string;
   amount: number;
+  currency?: string;
   gateway?: string;
   status?: string;
   actorEmail: string;
   ip?: string;
   idempotencyKey?: string;
 }) {
-  if (input.idempotencyKey) {
-    const recent = await prisma.payment.findFirst({
-      where: { organizationId: input.organizationId, amount: input.amount, createdAt: { gte: new Date(Date.now() - 60000) } },
-      orderBy: { createdAt: "desc" },
-    });
-    if (recent) return recent;
+  // NOTE: idempotencyKey accepted but not enforced (no stored key column) —
+  // the previous 60s lookalike window silently swallowed real payments.
+  // Currency always matches the invoice's own currency — never settle an
+  // INR invoice against a USD payment total.
+  let currency = input.currency || "USD";
+  if (input.invoiceId) {
+    const inv = await prisma.invoice.findUnique({ where: { id: input.invoiceId }, select: { amount: true, currency: true, status: true, subscriptionId: true } });
+    if (!inv) throw new Error("Invoice not found");
+    if (input.currency && inv.currency && input.currency !== inv.currency) {
+      throw new Error(`Payment currency ${input.currency} does not match invoice currency ${inv.currency}`);
+    }
+    if (inv.currency) currency = inv.currency;
   }
   const pay = await prisma.payment.create({
     data: {
       organizationId: input.organizationId,
       invoiceId: input.invoiceId || null,
       amount: input.amount,
-      currency: "USD",
+      currency,
       gateway: input.gateway || "manual",
       status: input.status || "succeeded",
     },
@@ -134,7 +142,31 @@ export async function refundPayment(paymentId: string, actorEmail: string, ip?: 
   const pay = await prisma.payment.findUnique({ where: { id: paymentId } });
   if (!pay) throw new Error("Payment not found");
   if (pay.status === "refunded") throw new Error("Already refunded");
+  if (pay.status !== "succeeded") throw new Error(`Only succeeded payments are refundable (payment is ${pay.status})`);
   const updated = await prisma.payment.update({ where: { id: paymentId }, data: { status: "refunded" } });
   await writeSaasAudit({ byEmail: actorEmail, action: "payment.refunded", entity: "payment", entityId: paymentId, detail: `refund ${(pay.amount/100).toFixed(2)}`, ip });
+
+  if (pay.invoiceId) {
+    // Re-settle the invoice excluding refunded money.
+    const paidAgg = await prisma.payment.aggregate({ where: { invoiceId: pay.invoiceId, status: "succeeded" }, _sum: { amount: true } });
+    const inv = await prisma.invoice.findUnique({ where: { id: pay.invoiceId }, select: { amount: true, status: true, subscriptionId: true } });
+    if (inv && inv.status !== "void") {
+      const totalPaid = paidAgg._sum.amount ?? 0;
+      const newStatus = totalPaid >= inv.amount ? "paid" : totalPaid > 0 ? "partially_paid" : "issued";
+      if (newStatus !== inv.status || (newStatus === "issued")) {
+        await prisma.invoice.update({
+          where: { id: pay.invoiceId },
+          data: { status: newStatus, ...(newStatus !== "paid" ? { paidAt: null } : {}) },
+        });
+      }
+    }
+    // Policy: refunds reverse outstanding commissions for the subscription.
+    try {
+      if (inv?.subscriptionId) {
+        const { handleReversal } = await import("./commissions");
+        await handleReversal(pay.organizationId, inv.subscriptionId);
+      }
+    } catch {}
+  }
   return updated;
 }

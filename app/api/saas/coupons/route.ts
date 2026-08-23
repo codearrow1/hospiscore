@@ -24,14 +24,24 @@ export async function POST(req: NextRequest) {
   let body: Record<string, unknown>;
   try { body = await req.json(); } catch { return NextResponse.json({ error: "Invalid JSON" }, { status: 400 }); }
   try {
+    const num = (field: string, v: unknown): number => {
+      if (v === null || v === undefined || v === "") throw new Error(`${field} is required`);
+      const n = Number(v);
+      if (!Number.isFinite(n)) throw new Error(`${field} must be a finite number`);
+      return n;
+    };
+    const optNum = (field: string, v: unknown): number | null => {
+      if (v === null || v === undefined || v === "") return null;
+      return num(field, v);
+    };
     const coupon = await createCoupon({
       code: typeof body.code === "string" && body.code ? body.code : undefined,
       description: typeof body.description === "string" ? body.description : undefined,
       type: body.type as never,
-      value: Number(body.value),
+      value: num("value", body.value),
       duration: body.duration as never,
-      months: body.months != null ? Number(body.months) : null,
-      maxRedemptions: body.maxRedemptions != null ? Number(body.maxRedemptions) : null,
+      months: optNum("months", body.months),
+      maxRedemptions: optNum("maxRedemptions", body.maxRedemptions),
       expiresAt: typeof body.expiresAt === "string" && body.expiresAt ? new Date(body.expiresAt) : null,
     });
     await writeSaasAudit({ byEmail: guard.user.email, action: "coupon.created", entity: "coupon", entityId: coupon.id, detail: `${coupon.code} ${coupon.type} ${coupon.value}`, ip: clientIp(req) });

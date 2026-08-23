@@ -68,7 +68,11 @@ export async function validateCoupon(code: string, opts?: { planId?: string | nu
   const c = await prisma.coupon.findUnique({ where: { code: code.trim().toUpperCase() } });
   if (!c || !c.isActive) return { ok: false, error: "Invalid or archived coupon" };
   if (c.expiresAt && c.expiresAt.getTime() < Date.now()) return { ok: false, error: "Coupon expired" };
-  if (c.planId && opts?.planId && c.planId !== opts.planId) return { ok: false, error: "Coupon not valid for this plan" };
+  // Plan-scoped coupons apply ONLY to that plan — an unknown target plan is
+  // a rejection, never a silent all-plans bypass.
+  if (c.planId) {
+    if (!opts?.planId || c.planId !== opts.planId) return { ok: false, error: "Coupon not valid for this plan" };
+  }
   if (c.maxRedemptions !== null && c.redeemedCount >= c.maxRedemptions) return { ok: false, error: "Coupon redemption limit reached" };
   if (opts?.organizationId) {
     const already = await prisma.couponRedemption.findUnique({ where: { couponId_organizationId: { couponId: c.id, organizationId: opts.organizationId } } });
@@ -82,21 +86,36 @@ export function computeDiscount(type: string, value: number, amount: number): nu
   return Math.min(amount, value);
 }
 
-/** Apply coupon to an invoice amount; records the redemption atomically-ish. */
-export async function applyCoupon(params: { code: string; organizationId: string; subscriptionId?: string | null; invoiceId?: string | null; amount: number }): Promise<{ amountDue: number; discount: number; couponId: string }> {
-  const check = await validateCoupon(params.code, { organizationId: params.organizationId });
+/** Apply coupon to an invoice amount; records the redemption. */
+export async function applyCoupon(params: { code: string; organizationId: string; subscriptionId?: string | null; invoiceId?: string | null; amount: number; planId?: string | null }): Promise<{ amountDue: number; discount: number; couponId: string }> {
+  const check = await validateCoupon(params.code, { organizationId: params.organizationId, planId: params.planId });
   if (!check.ok) throw new Error(check.error);
   const c = await prisma.coupon.findUniqueOrThrow({ where: { id: check.couponId } });
   const discount = computeDiscount(c.type, c.value, params.amount);
-  await prisma.couponRedemption.create({
-    data: {
-      couponId: c.id,
-      organizationId: params.organizationId,
-      subscriptionId: params.subscriptionId ?? null,
-      invoiceId: params.invoiceId ?? null,
-      amountDiscounted: discount,
+  // Atomic claim against maxRedemptions — the previous check-then-increment
+  // let concurrent invoices exceed the cap.
+  const claimed = await prisma.coupon.updateMany({
+    where: {
+      id: c.id,
+      isActive: true,
+      ...(c.maxRedemptions !== null ? { redeemedCount: { lt: c.maxRedemptions } } : {}),
     },
+    data: { redeemedCount: { increment: 1 } },
   });
-  await prisma.coupon.update({ where: { id: c.id }, data: { redeemedCount: { increment: 1 } } });
+  if (claimed.count === 0) throw new Error("Coupon redemption limit reached");
+  try {
+    await prisma.couponRedemption.create({
+      data: {
+        couponId: c.id,
+        organizationId: params.organizationId,
+        subscriptionId: params.subscriptionId ?? null,
+        invoiceId: params.invoiceId ?? null,
+        amountDiscounted: discount,
+      },
+    });
+  } catch (e) {
+    await prisma.coupon.update({ where: { id: c.id }, data: { redeemedCount: { decrement: 1 } } }).catch(() => {});
+    throw e;
+  }
   return { amountDue: params.amount - discount, discount, couponId: c.id };
 }

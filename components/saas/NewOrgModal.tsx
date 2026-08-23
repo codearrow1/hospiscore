@@ -15,26 +15,29 @@ export default function NewOrgModal() {
   const submit = async () => {
     setBusy(true);
     setError("");
-    const res = await fetch("/api/saas/organizations", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        legalName: form.legalName,
-        businessName: form.businessName,
-        country: form.country,
-        website: form.website,
-        primaryContact: form.contactName && form.contactEmail ? { name: form.contactName, email: form.contactEmail, phone: form.phone } : undefined,
-      }),
-    });
-    const data = await res.json().catch(() => ({}));
-    setBusy(false);
-    if (!res.ok) {
-      setError(data.error ?? "Could not create organization");
-      return;
+    try {
+      const res = await fetch("/api/saas/organizations", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          legalName: form.legalName,
+          businessName: form.businessName,
+          country: form.country,
+          website: form.website,
+          primaryContact: form.contactName && form.contactEmail ? { name: form.contactName, email: form.contactEmail, phone: form.phone } : undefined,
+        }),
+      });
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok) {
+        setError(data.error ?? "Could not create organization");
+        return;
+      }
+      setOpen(false);
+      router.refresh();
+      router.push(`/saas/organizations/${data.organization.id}`);
+    } finally {
+      setBusy(false);
     }
-    setOpen(false);
-    router.refresh();
-    router.push(`/saas/organizations/${data.organization.id}`);
   };
 
   return (

@@ -42,6 +42,24 @@ export type PlanInput = {
   isCustomPrice?: boolean;
 };
 
+/**
+ * Strict numeric coercion for API payloads. null / "" / non-finite values are
+ * rejected instead of silently becoming 0 (Number(null) === 0) or NaN.
+ */
+export function coerceNumber(label: string, v: unknown): { ok: true; value: number } | { ok: false; error: string } {
+  if (v === null || v === undefined || v === "") return { ok: false, error: `${label} must be a number` };
+  const n = typeof v === "string" ? Number(v.trim()) : Number(v);
+  if (!Number.isFinite(n)) return { ok: false, error: `${label} must be a finite number` };
+  return { ok: true, value: n };
+}
+
+/** Like coerceNumber but treats null/undefined/"" as an explicit NULL column. */
+export function coerceOptionalNumber(label: string, v: unknown): { ok: true; value: number | null } | { ok: false; error: string } {
+  if (v === null || v === undefined || v === "") return { ok: true, value: null };
+  const r = coerceNumber(label, v);
+  return r.ok ? { ok: true, value: r.value } : r;
+}
+
 export async function createPlan(input: PlanInput) {
   const v = validatePlanInput(input, true);
   if (!v.ok) throw new Error(v.error);
@@ -86,19 +104,19 @@ export function validatePlanInput(
       return { ok: false, error: "name must be at least 2 characters" };
     if (!input.slug?.trim() || !/^[a-z0-9-]+$/.test(input.slug.trim().toLowerCase()))
       return { ok: false, error: "slug must be lowercase alphanumeric/hyphen" };
-    if (typeof input.monthlyPrice !== "number" || input.monthlyPrice < 0)
-      return { ok: false, error: "monthlyPrice must be >= 0" };
-    if (typeof input.annualPrice !== "number" || input.annualPrice < 0)
-      return { ok: false, error: "annualPrice must be >= 0" };
+    if (typeof input.monthlyPrice !== "number" || !Number.isFinite(input.monthlyPrice) || input.monthlyPrice < 0)
+      return { ok: false, error: "monthlyPrice must be a finite number >= 0" };
+    if (typeof input.annualPrice !== "number" || !Number.isFinite(input.annualPrice) || input.annualPrice < 0)
+      return { ok: false, error: "annualPrice must be a finite number >= 0" };
   } else {
     if (input.name !== undefined && (!input.name.trim() || input.name.trim().length < 2))
       return { ok: false, error: "name must be at least 2 characters" };
     if (input.slug !== undefined && !/^[a-z0-9-]+$/.test(input.slug.trim().toLowerCase()))
       return { ok: false, error: "slug invalid" };
-    if (input.monthlyPrice !== undefined && (typeof input.monthlyPrice !== "number" || input.monthlyPrice < 0))
-      return { ok: false, error: "monthlyPrice must be >= 0" };
-    if (input.annualPrice !== undefined && (typeof input.annualPrice !== "number" || input.annualPrice < 0))
-      return { ok: false, error: "annualPrice must be >= 0" };
+    if (input.monthlyPrice !== undefined && (typeof input.monthlyPrice !== "number" || !Number.isFinite(input.monthlyPrice) || input.monthlyPrice < 0))
+      return { ok: false, error: "monthlyPrice must be a finite number >= 0" };
+    if (input.annualPrice !== undefined && (typeof input.annualPrice !== "number" || !Number.isFinite(input.annualPrice) || input.annualPrice < 0))
+      return { ok: false, error: "annualPrice must be a finite number >= 0" };
   }
   if (input.trialDays !== undefined && (input.trialDays < 0 || input.trialDays > 365))
     return { ok: false, error: "trialDays must be 0-365" };
@@ -112,10 +130,18 @@ export function validatePlanInput(
 export async function updatePlan(id: string, patch: Partial<PlanInput>) {
   const v = validatePlanInput(patch, false);
   if (!v.ok) throw new Error(v.error);
+  const existing = await prisma.plan.findUnique({ where: { id } });
+  if (!existing) throw new Error("Plan not found");
+  // Archived plans are historical records — editing them (or reactivating
+  // them via isActive) is blocked; archive keeps audit references intact.
+  if (existing.archivedAt) throw new Error("Plan is archived and cannot be edited");
   // unique slug check
   if (patch.slug) {
-    const existing = await prisma.plan.findUnique({ where: { slug: patch.slug.trim().toLowerCase() } });
-    if (existing && existing.id !== id) throw new Error("slug already exists");
+    const slug = patch.slug.trim().toLowerCase();
+    if (slug !== existing.slug) {
+      const dup = await prisma.plan.findUnique({ where: { slug } });
+      if (dup && dup.id !== id) throw new Error("slug already exists");
+    }
   }
   return prisma.plan.update({
     where: { id },

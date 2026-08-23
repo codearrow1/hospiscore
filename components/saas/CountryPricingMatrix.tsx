@@ -170,17 +170,34 @@ function PriceEditModal({ row, onClose, onSaved, busy, setBusy, setError }: {
   const submit = async () => {
     setBusy(true);
     setError("");
-    const res = await fetch(`/api/saas/plans/${row.planId}`, {
-      method: "PATCH",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        countryPrices: [{ country: row.country, currency: row.currency, monthly: Number(monthly), annual: Number(annual) }],
-      }),
-    });
-    const d = await res.json().catch(() => ({}));
-    setBusy(false);
-    if (!res.ok) { setError(d.error ?? "Save failed"); return; }
-    onSaved();
+    try {
+      // Empty/whitespace inputs are rejected — never coerced to 0, which
+      // would silently zero the price (and on US rows, the billing baseline).
+      const parse = (label: string, v: string): number => {
+        const t = v.trim();
+        if (t === "") throw new Error(`${label} is required`);
+        const n = Number(t);
+        if (!Number.isFinite(n) || n < 0) throw new Error(`${label} must be a non-negative number`);
+        return Math.round(n);
+      };
+      const m = parse("Monthly price", monthly);
+      const a = parse("Annual price", annual);
+      if (a > 0 && a < m) throw new Error("Annual price should be at least the monthly price");
+      const res = await fetch(`/api/saas/plans/${row.planId}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          countryPrices: [{ country: row.country, currency: row.currency, monthly: m, annual: a }],
+        }),
+      });
+      const d = await res.json().catch(() => ({}));
+      if (!res.ok) { setError(d.error ?? "Save failed"); return; }
+      onSaved();
+    } catch (e) {
+      setError(e instanceof Error ? e.message : "Save failed");
+    } finally {
+      setBusy(false);
+    }
   };
 
   return (

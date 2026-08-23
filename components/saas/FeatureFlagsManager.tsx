@@ -24,11 +24,14 @@ export default function FeatureFlagsManager() {
 
   const create = async () => {
     setBusy(true); setError("");
-    const res = await fetch("/api/saas/feature-flags", { method:"POST", headers:{ "Content-Type":"application/json"}, body: JSON.stringify({ key: form.key, enabled, planId: form.planId||null, organizationId: form.organizationId||null, propertyId: form.propertyId||null, country: form.country||null, percentage: form.percentage?Number(form.percentage):null, isBeta })});
-    const d = await res.json().catch(()=>({}));
-    setBusy(false);
-    if(!res.ok){ setError(d.error??"Create failed"); return; }
-    setOpen(false); setForm({}); load(); router.refresh();
+    try {
+      const res = await fetch("/api/saas/feature-flags", { method:"POST", headers:{ "Content-Type":"application/json"}, body: JSON.stringify({ key: form.key, enabled, planId: form.planId||null, organizationId: form.organizationId||null, propertyId: form.propertyId||null, country: form.country||null, percentage: form.percentage?Number(form.percentage):null, isBeta })});
+      const d = await res.json().catch(()=>({}));
+      if(!res.ok){ setError(d.error??"Create failed"); return; }
+      setOpen(false); setForm({}); load(); router.refresh();
+    } finally {
+      setBusy(false);
+    }
   };
 
   return (

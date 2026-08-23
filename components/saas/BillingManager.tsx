@@ -15,20 +15,26 @@ export default function BillingManager({ orgs }: { orgs: { id: string; legalName
 
   const createInvoice = async () => {
     setBusy(true); setError("");
-    const res = await fetch("/api/saas/invoices", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ organizationId: form.organizationId, amount: Math.round(Number(form.amount) * 100), currency: form.currency || "USD", type: form.type || "subscription", dueAt: form.dueAt || undefined, idempotencyKey: form.idempotencyKey || undefined }) });
-    const d = await res.json().catch(()=>({}));
-    setBusy(false);
-    if (!res.ok) { setError(d.error ?? "Create failed"); return; }
-    setInvOpen(false); router.refresh();
+    try {
+      const res = await fetch("/api/saas/invoices", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ organizationId: form.organizationId, amount: Math.round(Number(form.amount) * 100), currency: form.currency || "USD", type: form.type || "subscription", dueAt: form.dueAt || undefined, idempotencyKey: form.idempotencyKey || undefined }) });
+      const d = await res.json().catch(()=>({}));
+      if (!res.ok) { setError(d.error ?? "Create failed"); return; }
+      setInvOpen(false); router.refresh();
+    } finally {
+      setBusy(false);
+    }
   };
 
   const recordPayment = async () => {
     setBusy(true); setError("");
-    const res = await fetch("/api/saas/payments", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ organizationId: form.organizationId, invoiceId: form.invoiceId || undefined, amount: Math.round(Number(form.amount) * 100), gateway: form.gateway || "manual", idempotencyKey: form.idempotencyKey || undefined }) });
-    const d = await res.json().catch(()=>({}));
-    setBusy(false);
-    if (!res.ok) { setError(d.error ?? "Payment failed"); return; }
-    setPayOpen(false); router.refresh();
+    try {
+      const res = await fetch("/api/saas/payments", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ organizationId: form.organizationId, invoiceId: form.invoiceId || undefined, amount: Math.round(Number(form.amount) * 100), gateway: form.gateway || "manual", idempotencyKey: form.idempotencyKey || undefined }) });
+      const d = await res.json().catch(()=>({}));
+      if (!res.ok) { setError(d.error ?? "Payment failed"); return; }
+      setPayOpen(false); router.refresh();
+    } finally {
+      setBusy(false);
+    }
   };
 
   return (

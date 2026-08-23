@@ -53,6 +53,11 @@ export async function POST(req: NextRequest) {
     const p = await getPartnerByCode(String(rawPartner));
     if (p && (p.status === "active" || p.status === "approved")) partnerId = p.id;
   }
+  // First-touch attribution is exclusive: an org is acquired by an affiliate
+  // OR a partner, never both (dual rows would misattribute commissions).
+  if (affiliateId && partnerId) {
+    return NextResponse.json({ error: "An organization cannot be attributed to both an affiliate and a partner" }, { status: 400 });
+  }
   let org;
   try {
     org = await createOrganization({

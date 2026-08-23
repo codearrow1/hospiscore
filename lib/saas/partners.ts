@@ -7,6 +7,7 @@
 import { prisma } from "@/lib/prisma";
 import { randomBytes } from "node:crypto";
 import { calcCommissionAmount } from "./commissions";
+import { availablePayoutBalance } from "./payouts";
 
 export const PARTNER_STATUSES = ["applied", "review", "approved", "active", "suspended"] as const;
 export type PartnerStatus = (typeof PARTNER_STATUSES)[number];
@@ -76,16 +77,38 @@ export async function getPartnerByCode(code: string) {
   return prisma.partner.findUnique({ where: { referralCode: code.toUpperCase() } });
 }
 
+/** Enforced lifecycle: applied → review → approved → active; active ⇄ suspended. */
+const ALLOWED_PARTNER_STATUS: Record<PartnerStatus, PartnerStatus[]> = {
+  applied: ["review"],
+  review: ["approved"],
+  approved: ["active"],
+  active: ["suspended"],
+  suspended: ["active"],
+};
+
+export function canTransitionPartner(from: PartnerStatus, to: PartnerStatus): boolean {
+  if (from === to) return false;
+  return ALLOWED_PARTNER_STATUS[from]?.includes(to) ?? false;
+}
+
 export async function updatePartnerStatus(id: string, status: PartnerStatus) {
   if (!PARTNER_STATUSES.includes(status as never)) throw new Error("Invalid status");
+  const cur = await prisma.partner.findUnique({ where: { id }, select: { status: true } });
+  if (!cur) throw new Error("Partner not found");
+  if (!canTransitionPartner(cur.status as PartnerStatus, status)) throw new Error(`Cannot transition ${cur.status} → ${status}`);
   return prisma.partner.update({ where: { id }, data: { status } });
 }
 
-/** Commission when a partner-sourced organization's subscription activates. */
+/** Commission when a partner-sourced organization's subscription activates. Idempotent per (partner, org). */
 export async function createCommissionForPartnerSubscription(params: { partnerId: string; organizationId: string; subscriptionId: string; mrr: number }) {
   const partner = await prisma.partner.findUnique({ where: { id: params.partnerId } });
   if (!partner) throw new Error("Partner not found");
   if (partner.status !== "active" && partner.status !== "approved") throw new Error("Partner not active");
+  const dupe = await prisma.affiliateCommission.findFirst({
+    where: { partnerId: params.partnerId, organizationId: params.organizationId, status: { notIn: ["reversed", "rejected"] } },
+    select: { id: true },
+  });
+  if (dupe) return prisma.affiliateCommission.findUnique({ where: { id: dupe.id } });
   const amount = calcCommissionAmount(partner.commissionModel, partner.commissionValue, params.mrr);
   return prisma.affiliateCommission.create({
     data: {
@@ -121,6 +144,10 @@ export async function requestPartnerPayout(params: { partnerId: string; amount: 
   if (!(params.amount > 0)) throw new Error("amount must be positive");
   const partner = await prisma.partner.findUnique({ where: { id: params.partnerId } });
   if (!partner) throw new Error("Partner not found");
+  const balance = await availablePayoutBalance({ partnerId: params.partnerId });
+  if (Math.round(params.amount) > balance) {
+    throw new Error(`Amount exceeds available payable balance (${balance})`);
+  }
   return prisma.affiliatePayout.create({
     data: { partnerId: params.partnerId, amount: Math.round(params.amount), method: params.method || "bank", status: "requested" },
   });
