@@ -16,10 +16,13 @@ export type OrgInput = {
 export async function listOrganizations(opts?: { q?: string; country?: string; status?: string; take?: number; skip?: number }) {
   const where: Record<string, unknown> = {};
   if (opts?.q) {
-    where.OR = [
-      { legalName: { contains: opts.q, mode: "insensitive" } },
-      { businessName: { contains: opts.q, mode: "insensitive" } },
-    ];
+    // SQLite has no Prisma `mode:"insensitive"` (it throws at runtime).
+    // LIKE is case-insensitive for ASCII in SQLite, so prefilter ids raw.
+    // Wildcard metacharacters are stripped (avoids ESCAPE quirks).
+    const like = `%${opts.q.replace(/[%_\\]/g, "")}%`;
+    const rows = await prisma.$queryRaw<{ id: string }[]>`SELECT id FROM Organization WHERE legalName LIKE ${like} OR businessName LIKE ${like}`;
+    if (rows.length === 0) return { items: [], total: 0 };
+    where.id = { in: rows.map((r) => r.id) };
   }
   if (opts?.country) where.country = opts.country;
   if (opts?.status) where.status = opts.status;

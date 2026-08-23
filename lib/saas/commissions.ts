@@ -37,6 +37,7 @@ export function calcCommissionAmount(model: string, value: number, mrr: number):
   }
 }
 
+/** Award a first-touch commission. Idempotent per (affiliate, organization). */
 export async function createCommissionForSubscription(params: {
   affiliateId: string;
   organizationId: string;
@@ -46,6 +47,11 @@ export async function createCommissionForSubscription(params: {
   const aff = await prisma.affiliate.findUnique({ where: { id: params.affiliateId } });
   if (!aff) throw new Error("Affiliate not found");
   if (aff.status !== "active" && aff.status !== "approved") throw new Error("Affiliate not active");
+  const dupe = await prisma.affiliateCommission.findFirst({
+    where: { affiliateId: params.affiliateId, organizationId: params.organizationId, status: { notIn: ["reversed", "rejected"] } },
+    select: { id: true },
+  });
+  if (dupe) return prisma.affiliateCommission.findUnique({ where: { id: dupe.id } });
   const amount = calcCommissionAmount(aff.commissionModel, aff.commissionValue, params.mrr);
   return prisma.affiliateCommission.create({
     data: {

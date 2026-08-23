@@ -15,20 +15,23 @@ export default function PropertyModal({ organizationId }: { organizationId: stri
   const submit = async () => {
     setBusy(true);
     setError("");
-    const res = await fetch("/api/saas/properties", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ organizationId, name: form.name, city: form.city, country: form.country, rooms: form.rooms ? Number(form.rooms) : undefined }),
-    });
-    const data = await res.json().catch(() => ({}));
-    setBusy(false);
-    if (!res.ok) {
-      setError(data.error ?? "Could not create property");
-      return;
+    try {
+      const res = await fetch("/api/saas/properties", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ organizationId, name: form.name, city: form.city, country: form.country, rooms: form.rooms ? Number(form.rooms) : undefined }),
+      });
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok) {
+        setError(data.error ?? "Could not create property");
+        return;
+      }
+      setOpen(false);
+      setForm({});
+      router.refresh();
+    } finally {
+      setBusy(false);
     }
-    setOpen(false);
-    setForm({});
-    router.refresh();
   };
 
   return (

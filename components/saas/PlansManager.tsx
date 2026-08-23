@@ -191,11 +191,14 @@ function PlanModal({ plan, onClose, onSaved, busy, setBusy, error, setError }: {
     };
     const url = plan ? `/api/saas/plans/${plan.id}` : "/api/saas/plans";
     const method = plan ? "PATCH" : "POST";
-    const res = await fetch(url, { method, headers: { "Content-Type": "application/json" }, body: JSON.stringify(payload) });
-    const data = await res.json().catch(() => ({}));
-    setBusy(false);
-    if (!res.ok) { setError(data.error ?? "Save failed"); return; }
-    onSaved();
+    try {
+      const res = await fetch(url, { method, headers: { "Content-Type": "application/json" }, body: JSON.stringify(payload) });
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok) { setError(data.error ?? "Save failed"); return; }
+      onSaved();
+    } finally {
+      setBusy(false);
+    }
   };
 
   return (

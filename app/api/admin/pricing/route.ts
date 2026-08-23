@@ -1,6 +1,8 @@
 import { NextResponse } from "next/server";
 import { getCurrentUser } from "@/lib/sessionCookie";
 import { isAdmin } from "@/lib/leads";
+import { hasSaasPerm } from "@/lib/saas/roles";
+import { originAllowed } from "@/lib/marketing/guard";
 import {
   getPricingDoc,
   resetPricingDoc,
@@ -49,6 +51,15 @@ export async function GET() {
 export async function PUT(request: Request) {
   const { user, error } = await getAdminUser();
   if (error) return error;
+
+  // Writing global prices is a marketing-admin capability — content editors
+  // and other read-scoped roles must not rewrite the storefront pricing doc.
+  if (!hasSaasPerm(user!, "MARKETING_MANAGE")) {
+    return NextResponse.json({ error: "Marketing manage permission required" }, { status: 403 });
+  }
+  if (!originAllowed(request as unknown as Parameters<typeof originAllowed>[0])) {
+    return NextResponse.json({ error: "Invalid origin" }, { status: 403 });
+  }
 
   let body: { profiles?: Record<string, PricingProfile>; label?: string; action?: string };
   try {

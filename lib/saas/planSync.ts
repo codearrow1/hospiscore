@@ -155,7 +155,8 @@ function normalizeAction(raw: unknown): RequestAction {
   return (REQUEST_ACTIONS as readonly string[]).includes(a) ? (a as RequestAction) : "update";
 }
 
-async function syncUsBaseline(
+/** Exported for direct PATCH routes so billing-cents edits keep the US invariant. */
+export async function syncUsBaseline(
   plan: {
     id: string;
     slug: string | null;
@@ -238,7 +239,8 @@ export async function submitMarketingPlanChange(opts: {
     if (!(await defaultApprovalRequirement())) {
       const plan = await createPlan(clean as PlanInput);
       if (split.countryPrices?.length) {
-        await applyCountryPrices(plan.id, split.countryPrices, opts.user.email).catch(() => {});
+        // Surface applier failures — a half-applied create must not look applied.
+        await applyCountryPrices(plan.id, split.countryPrices, opts.user.email);
       }
       await writeSaasAudit({
         byEmail: opts.user.email,
@@ -337,7 +339,7 @@ export async function submitMarketingPlanChange(opts: {
       updated = Object.keys(patch).length > 0 ? await updatePlan(plan.id, patch) : plan;
     }
     if (countryPrices?.length && action !== "archive") {
-      await applyCountryPrices(plan.id, countryPrices, opts.user.email).catch(() => {});
+      await applyCountryPrices(plan.id, countryPrices, opts.user.email);
     }
     await writeSaasAudit({
       byEmail: opts.user.email,
@@ -349,7 +351,7 @@ export async function submitMarketingPlanChange(opts: {
       after: updated,
       ip: ip ?? undefined,
     });
-    await syncUsBaseline(updated as never, opts.user.email).catch(() => {});
+    await syncUsBaseline(updated as never, opts.user.email);
     return { outcome: "applied", planId: plan.id };
   }
 
@@ -388,10 +390,12 @@ export interface ApproveResult {
 }
 
 export async function approvePlanChange(requestId: string, reviewer: Pick<AuthUser, "email" | "role">, ip?: string | null): Promise<ApproveResult> {
+  // Permission first — unauthorized callers must not be able to probe
+  // request existence or state via 404/409 differences.
+  if (!isSuperTier(reviewer)) return { ok: false, status: 403, error: "Super Admin access required" };
   const req = await prisma.planChangeRequest.findUnique({ where: { id: requestId } });
   if (!req) return { ok: false, status: 404, error: "request not found" };
   if (req.status !== "pending") return { ok: false, status: 409, error: `Request already ${req.status}` };
-  if (!isSuperTier(reviewer)) return { ok: false, status: 403, error: "Super Admin access required" };
   const selfErr = selfApprovalError(req.requestedByEmail, reviewer.email);
   if (selfErr) return { ok: false, status: 403, error: selfErr };
 
@@ -442,18 +446,23 @@ export async function approvePlanChange(requestId: string, reviewer: Pick<AuthUs
 
   // Approved country prices → canonical rows + US invariant + PricingDoc
   // mirror, via the same applier the SaaS side uses (single write path).
+  // Applier failures propagate: the request stays pending so the reviewer can
+  // retry instead of a silently half-applied "approved" state.
   const proposedCountryPrices = (req.proposedSnapshot as Record<string, unknown> | null)?.countryPrices;
   if (planId && Array.isArray(proposedCountryPrices) && proposedCountryPrices.length > 0 && req.action !== "archive") {
     const v = validateCountryPriceEntries(proposedCountryPrices);
     if (!v.ok) return { ok: false, status: 422, error: `stored proposal invalid: ${v.error}` };
-    await applyCountryPrices(planId, v.value, reviewer.email).catch(() => {});
+    await applyCountryPrices(planId, v.value, reviewer.email);
   }
 
+  // Always restore the US baseline — even country-price-only proposals may
+  // carry billing-cents changes that must mirror into storefront units.
   const updatedPlan = planId ? await prisma.plan.findUnique({ where: { id: planId } }) : null;
-  if (updatedPlan && !proposedCountryPrices) await syncUsBaseline(updatedPlan as never, reviewer.email).catch(() => {});
+  if (updatedPlan) await syncUsBaseline(updatedPlan as never, reviewer.email);
 
-  await prisma.planChangeRequest.update({
-    where: { id: req.id },
+  // Atomic claim: only one reviewer's decision lands; losers get 409.
+  const claim = await prisma.planChangeRequest.updateMany({
+    where: { id: req.id, status: "pending" },
     data: {
       status: "approved",
       reviewedByEmail: reviewer.email,
@@ -461,6 +470,7 @@ export async function approvePlanChange(requestId: string, reviewer: Pick<AuthUs
       ...(planId ? { planId } : {}),
     },
   });
+  if (claim.count === 0) return { ok: false, status: 409, error: "Request already decided by another reviewer" };
   await writeSaasAudit({
     byEmail: reviewer.email,
     action: "plan.change_approved",
@@ -477,12 +487,12 @@ export async function approvePlanChange(requestId: string, reviewer: Pick<AuthUs
 export async function rejectPlanChange(requestId: string, reviewer: Pick<AuthUser, "email" | "role">, reason: string, ip?: string | null): Promise<ApproveResult> {
   const trimmed = reason?.trim() ?? "";
   if (!trimmed) return { ok: false, status: 400, error: "Rejection reason is required" };
+  if (!isSuperTier(reviewer)) return { ok: false, status: 403, error: "Super Admin access required" };
   const req = await prisma.planChangeRequest.findUnique({ where: { id: requestId } });
   if (!req) return { ok: false, status: 404, error: "request not found" };
   if (req.status !== "pending") return { ok: false, status: 409, error: `Request already ${req.status}` };
-  if (!isSuperTier(reviewer)) return { ok: false, status: 403, error: "Super Admin access required" };
-  await prisma.planChangeRequest.update({
-    where: { id: req.id },
+  const claim = await prisma.planChangeRequest.updateMany({
+    where: { id: req.id, status: "pending" },
     data: {
       status: "rejected",
       reviewedByEmail: reviewer.email,
@@ -490,6 +500,7 @@ export async function rejectPlanChange(requestId: string, reviewer: Pick<AuthUse
       rejectionReason: trimmed,
     },
   });
+  if (claim.count === 0) return { ok: false, status: 409, error: "Request already decided by another reviewer" };
   await writeSaasAudit({
     byEmail: reviewer.email,
     action: "plan.change_rejected",
@@ -510,7 +521,11 @@ export async function cancelPlanChange(requestId: string, user: Pick<AuthUser, "
   if (req.requestedByEmail !== user.email.trim().toLowerCase()) {
     return { ok: false, status: 403, error: "Only the requester can cancel this request" };
   }
-  await prisma.planChangeRequest.update({ where: { id: req.id }, data: { status: "cancelled" } });
+  const claim = await prisma.planChangeRequest.updateMany({
+    where: { id: req.id, status: "pending" },
+    data: { status: "cancelled" },
+  });
+  if (claim.count === 0) return { ok: false, status: 409, error: "Request already decided by another reviewer" };
   await writeSaasAudit({
     byEmail: user.email,
     action: "plan.change_cancelled",

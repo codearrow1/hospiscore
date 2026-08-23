@@ -25,6 +25,9 @@ export async function POST(req: NextRequest) {
   let body: Record<string, unknown>;
   try { body = await req.json(); } catch { return NextResponse.json({ error: "Invalid JSON" }, { status: 400 }); }
   const organizationId = String(body.organizationId ?? "");
+  if (body.amount === null || body.amount === undefined || body.amount === "") {
+    return NextResponse.json({ error: "amount is required" }, { status: 400 });
+  }
   const amount = Number(body.amount);
   if (!organizationId || !Number.isFinite(amount) || amount < 0) return NextResponse.json({ error: "organizationId and amount>=0 required" }, { status: 400 });
   try {

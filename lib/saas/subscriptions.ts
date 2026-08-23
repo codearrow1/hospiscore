@@ -29,8 +29,11 @@ export function computeMrr(plan: { monthlyPrice: number; annualPrice: number }, 
   return billingCycle === "yearly" ? Math.round(plan.annualPrice / 12) : plan.monthlyPrice;
 }
 
-/** Revenue-generating statuses (matches saasMetrics MRR definition). */
-const REVENUE_STATUSES = ["active", "trial", "past_due", "grace"];
+/** Revenue-generating statuses (matches saasMetrics MRR definition). Trials are free and never count as revenue. */
+const REVENUE_STATUSES = ["active", "past_due", "grace"];
+
+/** Statuses that trigger first-touch commission awards (never trials — no money has moved yet). */
+const COMMISSION_STATUSES_SET = ["active", "past_due", "grace"];
 
 /** Keep Organization.mrr in sync with the org's revenue-generating subscriptions. */
 export async function syncOrgMrr(organizationId: string): Promise<number> {
@@ -129,8 +132,11 @@ export async function resolveSubscriptionPrice(opts: {
 
 function addCycle(date: Date, cycle: "monthly" | "yearly"): Date {
   const d = new Date(date);
+  const dom = d.getDate();
   if (cycle === "yearly") d.setFullYear(d.getFullYear() + 1);
   else d.setMonth(d.getMonth() + 1);
+  // Clamp month-end overflow (e.g. Jan 31 + 1mo → Mar 2/3 → Feb 28/29)
+  if (d.getDate() !== dom) d.setDate(0);
   return d;
 }
 
@@ -168,16 +174,23 @@ export async function createSubscription(input: {
 
   // Normalized USD-cents MRR metric (dashboards unchanged); the actually
   // charged currency/amount live on price.* and are never converted.
-  const mrr = computeMrr(plan, billingCycle);
+  // Negotiated USD deals are booked at their real charged amount; non-USD
+  // markets keep the plan baseline (pricing is localized, not FX-converted).
+  let mrr = computeMrr(plan, billingCycle);
+  if (price.unitAmount !== null && price.currency === "USD") {
+    const monthlyUnits = billingCycle === "yearly" ? Math.round(price.unitAmount / 12) : price.unitAmount;
+    mrr = Math.max(0, Math.round(monthlyUnits * 100));
+  }
   const now = new Date();
   const periodStart = input.startAt ?? now;
   const trialEndsAt = input.trialEndsAt ?? (input.status === "trial" ? new Date(now.getTime() + plan.trialDays * 86400000) : null);
+  const initialStatus = input.status ?? "trial";
   const sub = await prisma.subscription.create({
     data: {
       organizationId: input.organizationId,
       planId: input.planId,
       billingCycle,
-      status: input.status ?? "trial",
+      status: initialStatus,
       mrr,
       country: price.country,
       currency: price.currency,
@@ -188,20 +201,34 @@ export async function createSubscription(input: {
     },
     include: { plan: true, organization: true },
   });
-  // Auto-create commission if org was acquired via affiliate or partner
-  if (org.affiliateId) {
-    try {
-      const { createCommissionForSubscription } = await import("./commissions");
-      await createCommissionForSubscription({ affiliateId: org.affiliateId, organizationId: input.organizationId, subscriptionId: sub.id, mrr });
-    } catch {}
-  } else if (org.partnerId) {
-    try {
-      const { createCommissionForPartnerSubscription } = await import("./partners");
-      await createCommissionForPartnerSubscription({ partnerId: org.partnerId, organizationId: input.organizationId, subscriptionId: sub.id, mrr });
-    } catch {}
+  // Auto-create commission if org was acquired via affiliate or partner.
+  // Only once real revenue starts — trials award nothing, and dedup inside
+  // the creators makes repeat creates idempotent.
+  if (COMMISSION_STATUSES_SET.includes(initialStatus)) {
+    await awardFirstTouchCommission(org, input.organizationId, sub.id, mrr);
   }
   await syncOrgMrr(input.organizationId).catch(() => {});
   return sub;
+}
+
+/** First-touch commission award — affiliate wins over partner; dedup makes this idempotent. */
+async function awardFirstTouchCommission(
+  org: { affiliateId: string | null; partnerId: string | null },
+  organizationId: string,
+  subscriptionId: string,
+  mrr: number,
+): Promise<void> {
+  try {
+    if (org.affiliateId) {
+      const { createCommissionForSubscription } = await import("./commissions");
+      await createCommissionForSubscription({ affiliateId: org.affiliateId, organizationId, subscriptionId, mrr });
+    } else if (org.partnerId) {
+      const { createCommissionForPartnerSubscription } = await import("./partners");
+      await createCommissionForPartnerSubscription({ partnerId: org.partnerId, organizationId, subscriptionId, mrr });
+    }
+  } catch {
+    // Commission failure must never fail the subscription lifecycle action.
+  }
 }
 
 export async function updateSubscriptionStatus(id: string, status: SubscriptionStatus) {
@@ -210,6 +237,14 @@ export async function updateSubscriptionStatus(id: string, status: SubscriptionS
   if (!current) throw new Error("Subscription not found");
   if (!canTransition(current.status as SubscriptionStatus, status)) throw new Error(`Cannot transition ${current.status} → ${status}`);
   const sub = await prisma.subscription.update({ where: { id }, data: { status } });
+  if (status === "active") {
+    // Trial → active (or reactivation): first revenue moment — award if not already awarded.
+    const org = await prisma.organization.findUnique({
+      where: { id: current.organizationId },
+      select: { affiliateId: true, partnerId: true },
+    });
+    if (org) await awardFirstTouchCommission(org, current.organizationId, id, sub.mrr);
+  }
   if (["active", "trial", "past_due", "grace", "cancelled", "expired", "suspended", "paused"].includes(status)) {
     await syncOrgMrr(current.organizationId).catch(() => {});
   }
@@ -220,16 +255,23 @@ export async function changePlan(id: string, planId: string, billingCycle?: "mon
   const existing = await prisma.subscription.findUnique({ where: { id } });
   if (!existing) throw new Error("Subscription not found");
   const cycle = (billingCycle ?? existing.billingCycle) as "monthly" | "yearly";
+  const plan = await prisma.plan.findUnique({ where: { id: planId } });
+  if (!plan) throw new Error("Plan not found");
   // Re-resolve the charged amount for the subscription's own market so a plan
   // change never mixes another country's price into this subscription.
+  // Only custom-priced plans legitimately have no catalog row — every other
+  // resolution failure (archived/inactive/missing market price) must surface.
   const price = await resolveSubscriptionPrice({
     planId,
     country: existing.country,
     billingCycle: cycle,
     unitAmountOverride: null,
-  }).catch(() => ({ country: existing.country, currency: existing.currency, unitAmount: existing.unitAmount, custom: false }));
-  const plan = await prisma.plan.findUnique({ where: { id: planId } });
-  if (!plan) throw new Error("Plan not found");
+  }).catch((err: unknown) => {
+    if (plan.isCustomPrice) {
+      return { country: existing.country, currency: existing.currency, unitAmount: existing.unitAmount, custom: true };
+    }
+    throw err;
+  });
   const mrr = computeMrr(plan, cycle);
   const sub = await prisma.subscription.update({
     where: { id },
@@ -250,6 +292,14 @@ export async function renewSubscription(id: string) {
   const sub = await prisma.subscription.findUnique({ where: { id } });
   if (!sub) throw new Error("Subscription not found");
   if (sub.status === "cancelled" || sub.status === "expired") throw new Error("Cannot renew cancelled/expired");
+  if (!["active", "past_due", "grace"].includes(sub.status)) {
+    throw new Error(`Cannot renew a subscription in "${sub.status}" state`);
+  }
+  // Renewal extends a period that has (effectively) ended — it is not a way
+  // to grant free service ahead of time. 24h skew tolerated for clock drift.
+  if (sub.currentPeriodEnd.getTime() > Date.now() + 86_400_000) {
+    throw new Error("Current period has not ended yet");
+  }
   const nextEnd = addCycle(sub.currentPeriodEnd, sub.billingCycle as "monthly" | "yearly");
   const updated = await prisma.subscription.update({ where: { id }, data: { currentPeriodStart: sub.currentPeriodEnd, currentPeriodEnd: nextEnd, status: "active" } });
   await syncOrgMrr(sub.organizationId).catch(() => {});

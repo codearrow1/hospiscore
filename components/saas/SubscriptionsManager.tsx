@@ -219,11 +219,14 @@ function CreateModal({ orgs, plans, countries, onClose, onCreated, busy, setBusy
     };
     if (form.country) body.country = form.country;
     else delete body.country;
-    const res = await fetch("/api/saas/subscriptions", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(body) });
-    const d = await res.json().catch(() => ({}));
-    setBusy(false);
-    if (!res.ok) { setError(d.error ?? "Create failed"); return; }
-    onCreated();
+    try {
+      const res = await fetch("/api/saas/subscriptions", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(body) });
+      const d = await res.json().catch(() => ({}));
+      if (!res.ok) { setError(d.error ?? "Create failed"); return; }
+      onCreated();
+    } finally {
+      setBusy(false);
+    }
   };
 
   const cycleAmount = preview ? (form.billingCycle === "yearly" ? preview.annual : preview.monthly) : null;

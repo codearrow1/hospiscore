@@ -36,11 +36,14 @@ export default function CouponsManager({ initialCoupons, canManage }: { initialC
     if (form.duration === "repeating") body.months = Number(form.months);
     if (form.maxRedemptions) body.maxRedemptions = Number(form.maxRedemptions);
     if (form.expiresAt) body.expiresAt = new Date(form.expiresAt).toISOString();
-    const res = await fetch("/api/saas/coupons", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(body) });
-    const d = await res.json().catch(() => ({}));
-    setBusy(false);
-    if (!res.ok) { setError(d.error ?? "Create failed"); return; }
-    setCreating(false); setForm({ type: "percent", duration: "once" }); refresh();
+    try {
+      const res = await fetch("/api/saas/coupons", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(body) });
+      const d = await res.json().catch(() => ({}));
+      if (!res.ok) { setError(d.error ?? "Create failed"); return; }
+      setCreating(false); setForm({ type: "percent", duration: "once" }); refresh();
+    } finally {
+      setBusy(false);
+    }
   };
 
   const toggle = async (id: string, isActive: boolean) => {

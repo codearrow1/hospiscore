@@ -38,7 +38,7 @@ export async function saasMetrics(): Promise<SaasMetrics> {
   const activeCustomers = orgs.filter((o) => o.status === "active").length;
   const newCustomers7d = orgs.filter((o) => o.createdAt >= sevenDaysAgo).length;
 
-  const activeSubs = subs.filter((s) => ["active", "trial", "past_due", "grace"].includes(s.status));
+  const activeSubs = subs.filter((s) => ["active", "past_due", "grace"].includes(s.status));
   const trials = subs.filter((s) => s.status === "trial").length;
   const cancelled30 = subs.filter((s) => s.status === "cancelled" && s.updatedAt >= thirtyDaysAgo).length;
   const mrr = activeSubs.reduce((sum, s) => sum + s.mrr, 0);

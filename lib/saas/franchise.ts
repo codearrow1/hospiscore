@@ -29,30 +29,29 @@ export function canTransitionFranchisee(from: FranchiseeStatus, to: FranchiseeSt
  *   new master(country)      vs any exclusive in country
  *   new region(country,reg)  vs master in country | region with same reg
  *   new city(c,reg,city)     vs the above | city with same city
+ * ALL active exclusives are inspected — a single findFirst would miss
+ * conflicts whenever ≥2 exclusives of different types exist.
  */
 export async function findExclusiveConflict(t: { country: string; region?: string | null; city?: string | null; type: string; excludeId?: string }): Promise<{ id: string; name: string } | null> {
-  const sameCountry = { status: "active", exclusive: true, country: t.country.toUpperCase(), ...(t.excludeId ? { id: { not: t.excludeId } } : {}) };
-  const anyInCountry = await prisma.franchiseTerritory.findFirst({ where: sameCountry, select: { id: true, name: true, type: true, region: true, city: true } });
-  if (!anyInCountry) return null;
-  // master conflicts with everything in-country
-  if (t.type === "master" || anyInCountry.type === "master") return anyInCountry;
-  // region vs region
-  if ((t.type === "region" || t.type === "city") && anyInCountry.type === "region") {
-    if ((anyInCountry.region ?? "") === (t.region ?? "")) return anyInCountry;
-    return null;
-  }
-  // city vs city
-  if (t.type === "city" && anyInCountry.type === "city") {
-    if ((anyInCityKey(anyInCountry.region, anyInCountry.city)) === cityKey(t.region, t.city)) return anyInCountry;
+  const exclusives = await prisma.franchiseTerritory.findMany({
+    where: { status: "active", exclusive: true, country: t.country.toUpperCase(), ...(t.excludeId ? { id: { not: t.excludeId } } : {}) },
+    select: { id: true, name: true, type: true, region: true, city: true },
+  });
+  const norm = (s?: string | null) => (s ?? "").trim().toLowerCase();
+  for (const ex of exclusives) {
+    // master conflicts with everything in-country
+    if (t.type === "master" || ex.type === "master") return ex;
+    // region vs region (case-insensitive)
+    if ((t.type === "region" || t.type === "city") && ex.type === "region") {
+      if (norm(ex.region) === norm(t.region)) return ex;
+      continue;
+    }
+    // city vs city (case-insensitive)
+    if (t.type === "city" && ex.type === "city") {
+      if (norm(ex.region) === norm(t.region) && norm(ex.city) === norm(t.city)) return ex;
+    }
   }
   return null;
-}
-
-function anyInCityKey(region: string | null, city: string | null) {
-  return `${region ?? ""}/${city ?? ""}`;
-}
-function cityKey(region?: string | null, city?: string | null) {
-  return `${region ?? ""}/${city ?? ""}`;
 }
 
 export async function createTerritory(input: { name: string; country: string; region?: string; city?: string; type: string; exclusive?: boolean; franchiseeId?: string; parentTerritoryId?: string }) {
@@ -70,6 +69,11 @@ export async function createTerritory(input: { name: string; country: string; re
     const f = await prisma.franchisee.findUnique({ where: { id: input.franchiseeId }, select: { id: true } });
     if (!f) throw new Error("Franchisee not found");
     validFranchisee = f.id;
+  }
+  if (input.parentTerritoryId) {
+    const p = await prisma.franchiseTerritory.findUnique({ where: { id: input.parentTerritoryId }, select: { id: true, country: true } });
+    if (!p) throw new Error("Parent territory not found");
+    if (p.country !== country) throw new Error("Parent territory must be in the same country");
   }
   return prisma.franchiseTerritory.create({
     data: {
@@ -98,6 +102,14 @@ export async function listTerritories(opts?: { country?: string }) {
 }
 
 export async function updateTerritoryStatus(id: string, status: "active" | "inactive") {
+  const t = await prisma.franchiseTerritory.findUnique({ where: { id } });
+  if (!t) throw new Error("Territory not found");
+  // Reactivating an exclusive must re-run the overlap check — another
+  // exclusive may have claimed the geography while this one was inactive.
+  if (status === "active" && t.exclusive && t.status !== "active") {
+    const conflict = await findExclusiveConflict({ country: t.country, region: t.region, city: t.city, type: t.type, excludeId: t.id });
+    if (conflict) throw new Error(`Cannot reactivate: overlaps active exclusive territory "${conflict.name}" (${conflict.id})`);
+  }
   return prisma.franchiseTerritory.update({ where: { id }, data: { status } });
 }
 

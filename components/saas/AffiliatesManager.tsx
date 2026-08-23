@@ -29,11 +29,14 @@ export default function AffiliatesManager({ initialAffiliates, initialCommission
 
   const create = async () => {
     setBusy(true); setError("");
-    const res = await fetch("/api/saas/affiliates", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ name: form.name, email: form.email, businessName: form.businessName, country: form.country, website: form.website, tier: form.tier || "standard", commissionModel: form.commissionModel || "percent_mrr_12", commissionValue: form.commissionValue ? Number(form.commissionValue) : 2000 }) });
-    const d = await res.json().catch(()=>({}));
-    setBusy(false);
-    if (!res.ok) { setError(d.error ?? "Create failed"); return; }
-    setCreating(false); setForm({}); refresh();
+    try {
+      const res = await fetch("/api/saas/affiliates", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ name: form.name, email: form.email, businessName: form.businessName, country: form.country, website: form.website, tier: form.tier || "standard", commissionModel: form.commissionModel || "percent_mrr_12", commissionValue: form.commissionValue ? Number(form.commissionValue) : 2000 }) });
+      const d = await res.json().catch(()=>({}));
+      if (!res.ok) { setError(d.error ?? "Create failed"); return; }
+      setCreating(false); setForm({}); refresh();
+    } finally {
+      setBusy(false);
+    }
   };
 
   const setStatus = async (id: string, status: string) => {
