@@ -100,7 +100,7 @@ export default function SavedList() {
           )}
           {user.isAdmin && (
             <Link
-              href="/account/leads"
+              href="/marketing-admin/leads"
               className="flex min-h-11 items-center rounded-lg px-3 py-2.5 text-sm font-medium text-indigo-600 hover:underline dark:text-indigo-400"
             >
               Sales leads

@@ -21,7 +21,7 @@ export const PORTAL_NAV: Record<AppRole, PortalNavItem[]> = {
     { href: "/account", label: "Profile" },
   ],
   subadmin: [
-    { href: "/subadmin", label: "Dashboard" },
+    { href: "/marketing-admin", label: "Dashboard" },
     { href: "/marketing-admin/leads", label: "Leads" },
     { href: "/marketing-admin/campaigns", label: "Campaigns" },
     { href: "/marketing-admin/pipeline", label: "Pipeline" },

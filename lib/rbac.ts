@@ -40,7 +40,8 @@ export const APP_ROLE_LABELS: Record<AppRole, string> = {
 
 export const APP_ROLE_DASHBOARDS: Record<AppRole, string> = {
   super_admin: "/saas",
-  subadmin: "/subadmin",
+  // Legacy /subadmin retired — the Growth (marketing) plane is canonical.
+  subadmin: "/marketing-admin",
   staff: "/staff",
   affiliate: "/affiliate",
   partner: "/partner",

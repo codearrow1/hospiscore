@@ -56,6 +56,15 @@ export const STATUS_MAP: Record<string, DomainMap> = {
     resolved: m("Resolved", "success"),
     closed: m("Closed", "neutral"),
   },
+  demo: {
+    new: m("New", "info"),
+    confirmed: m("Confirmed", "brand"),
+    reschedule_requested: m("Reschedule requested", "warning"),
+    completed: m("Completed", "success"),
+    no_show: m("No-show", "danger"),
+    cancelled: m("Cancelled", "neutral"),
+    converted: m("Converted", "accent"),
+  },
   sla: {
     breached: m("SLA breached", "danger"),
     in_sla: m("In SLA", "success"),

@@ -1,11 +1,13 @@
 "use client";
 
 import Link from "next/link";
-import { useRouter, useSearchParams } from "next/navigation";
+import { useRouter, useSearchParams, usePathname } from "next/navigation";
 import { useCallback, useEffect, useState } from "react";
 import { btnGhost, btnPrimary, EmptyState, Field, inputCls, Modal } from "./ui";
+import { useToast } from "@/components/ui/Toast";
 import { ConfirmDialog } from "@/components/ui/ConfirmDialog";
 import { STAGE_STYLES } from "@/lib/marketing/stages";
+import { formatMoney } from "@/lib/format";
 import type { LeadStage } from "@/lib/marketing/types";
 
 export interface LeadRowLite {
@@ -23,6 +25,7 @@ export interface LeadRowLite {
   ownerEmail?: string;
   nextFollowUpAt?: string;
   estimatedValue: number;
+  estimatedValueCurrency?: string;
   rooms?: number;
   createdAt: string;
 }
@@ -84,6 +87,47 @@ export function FilterChipLink({
   );
 }
 
+/** URL-synced dropdown filter — merges into the current query string. */
+export function SelectFilter({
+  param,
+  value,
+  options,
+  label,
+  allLabel,
+}: {
+  param: string;
+  value: string;
+  options: { value: string; label: string }[];
+  label: string;
+  allLabel?: string;
+}) {
+  const router = useRouter();
+  const pathname = usePathname();
+  const sp = useSearchParams();
+  return (
+    <label className="inline-flex items-center gap-1.5 text-xs text-zinc-500">
+      <span className="sr-only">{label}</span>
+      <select
+        value={value}
+        aria-label={label}
+        onChange={(e) => {
+          const p = new URLSearchParams(sp.toString());
+          if (e.target.value) p.set(param, e.target.value);
+          else p.delete(param);
+          p.delete("page");
+          router.push(`${pathname}?${p.toString()}`);
+        }}
+        className="min-h-8 rounded-lg border border-zinc-300 bg-white px-2 py-1 text-xs font-medium text-zinc-700 outline-none focus:border-indigo-400 dark:border-zinc-700 dark:bg-zinc-900 dark:text-zinc-200"
+      >
+        <option value="">{allLabel ?? `All ${label.toLowerCase()}`}</option>
+        {options.map((o) => (
+          <option key={o.value} value={o.value}>{o.label}</option>
+        ))}
+      </select>
+    </label>
+  );
+}
+
 const STAGE_LIST: LeadStage[] = [
   "new", "qualified", "contacted", "demo_booked", "demo_completed",
   "trial", "proposal", "negotiation", "won", "lost",
@@ -99,63 +143,54 @@ export function BulkStageBar({
   ownerOptions?: { email: string; name: string }[];
 }) {
   const router = useRouter();
+  const toast = useToast();
   const [stage, setStage] = useState<LeadStage>("contacted");
   const [owner, setOwner] = useState("");
   const [busy, setBusy] = useState(false);
   const [confirmDelete, setConfirmDelete] = useState(false);
   const [message, setMessage] = useState("");
+  const [confirmWon, setConfirmWon] = useState(false);
 
-  const applyStage = async () => {
+  /** One round-trip per action — authorization and auditing happen server-side
+   *  in POST /api/marketing/leads/batch (replaces the old sequential loop). */
+  const runBatch = async (
+    action: "stage" | "owner" | "delete",
+    extra: Record<string, unknown> = {},
+    done?: () => void,
+  ) => {
     setBusy(true);
     setMessage("");
-    let moved = 0;
-    for (const id of selected) {
-      const res = await fetch(`/api/marketing/leads/${id}/stage`, {
+    try {
+      const res = await fetch("/api/marketing/leads/batch", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ stage }),
+        body: JSON.stringify({ action, ids: selected, ...extra }),
       });
-      if (res.ok) moved++;
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok) {
+        toast.error(data.error ?? "Batch action failed");
+        return;
+      }
+      setMessage(`${data.done} of ${data.total} updated.`);
+      router.refresh();
+      setTimeout(onDone, 900);
+    } finally {
+      setBusy(false);
+      done?.();
     }
-    setBusy(false);
-    setMessage(`${moved} moved to ${stage}.`);
-    router.refresh();
-    setTimeout(onDone, 800);
   };
 
-  const assignOwner = async () => {
+  const applyStage = () => {
+    if (stage === "won") setConfirmWon(true);
+    else void runBatch("stage", stage === "lost" ? { stage, lostReason: "other" } : { stage });
+  };
+
+  const assignOwner = () => {
     if (!owner) return;
     const isUnassign = owner === "__unassign__";
-    setBusy(true);
-    setMessage("");
-    let done = 0;
-    for (const id of selected) {
-      const res = await fetch(`/api/marketing/leads/${id}`, {
-        method: "PATCH",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(isUnassign ? { ownerEmail: "" } : { ownerEmail: owner }),
-      });
-      if (res.ok) done++;
-    }
-    setBusy(false);
-    setMessage(isUnassign ? `${done} unassigned.` : `${done} assigned to ${owner}.`);
-    router.refresh();
-    setTimeout(onDone, 800);
-  };
-
-  const deleteSelected = async () => {
-    setBusy(true);
-    setMessage("");
-    let done = 0;
-    for (const id of selected) {
-      const res = await fetch(`/api/marketing/leads/${id}`, { method: "DELETE" });
-      if (res.ok) done++;
-    }
-    setBusy(false);
-    setConfirmDelete(false);
-    setMessage(`${done} deleted.`);
-    router.refresh();
-    setTimeout(onDone, 800);
+    void runBatch("owner", { ownerEmail: isUnassign ? "" : owner }, () =>
+      setMessage(isUnassign ? "Unassigned." : `Assigned to ${owner}.`),
+    );
   };
 
   return (
@@ -210,11 +245,39 @@ export function BulkStageBar({
             }
           : null}
         onClose={() => setConfirmDelete(false)}
-        onConfirm={deleteSelected}
+        onConfirm={() => void runBatch("delete", {}, () => setMessage("Deleted."))}
+        busy={busy}
+      />
+
+      <ConfirmDialog
+        action={confirmWon
+          ? {
+              title: "Mark leads as won",
+              message: `Move ${selected.length} selected ${selected.length === 1 ? "lead" : "leads"} to Won?`,
+              consequences: [
+                "Won feeds conversion reporting and pipeline value.",
+                "Re-opening later is possible but logged.",
+                "Every move is recorded in the audit log.",
+              ],
+              confirmLabel: "Mark won",
+            }
+          : null}
+        onClose={() => setConfirmWon(false)}
+        onConfirm={() => void runBatch("stage", { stage: "won" })}
         busy={busy}
       />
     </div>
   );
+}
+
+function fmtFollowUp(iso?: string): string {
+  if (!iso) return "";
+  const d = new Date(iso);
+  const days = Math.round((d.getTime() - Date.now()) / 86_400_000);
+  const label = d.toLocaleDateString("en-US", { month: "short", day: "numeric" });
+  if (days < -1) return `${label} · overdue`;
+  if (days <= 1) return `${label} · due`;
+  return label;
 }
 
 export function RevenueRow({
@@ -226,41 +289,92 @@ export function RevenueRow({
   onSelect?: (id: string) => void;
   selected?: boolean;
 }) {
+  const stageBadge = (
+    <span className={`inline-flex rounded-full px-2 py-0.5 text-[11px] font-semibold ${STAGE_STYLES[lead.stage]}`}>
+      {lead.stage.replace(/_/g, " ")}
+    </span>
+  );
+  const followUp = fmtFollowUp(lead.nextFollowUpAt);
   return (
-    <tr className="border-b border-zinc-100 transition hover:bg-zinc-50 dark:border-zinc-800/70 dark:hover:bg-zinc-800/40">
-      {onSelect && (
-        <td className="py-2.5 pl-2 pr-1">
-          <input
-            type="checkbox"
-            checked={selected}
-            onChange={() => onSelect(lead.id)}
-            aria-label={`Select ${lead.name}`}
-            className="h-4 w-4 accent-indigo-600"
-          />
+    <>
+      {/* Desktop / tablet row */}
+      <tr className="hidden border-b border-zinc-100 transition hover:bg-zinc-50 md:table-row dark:border-zinc-800/70 dark:hover:bg-zinc-800/40">
+        {onSelect && (
+          <td className="py-2.5 pl-2 pr-1">
+            <input
+              type="checkbox"
+              checked={selected}
+              onChange={() => onSelect(lead.id)}
+              aria-label={`Select ${lead.name}`}
+              className="h-4 w-4 accent-indigo-600"
+            />
+          </td>
+        )}
+        <td className="py-2.5 pr-3">
+          <Link href={`/marketing-admin/leads/${lead.id}`} className="block font-semibold text-zinc-900 hover:text-indigo-600 dark:text-zinc-50 dark:hover:text-indigo-400">
+            {lead.name}
+          </Link>
+          <span className="block text-xs text-zinc-400">{lead.email}</span>
         </td>
-      )}
-      <td className="py-2.5 pr-3">
-        <Link href={`/marketing-admin/leads/${lead.id}`} className="block font-semibold text-zinc-900 hover:text-indigo-600 dark:text-zinc-50 dark:hover:text-indigo-400">
-          {lead.name}
-        </Link>
-        <span className="block text-xs text-zinc-400">{lead.email}</span>
-      </td>
-      <td className="py-2.5 pr-3 text-sm text-zinc-600 dark:text-zinc-300">
-        {lead.company || lead.propertyName || "—"}
-      </td>
-      <td className="py-2.5 pr-3 text-sm capitalize text-zinc-600 dark:text-zinc-300">{lead.country || "—"}</td>
-      <td className="py-2.5 pr-3 text-sm capitalize text-zinc-600 dark:text-zinc-300">{lead.planInterest || "—"}</td>
-      <td className="py-2.5 pr-3 text-sm text-zinc-600 dark:text-zinc-300">
-        <span className={`inline-flex rounded-full px-2 py-0.5 text-[11px] font-semibold ${STAGE_STYLES[lead.stage]}`}>
-          {lead.stage}
-        </span>
-      </td>
-      <td className="py-2.5 pr-3 text-sm tabular-nums text-zinc-600 dark:text-zinc-300">{lead.rooms ?? ""}</td>
-      <td className="py-2.5 text-right text-sm tabular-nums">
-        <span className="font-semibold text-zinc-900 dark:text-zinc-50">{lead.score}</span>
-        <span className="ml-1 text-[10px] uppercase text-zinc-400">{lead.band.replace("_", " ")}</span>
-      </td>
-    </tr>
+        <td className="py-2.5 pr-3 text-sm text-zinc-600 dark:text-zinc-300">
+          {lead.company || lead.propertyName || "—"}
+        </td>
+        <td className="py-2.5 pr-3 text-sm capitalize text-zinc-600 dark:text-zinc-300">{lead.country || "—"}</td>
+        <td className="py-2.5 pr-3 text-sm capitalize text-zinc-600 dark:text-zinc-300">{lead.planInterest || "—"}</td>
+        <td className="py-2.5 pr-3 text-sm text-zinc-600 dark:text-zinc-300">{stageBadge}</td>
+        <td className="py-2.5 pr-3 text-sm tabular-nums text-zinc-600 dark:text-zinc-300">{lead.rooms ?? ""}</td>
+        <td className="py-2.5 pr-3 text-sm font-semibold tabular-nums text-emerald-700 dark:text-emerald-400">
+          {formatMoney(lead.estimatedValue, lead.estimatedValueCurrency ?? "USD")}
+        </td>
+        <td className={`py-2.5 pr-3 text-xs tabular-nums ${followUp.includes("overdue") ? "font-semibold text-red-600 dark:text-red-400" : followUp.includes("due") ? "font-semibold text-amber-600 dark:text-amber-400" : "text-zinc-500"}`}>
+          {followUp || "—"}
+        </td>
+        <td className="max-w-[10rem] truncate py-2.5 pr-3 text-xs text-zinc-500" title={lead.ownerEmail}>
+          {lead.ownerEmail ?? <span className="text-zinc-300 dark:text-zinc-600">unassigned</span>}
+        </td>
+        <td className="py-2.5 text-right text-sm tabular-nums">
+          <span className="font-semibold text-zinc-900 dark:text-zinc-50">{lead.score}</span>
+          <span className="ml-1 text-[10px] uppercase text-zinc-400">{lead.band.replace("_", " ")}</span>
+        </td>
+      </tr>
+
+      {/* Mobile card */}
+      <tr className="border-b border-zinc-100 md:hidden dark:border-zinc-800/70">
+        <td colSpan={onSelect ? 11 : 10} className="px-3 py-3">
+          <div className="flex items-start justify-between gap-3">
+            <div className="min-w-0">
+              {onSelect && (
+                <input
+                  type="checkbox"
+                  checked={selected}
+                  onChange={() => onSelect(lead.id)}
+                  aria-label={`Select ${lead.name}`}
+                  className="mr-2 h-4 w-4 align-middle accent-indigo-600"
+                />
+              )}
+              <Link href={`/marketing-admin/leads/${lead.id}`} className="align-middle font-semibold text-zinc-900 dark:text-zinc-50">
+                {lead.name}
+              </Link>
+              <p className="mt-0.5 truncate text-xs text-zinc-400">{lead.email}</p>
+              <p className="mt-1 flex flex-wrap items-center gap-1.5 text-xs text-zinc-500">
+                {stageBadge}
+                {lead.country && <span>{lead.country}</span>}
+                {lead.planInterest && <span>· {lead.planInterest}</span>}
+              </p>
+              <p className="mt-1 text-xs tabular-nums text-zinc-500">
+                {formatMoney(lead.estimatedValue, lead.estimatedValueCurrency ?? "USD")}
+                {followUp && <span className={`ml-2 ${followUp.includes("overdue") || followUp.includes("due") ? "font-semibold text-amber-600 dark:text-amber-400" : ""}`}>↻ {followUp}</span>}
+              </p>
+              {lead.ownerEmail && <p className="mt-0.5 truncate text-[11px] text-zinc-400">→ {lead.ownerEmail}</p>}
+            </div>
+            <div className="shrink-0 text-right">
+              <p className="text-lg font-bold tabular-nums text-zinc-900 dark:text-zinc-50">{lead.score}</p>
+              <p className="text-[10px] uppercase text-zinc-400">{lead.band.replace("_", " ")}</p>
+            </div>
+          </div>
+        </td>
+      </tr>
+    </>
   );
 }
 

@@ -82,7 +82,7 @@ describe("rbac subadmin boundary (backend-enforced)", () => {
 describe("rbac dashboard routing", () => {
   it("routes every canonical role to its own dashboard", () => {
     expect(dashboardPathFor("super_admin")).toBe("/saas");
-    expect(dashboardPathFor("subadmin")).toBe("/subadmin");
+    expect(dashboardPathFor("subadmin")).toBe("/marketing-admin");
     expect(dashboardPathFor("staff")).toBe("/staff");
     expect(dashboardPathFor("affiliate")).toBe("/affiliate");
     expect(dashboardPathFor("partner")).toBe("/partner");

@@ -99,9 +99,9 @@ export default function LeadsTableClient({
             <EmptyState title="No leads match these filters" body="Adjust the filters or create a lead." />
           </div>
         ) : (
-          <table className="w-full min-w-[820px] text-left text-sm">
+          <table className="w-full text-left text-sm">
             <thead>
-              <tr className="border-b border-zinc-200 text-[11px] uppercase tracking-wide text-zinc-400 dark:border-zinc-800">
+              <tr className="hidden border-b border-zinc-200 text-[11px] uppercase tracking-wide text-zinc-400 md:table-row dark:border-zinc-800">
                 <th className="py-2.5 pl-2 pr-1 font-semibold">
                   <input
                     type="checkbox"
@@ -117,6 +117,9 @@ export default function LeadsTableClient({
                 <th className="py-2.5 pr-3 font-semibold">Plan</th>
                 <ThSort label="Stage" field="stage" sort={sort} dir={dir} />
                 <th className="py-2.5 pr-3 font-semibold">Rooms</th>
+                <th className="py-2.5 pr-3 font-semibold">Est. value</th>
+                <th className="py-2.5 pr-3 font-semibold">Follow-up</th>
+                <th className="py-2.5 pr-3 font-semibold">Owner</th>
                 <ThSort label="Score" field="score" sort={sort} dir={dir} align="right" />
               </tr>
             </thead>

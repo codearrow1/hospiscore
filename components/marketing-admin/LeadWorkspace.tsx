@@ -1,8 +1,10 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import { useRouter } from "next/navigation";
 import { Badge, btnGhost, btnPrimary, EmptyState, Field, inputCls, Modal, SectionCard } from "./ui";
 import { STAGE_LABELS, STAGE_STYLES } from "@/lib/marketing/stages";
+import { formatMoney } from "@/lib/format";
 import type { LostReason } from "@/lib/marketing/stages";
 import type { LeadEventType } from "@/lib/marketing/types";
 import { useToast } from "@/components/ui/Toast";
@@ -45,6 +47,7 @@ export interface LeadDetailShape {
   nextFollowUpAt?: string;
   lastContactAt?: string;
   estimatedValue: number;
+  estimatedValueCurrency?: string;
   demoId?: string;
   lostReason?: string;
   convertedCustomerId?: string;
@@ -110,6 +113,7 @@ export default function LeadWorkspace({
   const canManage = capabilities.includes("leads.manage");
   const canDemos = capabilities.includes("demos.manage");
   const toast = useToast();
+  const router = useRouter();
 
   const [draft, setDraft] = useState<Record<string, string>>({});
   const [status, setStatus] = useState("");
@@ -119,6 +123,7 @@ export default function LeadWorkspace({
   const [busy, setBusy] = useState(false);
   const [losingStage, setLosingStage] = useState(false);
   const [confirmConvert, setConfirmConvert] = useState(false);
+  const [confirmWon, setConfirmWon] = useState(false);
 
   useEffect(() => {
     setDraft({
@@ -178,6 +183,7 @@ export default function LeadWorkspace({
 
   const performMoveStage = async (stage: string, lostReason?: LostReason) => {
     if (stage === lead.stage) return;
+    setBusy(true);
     const body: Record<string, unknown> = { stage };
     if (stage === "lost" && lostReason) body.lostReason = lostReason;
     const res = await fetch(`/api/marketing/leads/${lead.id}/stage`, {
@@ -185,13 +191,17 @@ export default function LeadWorkspace({
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify(body),
     });
-    if (res.ok) window.location.reload();
+    setBusy(false);
+    if (res.ok) router.refresh();
     else toast.error((await res.json().catch(() => ({}))).error ?? "Could not move stage");
   };
 
-  /** Marking a lead lost requires picking a structured reason first. */
+  /** Stage-change flow: lost requires a structured reason, won asks for
+   *  confirmation (it closes the deal), everything else applies directly. */
   const requestMoveStage = (stage: string) => {
+    if (stage === lead.stage) return;
     if (stage === "lost") setLosingStage(true);
+    else if (stage === "won") setConfirmWon(true);
     else void performMoveStage(stage);
   };
 
@@ -243,8 +253,7 @@ export default function LeadWorkspace({
 
   const [commDetail, setCommDetail] = useState("");
   const [commKind, setCommKind] = useState<"email" | "whatsapp" | "call">("email");
-  const [note, setNote] = useState("");
-  const [followAt, setFollowAt] = useState("");
+  const [note, setNote] = useState("");  const [followAt, setFollowAt] = useState("");
   const [showBook, setShowBook] = useState(false);
   const [bookDate, setBookDate] = useState("");
   const [bookTime, setBookTime] = useState("10:00");
@@ -289,17 +298,16 @@ export default function LeadWorkspace({
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ plan: draft.planInterest || undefined, billingCycle: draft.billingCycle || undefined, notes: "Converted from marketing admin" }),
     });
-    if (res.ok) window.location.reload();
+    if (res.ok) router.refresh();
     else setStatus((await res.json()).error ?? "Could not convert");
   };
 
-  const openComm = (kind: "email" | "whatsapp" | "call") => {
-    setCommKind(kind);
-    if (typeof window !== "undefined") {
-      if (kind === "email") window.location.href = `mailto:${lead.email}`;
-      if (kind === "whatsapp") window.open(`https://wa.me/${(lead.phone ?? "").replace(/[^\d]/g, "")}`, "_blank");
-      if (kind === "call") window.location.href = `tel:${lead.phone ?? ""}`;
-    }
+  /** Launch the contact channel in a new window/tab — logging is explicit. */
+  const openChannel = (kind: "email" | "whatsapp" | "call") => {
+    if (typeof window === "undefined") return;
+    if (kind === "email") window.open(`mailto:${lead.email}`, "_self");
+    if (kind === "whatsapp") window.open(`https://wa.me/${(lead.phone ?? "").replace(/[^\d]/g, "")}`, "_blank");
+    if (kind === "call") window.open(`tel:${lead.phone ?? ""}`, "_self");
   };
 
   return (
@@ -388,21 +396,52 @@ export default function LeadWorkspace({
             <p><span className="text-xs font-semibold uppercase text-zinc-400">Created</span><br />{fmtDate(lead.createdAt)}</p>
             <p><span className="text-xs font-semibold uppercase text-zinc-400">Updated</span><br />{fmtDate(lead.updatedAt)}</p>
             <p><span className="text-xs font-semibold uppercase text-zinc-400">Next follow-up</span><br />{fmtDate(lead.nextFollowUpAt)}</p>
-            <p><span className="text-xs font-semibold uppercase text-zinc-400">Est. value (annual)</span><br />{lead.estimatedValue ? `$${lead.estimatedValue.toLocaleString("en-US")}` : "—"}</p>
+            <p><span className="text-xs font-semibold uppercase text-zinc-400">Est. value (annual)</span><br />{lead.estimatedValue ? formatMoney(lead.estimatedValue, lead.estimatedValueCurrency ?? "USD") : "—"}</p>
           </div>
         </SectionCard>
 
         <SectionCard
           title="Communication"
-          action={canManage && <button className={btnGhost} onClick={() => setShowBook(true)}>Book demo</button>}
+          action={
+            <div className="flex items-center gap-3">
+              <span className="text-xs text-zinc-400">
+                Last contact {lead.lastContactAt ? fmtDate(lead.lastContactAt) : "—"}
+              </span>
+              {canManage && <button className={btnGhost} onClick={() => setShowBook(true)}>Book demo</button>}
+            </div>
+          }
         >
           {canWrite && (
-            <div className="flex flex-wrap items-center gap-2">
-              <button className={btnGhost} onClick={() => openComm("email")}>✉ Email</button>
-              <button className={btnGhost} onClick={() => openComm("whatsapp")}>WhatsApp</button>
-              <button className={btnGhost} onClick={() => openComm("call")}>Call</button>
-              <input className={inputCls + " max-w-xs"} value={commDetail} onChange={(e) => setCommDetail(e.target.value)} placeholder={`Detail (${commKind} content / notes)`} />
-              <button className={btnPrimary} onClick={() => logComm(commKind, commDetail || "No detail given")}>Log {commKind}</button>
+            <div className="space-y-2.5">
+              <div className="flex flex-wrap items-center gap-2">
+                <span className="text-xs font-semibold uppercase tracking-wide text-zinc-400">Reach out</span>
+                <button className={btnGhost} onClick={() => openChannel("email")}>✉ Email</button>
+                <button className={btnGhost} onClick={() => openChannel("whatsapp")} disabled={!lead.phone}>WhatsApp</button>
+                <button className={btnGhost} onClick={() => openChannel("call")} disabled={!lead.phone}>Call</button>
+              </div>
+              <div className="flex flex-wrap items-center gap-2">
+                <span className="text-xs font-semibold uppercase tracking-wide text-zinc-400">Log</span>
+                <select
+                  className={inputCls + " !w-auto"}
+                  value={commKind}
+                  onChange={(e) => setCommKind(e.target.value as typeof commKind)}
+                  aria-label="Communication type"
+                >
+                  <option value="email">Email</option>
+                  <option value="whatsapp">WhatsApp</option>
+                  <option value="call">Call</option>
+                </select>
+                <input
+                  className={inputCls + " max-w-xs flex-1"}
+                  value={commDetail}
+                  onChange={(e) => setCommDetail(e.target.value)}
+                  placeholder={`What happened on this ${commKind}?`}
+                  onKeyDown={(e) => { if (e.key === "Enter") { void logComm(commKind, commDetail || "No detail given"); setCommDetail(""); } }}
+                />
+                <button className={btnPrimary} onClick={() => { void logComm(commKind, commDetail || "No detail given"); setCommDetail(""); }}>
+                  Log {commKind}
+                </button>
+              </div>
             </div>
           )}
           {demosState.length > 0 && (
@@ -479,9 +518,11 @@ export default function LeadWorkspace({
         )}
 
         {canManage && (
-          <SectionCard title="Conversion (Phase 37)">
+          <SectionCard title="Convert to customer">
             <p className="mb-3 text-xs text-zinc-400">
-              Converting preserves the original source, campaign, country, room count, plan and demo history.
+              Converting creates the customer record and preserves the original
+              source, campaign, country, room count, plan and demo history. The
+              lead then becomes read-only in the CRM.
             </p>
             <button className={btnPrimary + " w-full"} onClick={() => setConfirmConvert(true)} disabled={Boolean(lead.convertedCustomerId)}>
               {lead.convertedCustomerId ? "Converted ✓" : "Convert to customer"}
@@ -522,6 +563,25 @@ export default function LeadWorkspace({
           }}
         />
       )}
+
+      <ConfirmDialog
+        action={confirmWon
+          ? {
+              title: "Mark as won",
+              message: `Mark ${lead.name} as won?`,
+              consequences: [
+                "The deal is counted in win-rate and conversion reporting.",
+                "You can re-open the lead afterwards; the change is logged.",
+              ],
+              confirmLabel: "Mark won",
+            }
+          : null}
+        onClose={() => setConfirmWon(false)}
+        onConfirm={() => {
+          setConfirmWon(false);
+          void performMoveStage("won");
+        }}
+      />
 
       <ConfirmDialog
         action={confirmConvert

@@ -79,6 +79,7 @@ export default async function LeadDetailPage({
     nextFollowUpAt: lead.nextFollowUpAt,
     lastContactAt: lead.lastContactAt,
     estimatedValue: lead.estimatedValue,
+    estimatedValueCurrency: (lead as { estimatedValueCurrency?: string }).estimatedValueCurrency,
     demoId: lead.demoId,
     lostReason: lead.lostReason,
     convertedCustomerId: lead.convertedCustomerId,

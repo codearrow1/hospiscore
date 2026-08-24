@@ -10,12 +10,21 @@ import type { DemoCalendarRow, LeadLitePick } from "@/components/marketing-admin
 export const dynamic = "force-dynamic";
 export const runtime = "nodejs";
 
-export default async function DemosPage() {
+export default async function DemosPage({
+  searchParams,
+}: {
+  searchParams: Promise<Record<string, string | undefined>>;
+}) {
   const guard = await requireCapability("leads.read");
   if (!guard.ok) {
     return restrictedPanel("Demos", "You need leads.read permission to manage demo bookings.");
   }
   await ensureMarketingStore();
+
+  const sp = await searchParams;
+  const view = sp.view === "list" ? "list" : "week";
+  const week = /^\d{4}-\d{2}-\d{2}$/.test(sp.week ?? "") ? sp.week : undefined;
+  const page = Math.max(1, parseInt(sp.page ?? "1", 10) || 1);
 
   const [demos, leads, team] = await Promise.all([listDemos(), listLeads(), listUsers()]);
 
@@ -33,7 +42,7 @@ export default async function DemosPage() {
       assignedTo: d.assignedTo,
       meetingUrl: d.meetingUrl,
       notes: d.notes,
-      phone: d.phone,
+      phone: lead?.phone,
     };
   });
 
@@ -54,6 +63,9 @@ export default async function DemosPage() {
         demos={rows}
         team={team.map((t) => ({ id: t.id, name: t.name, email: t.email }))}
         leads={leadPicks}
+        view={view}
+        weekStart={week}
+        page={page}
       />
     </div>
   );

@@ -88,8 +88,11 @@ export interface MarketingLead {
   notes: string[];
   nextFollowUpAt?: string;
   lastContactAt?: string;
-  /** Estimated annual contract value in USD (from plan + pricing catalog). */
+  /** Estimated annual contract value (from plan + country pricing catalog).
+   *  Denominated in `estimatedValueCurrency` when known. */
   estimatedValue: number;
+  /** ISO 4217 code of the country profile used for the estimate. */
+  estimatedValueCurrency?: string;
   demoId?: string;
   trialStartedAt?: string;
   lostReason?: string;

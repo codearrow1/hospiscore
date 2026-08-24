@@ -5,7 +5,7 @@ import { listLeads, filterLeads } from "@/lib/marketing/leads";
 import { listUsers } from "@/lib/marketing/users";
 import { isLeadStage } from "@/lib/marketing/stages";
 import LeadsTableClient from "@/components/marketing-admin/LeadsTableClient";
-import { FilterChipLink, SearchBox } from "@/components/marketing-admin/LeadTable";
+import { FilterChipLink, SearchBox, SelectFilter } from "@/components/marketing-admin/LeadTable";
 import { PIPELINE_STAGES, STAGE_LABELS } from "@/lib/marketing/stages";
 
 export const dynamic = "force-dynamic";
@@ -37,14 +37,20 @@ export default async function LeadsPage({
   const perPage = [10, 20, 50].includes(perPageRaw) ? perPageRaw : 20;
 
   const [leads, users] = await Promise.all([listLeads(), listUsers()]);
-  let filtered = filterLeads(leads, {
+  const allLeadsCount = leads.length;
+  // "?owner=__none__" means "unassigned" — filterLeads can't express that, so
+  // pre-reduce here.
+  const unassignOnly = owner === "__none__";
+  let filtered = filterLeads(
+    unassignOnly ? leads.filter((l) => !l.ownerEmail) : leads,
+    {
     q,
     stage: stage as never,
     source: source as never,
     country: country || undefined,
     plan: plan || undefined,
     band: band as never,
-    owner: owner || undefined,
+    owner: unassignOnly ? undefined : owner || undefined,
   });
 
   // Sorting
@@ -78,6 +84,7 @@ export default async function LeadsPage({
     ownerEmail: l.ownerEmail,
     nextFollowUpAt: l.nextFollowUpAt,
     estimatedValue: l.estimatedValue,
+    estimatedValueCurrency: l.estimatedValueCurrency,
     rooms: l.rooms,
     createdAt: l.createdAt,
   }));
@@ -116,11 +123,15 @@ export default async function LeadsPage({
 
   const ownerOptions = users.map((u) => ({ email: u.email, name: u.name }));
 
-  const sourceOptions = [
+  const ALL_SOURCES = [
     "organic", "google_ads", "meta_ads", "linkedin", "youtube", "direct",
     "referral", "partner", "email", "whatsapp", "blog", "pricing_page",
-    "feature_page", "demo_page", "country_page", "campaign",
+    "feature_page", "demo_page", "country_page", "campaign", "other",
   ];
+  /** Sources that actually have leads — shown as chips; the rest stay in the dropdown. */
+  const activeSources = ALL_SOURCES.filter((s) => leads.some((l) => l.source === s));
+  const countryOptions = Array.from(new Set(leads.map((l) => l.country).filter(Boolean) as string[])).sort();
+  const planOptions = Array.from(new Set(leads.map((l) => l.planInterest).filter(Boolean) as string[])).sort();
 
   return (
     <div className="space-y-5">
@@ -128,7 +139,7 @@ export default async function LeadsPage({
         <div>
           <h1 className="text-2xl font-bold tracking-tight">Leads</h1>
           <p className="mt-1 text-sm text-zinc-500 dark:text-zinc-400">
-            {total} of {leads.length} leads · page {safePage} of {totalPages} · every form and demo request is captured automatically.
+            {total} of {allLeadsCount} leads · page {safePage} of {totalPages} · every form and demo request is captured automatically.
           </p>
         </div>
       </div>
@@ -154,7 +165,7 @@ export default async function LeadsPage({
             </div>
             <div className="flex max-w-full flex-wrap items-center gap-1.5">
               <FilterChipLink href={href({ source: "all" })} label="All sources" active={source === "all"} />
-              {sourceOptions.slice(0, 8).map((s) => (
+              {(activeSources.length > 0 ? activeSources : ALL_SOURCES).map((s) => (
                 <FilterChipLink key={s} href={href({ source: s })} label={s.replace(/_/g, " ")} active={source === s} />
               ))}
             </div>
@@ -163,6 +174,30 @@ export default async function LeadsPage({
               {["cold", "warm", "hot", "very_hot"].map((b) => (
                 <FilterChipLink key={b} href={href({ band: b })} label={b.replace("_", " ")} active={band === b} />
               ))}
+            </div>
+            <div className="flex max-w-full flex-wrap items-center gap-3">
+              <SelectFilter
+                param="owner"
+                value={owner}
+                label="Owner"
+                allLabel="Any owner"
+                options={[
+                  { value: "__none__", label: "— Unassigned —" },
+                  ...ownerOptions.map((o) => ({ value: o.email, label: o.name || o.email })),
+                ]}
+              />
+              <SelectFilter
+                param="country"
+                value={country}
+                label="Country"
+                options={countryOptions.map((c) => ({ value: c, label: c }))}
+              />
+              <SelectFilter
+                param="plan"
+                value={plan}
+                label="Plan"
+                options={planOptions.map((p) => ({ value: p, label: p }))}
+              />
             </div>
           </>
         }
