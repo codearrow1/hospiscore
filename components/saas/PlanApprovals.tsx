@@ -3,6 +3,7 @@
 import { useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 import { ConfirmDialog } from "@/components/ui/ConfirmDialog";
+import { formatMoney } from "@/lib/format";
 
 export interface ApprovalRequestView {
   id: string;
@@ -47,9 +48,13 @@ const ACTION_LABELS: Record<string, string> = {
   deactivate: "Deactivate",
 };
 
-function fmt(field: string, v: unknown): string {
+function fmt(field: string, v: unknown, currency?: unknown): string {
   if (v === undefined || v === null) return "—";
-  if (field.endsWith("Price")) return `$${((v as number) / 100).toFixed(2)}`;
+  if (field.endsWith("Price")) {
+    // Snapshot prices carry the plan's record currency alongside them.
+    const code = typeof currency === "string" && /^[A-Za-z]{3}$/.test(currency) ? currency : null;
+    return code ? formatMoney(v as number, code) : `${((v as number) / 100).toFixed(2)} (ledger units)`;
+  }
   if (typeof v === "boolean") return field === "featured" ? (v ? "Featured" : "—") : v ? "Yes" : "No";
   return String(v);
 }
@@ -150,9 +155,9 @@ export default function PlanApprovals({ requests, isSuper, impact = {} }: {
                 <div key={f} className="flex gap-2">
                   <dt className="w-32 shrink-0 text-zinc-500">{label}</dt>
                   <dd>
-                    <span className="line-through opacity-60">{fmt(f, r.beforeSnapshot?.[f])}</span>{" "}
+                    <span className="line-through opacity-60">{fmt(f, r.beforeSnapshot?.[f], r.beforeSnapshot?.currency)}</span>{" "}
                     <span className="font-medium text-emerald-700 dark:text-emerald-400">
-                      {fmt(f, r.proposedSnapshot![f])}
+                      {fmt(f, r.proposedSnapshot![f], r.proposedSnapshot!.currency)}
                     </span>
                   </dd>
                 </div>

@@ -2,8 +2,10 @@
 
 import { useState } from "react";
 import { useRouter } from "next/navigation";
-import { btnGhost, btnPrimary, Field, inputCls, Modal, Badge } from "@/components/marketing-admin/ui";
+import { btnGhost, btnPrimary, Field, inputCls, Modal } from "@/components/marketing-admin/ui";
 import { useToast } from "@/components/ui/Toast";
+import { StatusBadge } from "@/components/ui/Badge";
+import { formatMoney } from "@/lib/format";
 
 type Partner = {
   id: string; name: string; company?: string | null; email: string; country?: string | null;
@@ -13,8 +15,8 @@ type Partner = {
 
 export default function PartnersManager({ initialPartners, initialCommissions, initialPayouts, canManage }: {
   initialPartners: Partner[];
-  initialCommissions: { id: string; partnerId?: string | null; amount: number; status: string; model: string }[];
-  initialPayouts: { id: string; partnerId?: string | null; amount: number; status: string; method: string }[];
+  initialCommissions: { id: string; partnerId?: string | null; amount: number; currency: string; status: string; model: string }[];
+  initialPayouts: { id: string; partnerId?: string | null; amount: number; currency: string; status: string; method: string }[];
   canManage: boolean;
 }) {
   const router = useRouter();
@@ -73,7 +75,7 @@ export default function PartnersManager({ initialPartners, initialCommissions, i
                 <td className="px-3 py-2 font-mono text-xs">{p.referralCode}</td>
                 <td className="px-3 py-2 text-xs tabular-nums">{p._count?.organizations ?? 0}</td>
                 <td className="px-3 py-2 text-xs">{p.commissionModel} · {p.commissionValue}</td>
-                <td className="px-3 py-2"><Badge>{p.status}</Badge></td>
+                <td className="px-3 py-2"><StatusBadge domain="payout" status={p.status} /></td>
                 <td className="px-3 py-2 space-x-1">
                   {canManage && p.status === "applied" && <button onClick={() => setStatus(p.id, "review")} className={btnGhost}>Review</button>}
                   {canManage && ["applied", "review"].includes(p.status) && <button onClick={() => setStatus(p.id, "approved")} className={btnGhost}>Approve</button>}
@@ -92,7 +94,7 @@ export default function PartnersManager({ initialPartners, initialCommissions, i
           <h3 className="text-sm font-bold">Commissions ({initialCommissions.length})</h3>
           <ul className="mt-2 space-y-1 text-xs">
             {initialCommissions.slice(0, 10).map((c) => (
-              <li key={c.id} className="flex justify-between"><span>{(c.partnerId ?? "").slice(0, 8)} · {c.model} · ${(c.amount / 100).toFixed(2)}</span><Badge>{c.status}</Badge></li>
+              <li key={c.id} className="flex justify-between"><span>{(c.partnerId ?? "").slice(0, 8)} · {c.model} · {formatMoney(c.amount, c.currency)}</span><StatusBadge domain="commission" status={c.status} /></li>
             ))}
             {initialCommissions.length === 0 && <li className="text-zinc-400">None yet — created automatically when a partner-sourced customer subscribes.</li>}
           </ul>
@@ -111,7 +113,7 @@ export default function PartnersManager({ initialPartners, initialCommissions, i
           )}
           <ul className="mt-2 space-y-1 text-xs">
             {initialPayouts.slice(0, 10).map((p) => (
-              <li key={p.id} className="flex justify-between"><span>{(p.partnerId ?? "").slice(0, 8)} · ${(p.amount / 100).toFixed(2)} · {p.method}</span><Badge>{p.status}</Badge></li>
+              <li key={p.id} className="flex justify-between"><span>{(p.partnerId ?? "").slice(0, 8)} · {formatMoney(p.amount, p.currency)} · {p.method}</span><StatusBadge domain="payout" status={p.status} /></li>
             ))}
             {initialPayouts.length === 0 && <li className="text-zinc-400">No payouts yet</li>}
           </ul>

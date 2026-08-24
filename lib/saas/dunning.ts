@@ -101,10 +101,29 @@ export async function listDunningCases(opts?: { status?: string }) {
   const items = await prisma.dunningCase.findMany({
     where,
     include: { organization: { select: { legalName: true, country: true } } },
-    orderBy: { updatedAt: "desc" },
+    orderBy: [{ status: "asc" }, { updatedAt: "desc" }],
     take: 100,
   });
-  return { items, total: items.length };
+  // DunningCase stores invoiceId without a Prisma relation — hydrate manually
+  // so the UI can show amount/currency/status per case.
+  const invoiceIds = [...new Set(items.map((d) => d.invoiceId))];
+  const invoices = invoiceIds.length
+    ? await prisma.invoice.findMany({
+        where: { id: { in: invoiceIds } },
+        select: { id: true, amount: true, currency: true, status: true, dueAt: true, createdAt: true },
+      })
+    : [];
+  const byId = new Map(invoices.map((i) => [i.id, i]));
+  return {
+    items: items.map((d) => ({ ...d, invoice: byId.get(d.invoiceId) ?? null })),
+    total: items.length,
+  };
+}
+
+/** Per-stage counts for the dunning triage chips. */
+export async function dunningStageCounts(): Promise<Record<string, number>> {
+  const rows = await prisma.dunningCase.groupBy({ by: ["status"], _count: { _all: true } });
+  return Object.fromEntries(rows.map((r) => [r.status, r._count._all]));
 }
 
 async function orgPrimaryEmail(organizationId: string): Promise<string | null> {

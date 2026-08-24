@@ -4,13 +4,15 @@ import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { btnGhost, btnPrimary, Field, inputCls, Modal, Badge } from "@/components/marketing-admin/ui";
 import { useToast } from "@/components/ui/Toast";
+import { StatusBadge } from "@/components/ui/Badge";
+import { formatMoney } from "@/lib/format";
 
 type Aff = { id: string; name: string; email: string; status: string; referralCode: string; tier: string; commissionModel: string; commissionValue: number; website?: string | null; country?: string | null };
 
 export default function AffiliatesManager({ initialAffiliates, initialCommissions, initialPayouts, canManage, canApprove, canPayout }: {
   initialAffiliates: Aff[];
-  initialCommissions: { id: string; affiliateId: string; amount: number; status: string; model: string }[];
-  initialPayouts: { id: string; affiliateId: string; amount: number; status: string }[];
+  initialCommissions: { id: string; affiliateId: string; amount: number; currency: string; status: string; model: string }[];
+  initialPayouts: { id: string; affiliateId: string; amount: number; currency: string; status: string }[];
   canManage: boolean; canApprove: boolean; canPayout: boolean;
 }) {
   const router = useRouter();
@@ -87,7 +89,7 @@ export default function AffiliatesManager({ initialAffiliates, initialCommission
           <h3 className="text-sm font-bold">Commissions ({initialCommissions.length})</h3>
           <p className="text-xs text-zinc-500">Pending→Eligible→Approved→Payable→Paid; reverses on refund/chargeback.</p>
           <ul className="mt-2 space-y-1 text-xs">
-            {initialCommissions.slice(0, 10).map((c) => <li key={c.id} className="flex justify-between"><span>{c.affiliateId.slice(0,6)} · {c.model} {(c.amount/100).toFixed(2)}</span><Badge>{c.status}</Badge></li>)}
+            {initialCommissions.slice(0, 10).map((c) => <li key={c.id} className="flex justify-between"><span>{c.affiliateId.slice(0,6)} · {c.model} {formatMoney(c.amount, c.currency)}</span><StatusBadge domain="commission" status={c.status} /></li>)}
             {initialCommissions.length===0 && <li className="text-zinc-400">No commissions yet</li>}
           </ul>
         </div>
@@ -105,7 +107,7 @@ export default function AffiliatesManager({ initialAffiliates, initialCommission
             </div>
           )}
           <ul className="mt-2 space-y-1 text-xs">
-            {initialPayouts.slice(0,10).map((p)=><li key={p.id} className="flex justify-between"><span>{p.affiliateId.slice(0,6)} {(p.amount/100).toFixed(2)}</span><Badge>{p.status}</Badge></li>)}
+            {initialPayouts.slice(0,10).map((p)=><li key={p.id} className="flex justify-between"><span>{p.affiliateId.slice(0,6)} {formatMoney(p.amount, p.currency)}</span><StatusBadge domain="payout" status={p.status} /></li>)}
             {initialPayouts.length===0 && <li className="text-zinc-400">No payouts yet</li>}
           </ul>
         </div>

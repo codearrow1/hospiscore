@@ -8,21 +8,33 @@ import FranchiseManager from "@/components/saas/FranchiseManager";
 export const dynamic = "force-dynamic";
 export const runtime = "nodejs";
 
-/** MRR per territory feeds the client-side revenue-share simulator. */
-async function territoryMrrMap(): Promise<Record<string, number>> {
+/** MRR per territory grouped by RECORD CURRENCY — never converted or merged.
+ *  Feeds the client-side revenue-share simulator honestly (mixed-currency
+ *  territories show their dominant currency plus a count of others). */
+async function territoryMrrMap(): Promise<Record<string, Record<string, number>>> {
   const [orgs, subs] = await Promise.all([
     prisma.organization.findMany({ where: { franchiseTerritoryId: { not: null } }, select: { id: true, franchiseTerritoryId: true } }),
     prisma.subscription.groupBy({
-      by: ["organizationId"],
+      by: ["organizationId", "currency"],
       where: { status: { in: ["active", "trial", "past_due", "grace"] } },
       _sum: { mrr: true },
     }),
   ]);
-  const mrrByOrg = new Map(subs.map((s) => [s.organizationId, s._sum.mrr ?? 0]));
-  const out: Record<string, number> = {};
+  const mrrByOrg = new Map<string, Map<string, number>>();
+  for (const s of subs) {
+    const cur = s.currency || "USD";
+    const inner = mrrByOrg.get(s.organizationId) ?? new Map<string, number>();
+    inner.set(cur, (inner.get(cur) ?? 0) + (s._sum.mrr ?? 0));
+    mrrByOrg.set(s.organizationId, inner);
+  }
+  const out: Record<string, Record<string, number>> = {};
   for (const o of orgs) {
     if (!o.franchiseTerritoryId) continue;
-    out[o.franchiseTerritoryId] = (out[o.franchiseTerritoryId] ?? 0) + (mrrByOrg.get(o.id) ?? 0);
+    const inner = mrrByOrg.get(o.id);
+    if (!inner) continue;
+    const bucket = out[o.franchiseTerritoryId] ?? {};
+    for (const [cur, cents] of inner) bucket[cur] = (bucket[cur] ?? 0) + cents;
+    out[o.franchiseTerritoryId] = bucket;
   }
   return out;
 }

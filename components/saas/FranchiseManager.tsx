@@ -5,6 +5,10 @@ import { useRouter } from "next/navigation";
 import { btnGhost, btnPrimary, Field, inputCls, Modal, Badge } from "@/components/marketing-admin/ui";
 import { useToast } from "@/components/ui/Toast";
 import { ConfirmDialog } from "@/components/ui/ConfirmDialog";
+import { formatMoney } from "@/lib/format";
+
+/** territoryId → { currency → minor units } (record currencies, never merged) */
+type MrrByCurrency = Record<string, number>;
 
 type Territory = {
   id: string; name: string; country: string; region?: string | null; city?: string | null;
@@ -25,8 +29,7 @@ export default function FranchiseManager({ initialTerritories, initialFranchisee
   initialTerritories: Territory[];
   initialFranchisees: Franchisee[];
   canManage: boolean;
-  /** cents/month per territoryId (active-ish subs) */
-  territoryMrr?: Record<string, number>;
+  territoryMrr?: Record<string, MrrByCurrency>;
 }) {
   const router = useRouter();
   const toast = useToast();
@@ -65,23 +68,26 @@ export default function FranchiseManager({ initialTerritories, initialFranchisee
     return out;
   }, [territories]);
 
-  /** Simulator: share = bps × Σ MRR of the franchisee's active territories. */
+  /** Simulator: share = bps × Σ MRR per RECORD CURRENCY of the franchisee's
+   *  territories. Mixed-currency books are shown per currency, never merged. */
   const sim = useMemo(() => {
     const fid = simFid;
     const bps = Math.max(0, Math.min(5000, Number(simBps) || 0));
     if (!fid) return null;
-    // Franchisee's territory ids come from the embedded territories relation.
     const f = franchisees.find((x) => x.id === fid);
     const ids = new Set((f?.territories ?? []).map((t) => t.id));
-    let mrrCents = 0;
-    for (const id of ids) mrrCents += territoryMrr[id] ?? 0;
+    const byCurrency: MrrByCurrency = {};
+    for (const id of ids) {
+      for (const [cur, cents] of Object.entries(territoryMrr[id] ?? {})) {
+        byCurrency[cur] = (byCurrency[cur] ?? 0) + cents;
+      }
+    }
+    const entries = Object.entries(byCurrency).sort((a, b) => b[1] - a[1]);
     return {
       company: f?.company ?? "",
       contractedBps: f?.revenueShareBps ?? 0,
       simBps: bps,
-      mrrCents,
-      shareCents: Math.round((mrrCents * bps) / 10000),
-      currentShareCents: Math.round((mrrCents * (f?.revenueShareBps ?? 0)) / 10000),
+      entries,
       territoryCount: ids.size,
     };
   }, [simFid, simBps, franchisees, territoryMrr]);
@@ -162,7 +168,20 @@ export default function FranchiseManager({ initialTerritories, initialFranchisee
                 <td className="px-3 py-2 text-xs">{[t.country, t.region, t.city].filter(Boolean).join(" / ")}</td>
                 <td className="px-3 py-2 text-xs">{t.franchisee?.company ?? "—"}</td>
                 <td className="px-3 py-2 text-xs tabular-nums">{t._count?.organizations ?? 0}</td>
-                <td className="px-3 py-2 text-xs tabular-nums">${((territoryMrr[t.id] ?? 0) / 100).toLocaleString(undefined, { maximumFractionDigits: 0 })}</td>
+                <td className="px-3 py-2 text-xs">
+                  {(() => {
+                    const bucket = territoryMrr[t.id] ?? {};
+                    const entries = Object.entries(bucket).sort((a, b) => b[1] - a[1]);
+                    if (entries.length === 0) return <span className="text-zinc-400">—</span>;
+                    const [topCur, topCents] = entries[0];
+                    return (
+                      <span className="tabular-nums" title={entries.map(([c, v]) => `${formatMoney(v, c)}`).join(" · ")}>
+                        {formatMoney(topCents, topCur)}
+                        {entries.length > 1 && <span className="ml-1 text-zinc-400">+{entries.length - 1} ccy</span>}
+                      </span>
+                    );
+                  })()}
+                </td>
                 <td className="px-3 py-2"><Badge>{t.status}</Badge></td>
                 <td className="px-3 py-2">{canManage && (
                   t.status === "active"
@@ -195,14 +214,25 @@ export default function FranchiseManager({ initialTerritories, initialFranchisee
             </Field>
           </div>
           {sim && (
-            <dl className="ml-auto grid grid-cols-2 gap-x-8 gap-y-1 text-sm sm:grid-cols-4">
-              <div><dt className="text-[11px] uppercase tracking-wide text-zinc-400">Territory MRR</dt><dd className="font-semibold tabular-nums">${(sim.mrrCents / 100).toLocaleString(undefined, { maximumFractionDigits: 0 })}</dd></div>
-              <div><dt className="text-[11px] uppercase tracking-wide text-zinc-400">Contracted ({(sim.contractedBps / 100).toFixed(1)}%)</dt><dd className="font-semibold tabular-nums">${(sim.currentShareCents / 100).toLocaleString(undefined, { maximumFractionDigits: 0 })}/mo</dd></div>
-              <div><dt className="text-[11px] uppercase tracking-wide text-zinc-400">Simulated ({(sim.simBps / 100).toFixed(1)}%)</dt><dd className={`font-semibold tabular-nums ${sim.simBps !== sim.contractedBps ? "text-blue-600 dark:text-blue-400" : ""}`}>${(sim.shareCents / 100).toLocaleString(undefined, { maximumFractionDigits: 0 })}/mo</dd></div>
-              <div><dt className="text-[11px] uppercase tracking-wide text-zinc-400">Δ vs contract</dt><dd className={`font-semibold tabular-nums ${(sim.shareCents - sim.currentShareCents) > 0 ? "text-emerald-600 dark:text-emerald-400" : (sim.shareCents - sim.currentShareCents) < 0 ? "text-red-600 dark:text-red-400" : ""}`}>
-                {(sim.shareCents - sim.currentShareCents >= 0 ? "+" : "") + `$${((sim.shareCents - sim.currentShareCents) / 100).toLocaleString(undefined, { maximumFractionDigits: 0 })}`}
-              </dd></div>
-            </dl>
+            <div className="ml-auto min-w-72 space-y-1.5 text-sm">
+              <p className="text-[11px] uppercase tracking-wide text-zinc-400">{sim.territoryCount} territor{sim.territoryCount === 1 ? "y" : "ies"} · per record currency</p>
+              {sim.entries.length === 0 && <p className="text-sm text-zinc-400">No billable MRR in this franchisee&apos;s territories yet.</p>}
+              {sim.entries.map(([cur, cents]) => {
+                const current = Math.round((cents * sim.contractedBps) / 10000);
+                const simulated = Math.round((cents * sim.simBps) / 10000);
+                const delta = simulated - current;
+                return (
+                  <div key={cur} className="flex flex-wrap items-center gap-x-4 gap-y-0.5 rounded-xl border border-zinc-100 px-3 py-1.5 dark:border-zinc-800">
+                    <span className="rounded bg-zinc-100 px-1.5 py-0.5 font-mono text-xs font-bold dark:bg-zinc-800">{cur}</span>
+                    <span className="text-xs text-zinc-500">MRR {formatMoney(cents, cur)}</span>
+                    <span className="text-xs">contract {(sim.contractedBps / 100).toFixed(1)}% → <strong className="tabular-nums">{formatMoney(current, cur)}</strong>/mo</span>
+                    <span className={`text-xs tabular-nums ${sim.simBps !== sim.contractedBps ? (delta > 0 ? "text-emerald-600 dark:text-emerald-400" : delta < 0 ? "text-red-600 dark:text-red-400" : "") : ""}`}>
+                      simulated {(sim.simBps / 100).toFixed(1)}% → {formatMoney(simulated, cur)}/mo ({delta >= 0 ? "+" : ""}{formatMoney(delta, cur)})
+                    </span>
+                  </div>
+                );
+              })}
+            </div>
           )}
         </div>
       </div>
