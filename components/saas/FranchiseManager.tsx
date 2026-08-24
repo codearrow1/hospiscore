@@ -92,6 +92,22 @@ export default function FranchiseManager({ initialTerritories, initialFranchisee
     };
   }, [simFid, simBps, franchisees, territoryMrr]);
 
+  /** Country-level coverage summary for the territory visualization strip. */
+  const countrySummary = useMemo(() => {
+    const map = new Map<string, { total: number; exclusive: number; cities: number; franchisees: Set<string>; orgs: number }>();
+    for (const t of territories) {
+      const key = (t.country || "??").toUpperCase();
+      const entry = map.get(key) ?? { total: 0, exclusive: 0, cities: 0, franchisees: new Set(), orgs: 0 };
+      entry.total += 1;
+      if (t.exclusive) entry.exclusive += 1;
+      if (t.type === "city") entry.cities += 1;
+      if (t.franchisee?.company) entry.franchisees.add(t.franchisee.company);
+      entry.orgs += t._count?.organizations ?? 0;
+      map.set(key, entry);
+    }
+    return [...map.entries()].sort((a, b) => b[1].orgs - a[1].orgs);
+  }, [territories]);
+
   const refreshTerritories = async () => {
     const res = await fetch("/api/saas/franchise/territories");
     if (res.ok) { const d = await res.json(); setTerritories(d.territories); router.refresh(); }
@@ -144,6 +160,33 @@ export default function FranchiseManager({ initialTerritories, initialFranchisee
         <div className="flex justify-end gap-2">
           <button className={btnGhost} onClick={() => setNewF(true)}>+ Franchisee</button>
           <button className={btnPrimary} onClick={() => setNewT(true)}>+ Territory</button>
+        </div>
+      )}
+
+      {/* Exclusive territory visualization — per-country coverage strip */}
+      {countrySummary.length > 0 && (
+        <div>
+          <p className="mb-1.5 text-xs font-bold uppercase tracking-wider text-zinc-400">Territory coverage by country</p>
+          <div className="grid gap-2 sm:grid-cols-2 lg:grid-cols-4">
+            {countrySummary.map(([country, s]) => {
+              const exclusivePct = Math.round((s.exclusive / s.total) * 100);
+              return (
+                <div key={country} className="rounded-xl border bg-white p-3 dark:bg-zinc-900 dark:border-zinc-800">
+                  <div className="flex items-baseline justify-between">
+                    <span className="font-mono text-sm font-bold">{country}</span>
+                    <span className="text-[11px] text-zinc-500">{s.total} territor{s.total === 1 ? "y" : "ies"}</span>
+                  </div>
+                  {/* exclusivity meter */}
+                  <div className="mt-2 h-2 overflow-hidden rounded-full bg-zinc-100 dark:bg-zinc-800" title={`${s.exclusive}/${s.total} exclusive`}>
+                    <div className="h-full rounded-full bg-amber-400" style={{ width: `${exclusivePct}%` }} />
+                  </div>
+                  <p className="mt-1.5 text-[11px] text-zinc-500">
+                    <span className="font-semibold text-amber-600 dark:text-amber-300">{exclusivePct}% exclusive</span> · {s.cities} cit{s.cities === 1 ? "y" : "ies"} · {s.orgs} customer{s.orgs === 1 ? "" : "s"} · {s.franchisees.size || "no"} franchisee{s.franchisees.size === 1 ? "" : "s"}
+                  </p>
+                </div>
+              );
+            })}
+          </div>
         </div>
       )}
 
@@ -242,7 +285,7 @@ export default function FranchiseManager({ initialTerritories, initialFranchisee
         <h3 className="text-xs font-bold uppercase tracking-wider text-zinc-400">Planned capabilities — not yet available</h3>
         <ul className="mt-2 list-inside list-disc space-y-0.5 text-sm text-zinc-500 dark:text-zinc-400">
           <li>Auto-routing of new signups into the correct exclusive territory</li>
-          <li>Automated monthly royalty invoicing from realized revenue share</li>
+          <li>Payout settlement run — planned (monthly royalty invoices and franchisee payouts are not generated yet; the simulator above is an estimate only)</li>
           <li>Franchisee portal access with scoped territory dashboards</li>
         </ul>
       </div>

@@ -14,6 +14,11 @@ export default function AuthCard({ onAuthed }: Props) {
   const [password, setPassword] = useState("");
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
+  // Portal claim token (?claim=…) — binds a fresh registration to an existing
+  // affiliate/partner/org-contact identity (one-time, minted by an admin).
+  const [claimToken] = useState(() =>
+    typeof window !== "undefined" ? new URLSearchParams(window.location.search).get("claim")?.trim() || "" : "",
+  );
 
   async function submit(e: React.FormEvent) {
     e.preventDefault();
@@ -23,7 +28,11 @@ export default function AuthCard({ onAuthed }: Props) {
       const res = await fetch(`/api/auth/${mode}`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ name, email, password }),
+        body: JSON.stringify(
+          mode === "register" && claimToken
+            ? { name, email, password, claimToken }
+            : { name, email, password },
+        ),
       });
       const data = await res.json();
       if (!res.ok) throw new Error(data.error ?? "Something went wrong");
@@ -45,6 +54,12 @@ export default function AuthCard({ onAuthed }: Props) {
       <p className="mt-1 text-sm text-zinc-500 dark:text-zinc-400">
         Save properties and track your score history across visits.
       </p>
+
+      {isRegister && claimToken && (
+        <p className="mt-3 rounded-lg border border-emerald-300 bg-emerald-50 px-3 py-2 text-xs font-medium text-emerald-800 dark:border-emerald-800 dark:bg-emerald-950/40 dark:text-emerald-200">
+          Claim token attached — creating this account will link it to your affiliate/partner portal identity. Tokens are single-use and expire after 15 minutes.
+        </p>
+      )}
 
       <form onSubmit={submit} className="mt-5 flex flex-col gap-3">
         {isRegister && (
