@@ -381,6 +381,7 @@ model AffiliateCommission {
   subscription   Subscription? @relation(fields: [subscriptionId], references: [id])
   leadId         String?  // MarketingLead id (DataFile)
   amount         Int      // cents
+  paidAmount     Int      @default(0) // cents already consumed by payouts (partial consumption)
   currency       String   @default("USD")
   status         String   @default("pending") // pending|eligible|approved|payable|paid|rejected|reversed|fraud_hold
   model          String   // snapshot of commissionModel at creation
@@ -459,7 +460,8 @@ model CouponRedemption {
   organization     Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
   subscriptionId   String?
   invoiceId        String?
-  amountDiscounted Int      // cents actually discounted
+  amountDiscounted Int      // cents actually discounted (cumulative across re-applications)
+  timesApplied     Int      @default(1) // invoices the discount has applied to (repeating/forever coupons)
   createdAt        DateTime @default(now())
 
   @@unique([couponId, organizationId])

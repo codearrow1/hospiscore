@@ -1,6 +1,7 @@
 /**
  * SaaS Invoices — boundary (Phase D)
- * Re-exports billing invoice helpers to establish invoices.ts boundary.
- * Full lifecycle Draft → Issued → Paid → PastDue → Void → Refunded in Phase D.
+ * Re-exports billing invoice read helpers. Invoice CREATION lives only in
+ * lib/saas/gateway.ts (createInvoice) so coupons, audit and transactions
+ * cannot be bypassed.
  */
-export { listInvoices, createInvoice } from "./billing";
+export { listInvoices } from "./billing";

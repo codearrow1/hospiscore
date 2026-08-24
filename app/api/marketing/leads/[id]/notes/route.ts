@@ -1,7 +1,8 @@
 import { NextRequest, NextResponse } from "next/server";
 import { requireCapability, originAllowed, clientIp } from "@/lib/marketing/guard";
-import { addNote } from "@/lib/marketing/leads";
+import { getLead, addNote } from "@/lib/marketing/leads";
 import { writeAudit } from "@/lib/marketing/audit";
+import { canAccessLead } from "@/lib/marketing/roles";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -20,6 +21,10 @@ export async function POST(
     body = await req.json();
   } catch {
     return NextResponse.json({ error: "Invalid JSON" }, { status: 400 });
+  }
+  const existing = await getLead(id);
+  if (!existing || !canAccessLead(guard.user, existing)) {
+    return NextResponse.json({ error: "Lead not found" }, { status: 404 });
   }
   const lead = await addNote(id, body.note ?? "", guard.user.email);
   if (!lead) return NextResponse.json({ error: "Lead not found" }, { status: 404 });

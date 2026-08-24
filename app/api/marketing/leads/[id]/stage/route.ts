@@ -7,6 +7,7 @@ import {
 import { getLead, moveStage } from "@/lib/marketing/leads";
 import { writeAudit } from "@/lib/marketing/audit";
 import { isLeadStage, isLostReason } from "@/lib/marketing/stages";
+import { canAccessLead } from "@/lib/marketing/roles";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -30,7 +31,9 @@ export async function POST(
   const stage = body.stage;
   if (!isLeadStage(stage)) return NextResponse.json({ error: "Invalid stage" }, { status: 400 });
   const lead = await getLead(id);
-  if (!lead) return NextResponse.json({ error: "Lead not found" }, { status: 404 });
+  if (!lead || !canAccessLead(guard.user, lead)) {
+    return NextResponse.json({ error: "Lead not found" }, { status: 404 });
+  }
   if (stage === lead.stage) return NextResponse.json({ lead });
 
   const lostReason = stage === "lost" && isLostReason(body.lostReason) ? body.lostReason : undefined;

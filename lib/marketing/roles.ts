@@ -187,3 +187,16 @@ export function isOwner(
 export function canAssign(user: Pick<AuthUser, "role" | "email">): boolean {
   return hasCapability(user, "leads.manage");
 }
+
+/**
+ * Per-lead access check (H-09): leads.manage holders see everything;
+ * everyone else is restricted to leads assigned to them. Case-insensitive
+ * because owner emails are free-form user input.
+ */
+export function canAccessLead(
+  user: Pick<AuthUser, "email" | "role">,
+  lead: { ownerEmail?: string | null },
+): boolean {
+  if (hasCapability(user, "leads.manage")) return true;
+  return !!lead.ownerEmail && lead.ownerEmail.toLowerCase() === user.email.toLowerCase();
+}

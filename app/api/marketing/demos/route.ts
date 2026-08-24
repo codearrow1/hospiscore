@@ -5,18 +5,36 @@ import {
   clientIp,
   rateLimit,
 } from "@/lib/marketing/guard";
-import { listDemos, createDemo } from "@/lib/marketing/demos";
+import { listDemos, createDemo, type DemoBooking } from "@/lib/marketing/demos";
+import { getLead } from "@/lib/marketing/leads";
 import { writeAudit } from "@/lib/marketing/audit";
+import { canAccessLead, hasCapability } from "@/lib/marketing/roles";
+import type { AuthUser } from "@/lib/auth";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
+
+/** Reps see/manage only demos tied to their own leads or assigned to them. */
+async function canAccessDemo(user: AuthUser, demo: DemoBooking): Promise<boolean> {
+  if (hasCapability(user, "leads.manage")) return true;
+  if (demo.assignedTo?.toLowerCase() === user.email.toLowerCase()) return true;
+  const lead = await getLead(demo.leadId);
+  return !!lead && canAccessLead(user, lead);
+}
 
 /** GET /api/marketing/demos — all demo bookings (calendar/list). */
 export async function GET() {
   const guard = await requireCapability("leads.read");
   if (!guard.ok) return guard.response;
   const demos = await listDemos();
-  return NextResponse.json({ demos });
+  if (hasCapability(guard.user, "leads.manage")) {
+    return NextResponse.json({ demos });
+  }
+  const scoped = [];
+  for (const d of demos) {
+    if (await canAccessDemo(guard.user, d)) scoped.push(d);
+  }
+  return NextResponse.json({ demos: scoped });
 }
 
 async function auth(req: NextRequest) {
@@ -43,9 +61,15 @@ export async function POST(req: NextRequest) {
   if (!startAt || Number.isNaN(Date.parse(startAt))) {
     return NextResponse.json({ error: "A valid start time is required" }, { status: 400 });
   }
+  const leadId = String(body.leadId ?? "");
+  const targetLead = await getLead(leadId);
+  // Reps can only book demos on leads they own (404: no existence probe).
+  if (!targetLead || !canAccessLead(a.user, targetLead)) {
+    return NextResponse.json({ error: "Lead not found" }, { status: 404 });
+  }
   const demo = await createDemo(
     {
-      leadId: String(body.leadId ?? ""),
+      leadId,
       startAt: new Date(startAt).toISOString(),
       durationMin: num(body.durationMin) ?? 45,
       status: s(body.status) as never,

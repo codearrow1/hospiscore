@@ -157,7 +157,15 @@ export async function updatePlan(id: string, patch: Partial<PlanInput>) {
       maxUsers: patch.maxUsers,
       maxBookings: patch.maxBookings,
       storageGb: patch.storageGb,
-      features: patch.features !== undefined ? (patch.features as never) : undefined,
+      // Features merge over the existing JSON so a partial edit (e.g. the 5
+      // manager checkboxes) can never wipe keys it doesn't know about —
+      // storefront copy like cardFeatures lives here too.
+      features: patch.features !== undefined
+        ? {
+            ...((existing.features as Record<string, unknown> | null) ?? {}),
+            ...(patch.features as Record<string, unknown>),
+          } as never
+        : undefined,
       isActive: patch.isActive,
       description: patch.description,
       tagline: patch.tagline,

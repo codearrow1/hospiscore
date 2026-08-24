@@ -141,14 +141,19 @@ export async function listPartnerPayouts(opts?: { partnerId?: string; status?: s
 
 /** Consolidate approved commissions into a payout request. */
 export async function requestPartnerPayout(params: { partnerId: string; amount: number; method?: string }) {
-  if (!(params.amount > 0)) throw new Error("amount must be positive");
+  const amount = Math.round(Number(params.amount));
+  if (!(amount > 0) || !Number.isFinite(amount)) throw new Error("amount must be positive");
   const partner = await prisma.partner.findUnique({ where: { id: params.partnerId } });
   if (!partner) throw new Error("Partner not found");
-  const balance = await availablePayoutBalance({ partnerId: params.partnerId });
-  if (Math.round(params.amount) > balance) {
-    throw new Error(`Amount exceeds available payable balance (${balance})`);
-  }
-  return prisma.affiliatePayout.create({
-    data: { partnerId: params.partnerId, amount: Math.round(params.amount), method: params.method || "bank", status: "requested" },
+  // Balance check and creation share one transaction so concurrent requests
+  // cannot both pass the check against the same payable sum.
+  return prisma.$transaction(async (tx) => {
+    const balance = await availablePayoutBalance({ partnerId: params.partnerId }, tx);
+    if (amount > balance) {
+      throw new Error(`Amount exceeds available payable balance (${balance})`);
+    }
+    return tx.affiliatePayout.create({
+      data: { partnerId: params.partnerId, amount, method: params.method || "bank", status: "requested" },
+    });
   });
 }

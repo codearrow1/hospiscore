@@ -420,57 +420,66 @@ export async function approvePlanChange(requestId: string, reviewer: Pick<AuthUs
 
   let planId = req.planId ?? undefined;
 
-  if (req.action === "create") {
-    const input = pickProposable(req.proposedSnapshot as Record<string, unknown>) as PlanInput;
-    try {
-      const created = await createPlan(input);
-      planId = created.id;
-    } catch (e) {
-      return { ok: false, status: 409, error: e instanceof Error ? e.message : "create failed" };
-    }
-  } else if (req.action === "archive") {
-    await archivePlan(req.planId!);
-  } else {
-    const plan = await prisma.plan.findUnique({ where: { id: req.planId! } });
-    const before = planSnapshot(plan as unknown as Record<string, unknown>);
-    const patch =
-      req.action === "activate"
-        ? { isActive: true }
-        : req.action === "deactivate"
-          ? { isActive: false }
-          : patchFromDiff(before, req.proposedSnapshot as PlanSnapshot);
-    if (Object.keys(patch).length > 0) {
-      await updatePlan(plan!.id, patch as Partial<PlanInput>);
-    }
-  }
-
-  // Approved country prices → canonical rows + US invariant + PricingDoc
-  // mirror, via the same applier the SaaS side uses (single write path).
-  // Applier failures propagate: the request stays pending so the reviewer can
-  // retry instead of a silently half-applied "approved" state.
-  const proposedCountryPrices = (req.proposedSnapshot as Record<string, unknown> | null)?.countryPrices;
-  if (planId && Array.isArray(proposedCountryPrices) && proposedCountryPrices.length > 0 && req.action !== "archive") {
-    const v = validateCountryPriceEntries(proposedCountryPrices);
-    if (!v.ok) return { ok: false, status: 422, error: `stored proposal invalid: ${v.error}` };
-    await applyCountryPrices(planId, v.value, reviewer.email);
-  }
-
-  // Always restore the US baseline — even country-price-only proposals may
-  // carry billing-cents changes that must mirror into storefront units.
-  const updatedPlan = planId ? await prisma.plan.findUnique({ where: { id: planId } }) : null;
-  if (updatedPlan) await syncUsBaseline(updatedPlan as never, reviewer.email);
-
-  // Atomic claim: only one reviewer's decision lands; losers get 409.
+  // Atomic claim BEFORE any side effect: exactly one reviewer's application
+  // runs — losers get 409 without having mutated anything.
   const claim = await prisma.planChangeRequest.updateMany({
     where: { id: req.id, status: "pending" },
     data: {
       status: "approved",
       reviewedByEmail: reviewer.email,
       reviewedAt: new Date(),
-      ...(planId ? { planId } : {}),
     },
   });
   if (claim.count === 0) return { ok: false, status: 409, error: "Request already decided by another reviewer" };
+
+  try {
+    if (req.action === "create") {
+      const input = pickProposable(req.proposedSnapshot as Record<string, unknown>) as PlanInput;
+      const created = await createPlan(input);
+      planId = created.id;
+      await prisma.planChangeRequest.updateMany({
+        where: { id: req.id, status: "approved", reviewedByEmail: reviewer.email },
+        data: { planId },
+      });
+    } else if (req.action === "archive") {
+      await archivePlan(req.planId!);
+    } else {
+      const plan = await prisma.plan.findUnique({ where: { id: req.planId! } });
+      const before = planSnapshot(plan as unknown as Record<string, unknown>);
+      const patch =
+        req.action === "activate"
+          ? { isActive: true }
+          : req.action === "deactivate"
+            ? { isActive: false }
+            : patchFromDiff(before, req.proposedSnapshot as PlanSnapshot);
+      if (Object.keys(patch).length > 0) {
+        await updatePlan(plan!.id, patch as Partial<PlanInput>);
+      }
+    }
+
+    // Approved country prices → canonical rows + US invariant + PricingDoc
+    // mirror, via the same applier the SaaS side uses (single write path).
+    const proposedCountryPrices = (req.proposedSnapshot as Record<string, unknown> | null)?.countryPrices;
+    if (planId && Array.isArray(proposedCountryPrices) && proposedCountryPrices.length > 0 && req.action !== "archive") {
+      const v = validateCountryPriceEntries(proposedCountryPrices);
+      if (!v.ok) throw new Error(`stored proposal invalid: ${v.error}`);
+      await applyCountryPrices(planId, v.value, reviewer.email);
+    }
+
+    // Always restore the US baseline — even country-price-only proposals may
+    // carry billing-cents changes that must mirror into storefront units.
+    const updatedPlan = planId ? await prisma.plan.findUnique({ where: { id: planId } }) : null;
+    if (updatedPlan) await syncUsBaseline(updatedPlan as never, reviewer.email);
+  } catch (e) {
+    // Release the claim so the decision can be retried after fixing the cause;
+    // only our own approval is reverted (guarded by reviewer + status).
+    await prisma.planChangeRequest.updateMany({
+      where: { id: req.id, status: "approved", reviewedByEmail: reviewer.email },
+      data: { status: "pending", reviewedByEmail: null, reviewedAt: null },
+    }).catch(() => {});
+    return { ok: false, status: 500, error: e instanceof Error ? e.message : "apply failed" };
+  }
+
   await writeSaasAudit({
     byEmail: reviewer.email,
     action: "plan.change_approved",

@@ -1,8 +1,8 @@
 import { NextRequest, NextResponse } from "next/server";
+import { timingSafeEqual } from "node:crypto";
 import { requireSaasAccess } from "@/lib/marketing/guard";
 import { hasSaasPerm } from "@/lib/saas/roles";
-import { timingSafeEqual } from "node:crypto";
-import { processDueCases } from "@/lib/saas/dunning";
+import { billUsagePeriod } from "@/lib/saas/usageBilling";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -12,7 +12,6 @@ function secretsMatch(a: string, b: string): boolean {
   const ha = Buffer.from(a, "utf8");
   const hb = Buffer.from(b, "utf8");
   if (ha.length !== hb.length) {
-    // Still burn a comparison to keep timing uniform.
     timingSafeEqual(ha, ha);
     return false;
   }
@@ -20,18 +19,15 @@ function secretsMatch(a: string, b: string): boolean {
 }
 
 /**
- * POST /api/saas/cron/dunning — processes due dunning retries.
- * Protected: CRON_SECRET via X-Cron-Secret header, or BILLING_MANAGE session
- * (same-origin enforced by middleware). GET is reserved for secret-bearing
- * external schedulers only — a top-level cross-site navigation must never be
- * able to fire dunning side effects while an admin browses.
+ * GET /api/saas/cron/usage — CRON_SECRET schedulers only (session callers
+ * POST). Invoices last month's overage usage; inert until usage_overage_rates
+ * is configured in SystemSettings.
  */
 async function handle(req: NextRequest, allowSession: boolean) {
   const cronSecret = process.env.CRON_SECRET?.trim();
   const headerSecret = req.headers.get("x-cron-secret")?.trim();
   if (cronSecret && headerSecret && secretsMatch(cronSecret, headerSecret)) {
-    const result = await processDueCases();
-    return NextResponse.json({ ok: true, ...result });
+    return NextResponse.json({ ok: true, ...(await billUsagePeriod()) });
   }
   if (!allowSession) {
     return NextResponse.json({ error: "X-Cron-Secret required for GET" }, { status: 401 });
@@ -39,9 +35,17 @@ async function handle(req: NextRequest, allowSession: boolean) {
   const guard = await requireSaasAccess();
   if (!guard.ok) return guard.response;
   if (!hasSaasPerm(guard.user, "BILLING_MANAGE")) return NextResponse.json({ error: "BILLING_MANAGE required" }, { status: 403 });
-  const result = await processDueCases();
-  return NextResponse.json({ ok: true, ...result });
+  const period = req.nextUrl.searchParams.get("period") ?? undefined;
+  if (period && !/^\d{4}-\d{2}$/.test(period)) {
+    return NextResponse.json({ error: "period must be YYYY-MM" }, { status: 400 });
+  }
+  return NextResponse.json({ ok: true, ...(await billUsagePeriod({ period })) });
 }
 
-export async function GET(req: NextRequest) { return handle(req, false); }
-export async function POST(req: NextRequest) { return handle(req, true); }
+export async function GET(req: NextRequest) {
+  return handle(req, false);
+}
+
+export async function POST(req: NextRequest) {
+  return handle(req, true);
+}

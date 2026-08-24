@@ -38,10 +38,10 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id
       await writeSaasAudit({ byEmail: guard.user.email, action: "subscription.status_changed", entity: "subscription", entityId: id, detail: `${before?.status}→${body.status}`, ip: clientIp(req), before: { status: before?.status }, after: { status: body.status } });
     } else if (body.planId) {
       const before = await getSubscription(id);
-      sub = await changePlan(id, String(body.planId), body.billingCycle === "yearly" ? "yearly" : body.billingCycle === "monthly" ? "monthly" : undefined);
+      sub = await changePlan(id, String(body.planId), body.billingCycle === "yearly" ? "yearly" : body.billingCycle === "monthly" ? "monthly" : undefined, guard.user.email);
       await writeSaasAudit({ byEmail: guard.user.email, action: "subscription.plan_changed", entity: "subscription", entityId: id, detail: `${before?.planId}→${body.planId}`, ip: clientIp(req) });
     } else if (body.action === "renew") {
-      sub = await renewSubscription(id);
+      sub = await renewSubscription(id, guard.user.email);
       await writeSaasAudit({ byEmail: guard.user.email, action: "subscription.renewed", entity: "subscription", entityId: id, ip: clientIp(req) });
     } else {
       return NextResponse.json({ error: "No actionable field: status|planId|action=renew" }, { status: 400 });

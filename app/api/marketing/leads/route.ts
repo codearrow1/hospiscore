@@ -9,6 +9,7 @@ import { ensureMarketingStore } from "@/lib/marketing/seed";
 import { listLeads, filterLeads, upsertLead } from "@/lib/marketing/leads";
 import { writeAudit } from "@/lib/marketing/audit";
 import { isLeadStage } from "@/lib/marketing/stages";
+import { hasCapability } from "@/lib/marketing/roles";
 import type { LeadSource } from "@/lib/marketing/types";
 
 export const runtime = "nodejs";
@@ -22,13 +23,17 @@ export async function GET(req: NextRequest) {
 
   const sp = req.nextUrl.searchParams;
   const leads = await listLeads();
+  const canSeeAll = hasCapability(guard.user, "leads.manage");
+  // Non-managers (sales reps) are hard-scoped to their own assignments;
+  // an ?owner= param cannot widen the view.
+  const owner = canSeeAll ? (sp.get("owner") ?? undefined) : guard.user.email;
   const filtered = filterLeads(leads, {
     q: sp.get("q") ?? undefined,
     stage: isLeadStage(sp.get("stage") ?? "") ? (sp.get("stage") as never) : "all",
     source: (sp.get("source") ?? "all") as never,
     country: sp.get("country") ?? undefined,
     plan: sp.get("plan") ?? undefined,
-    owner: sp.get("owner") ?? undefined,
+    owner,
     band: ((sp.get("band") ?? "all") as never) || "all",
     minScore: sp.get("minScore") ? Number(sp.get("minScore")) : undefined,
   });

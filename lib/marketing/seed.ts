@@ -175,8 +175,15 @@ export async function seedDemoUsersCli(): Promise<void> {
  */
 export async function ensurePortalIdentities(): Promise<void> {
   const { prisma } = await import("@/lib/prisma");
+  const { bindPortalIdentity } = await import("@/lib/saas/portalLinks");
+  const { readData } = await import("@/lib/db");
 
-  await prisma.affiliate.upsert({
+  const userByEmail = async (email: string): Promise<string | null> => {
+    const data = await readData();
+    return data.users.find((u) => u.email === email)?.id ?? null;
+  };
+
+  const affiliate = await prisma.affiliate.upsert({
     where: { email: "affiliate@hospios.demo" },
     update: {},
     create: {
@@ -192,8 +199,12 @@ export async function ensurePortalIdentities(): Promise<void> {
       commissionValue: 2000,
     },
   });
+  const affiliateUserId = await userByEmail("affiliate@hospios.demo");
+  if (affiliateUserId) {
+    await bindPortalIdentity({ kind: "affiliate", refId: affiliate.id, userId: affiliateUserId, boundBy: "demo-seed" }).catch(() => {});
+  }
 
-  await prisma.partner.upsert({
+  const partner = await prisma.partner.upsert({
     where: { email: "partner@hospios.demo" },
     update: {},
     create: {
@@ -209,6 +220,10 @@ export async function ensurePortalIdentities(): Promise<void> {
       referralCode: "PTNDEMO01",
     },
   });
+  const partnerUserId = await userByEmail("partner@hospios.demo");
+  if (partnerUserId) {
+    await bindPortalIdentity({ kind: "partner", refId: partner.id, userId: partnerUserId, boundBy: "demo-seed" }).catch(() => {});
+  }
 
   let plan = await prisma.plan.findFirst({ where: { isActive: true }, orderBy: { monthlyPrice: "asc" } });
   if (!plan) {
@@ -229,39 +244,50 @@ export async function ensurePortalIdentities(): Promise<void> {
     });
     if (existingOrg) {
       await syncOrgMrr(existingOrg.id);
-      continue;
-    }
-    const org = await prisma.organization.create({
-      data: {
-        legalName: spec.org,
-        businessName: spec.org,
-        country: "US",
-        industry: "hospitality",
-        status: "active",
-        acquisitionSource: "organic",
-        contacts: {
-          create: {
-            name: spec.name,
-            email: spec.email,
-            role: "owner",
-            isPrimary: true,
+    } else {
+      const org = await prisma.organization.create({
+        data: {
+          legalName: spec.org,
+          businessName: spec.org,
+          country: "US",
+          industry: "hospitality",
+          status: "active",
+          acquisitionSource: "organic",
+          contacts: {
+            create: {
+              name: spec.name,
+              email: spec.email,
+              role: "owner",
+              isPrimary: true,
+            },
           },
         },
-      },
+      });
+      const now = new Date();
+      await prisma.subscription.create({
+        data: {
+          organizationId: org.id,
+          planId: plan.id,
+          status: "active",
+          billingCycle: "monthly",
+          mrr: plan.monthlyPrice,
+          quantity: 1,
+          currentPeriodStart: now,
+          currentPeriodEnd: new Date(now.getTime() + 30 * 86_400_000),
+        },
+      });
+      await syncOrgMrr(org.id);
+    }
+    // Bind the demo user to its (possibly pre-existing) primary contact so the
+    // customer portal resolves without email matching.
+    const contact = await prisma.orgContact.findFirst({
+      where: { email: spec.email, organization: { status: { not: "cancelled" } } },
+      orderBy: { isPrimary: "desc" },
+      select: { id: true },
     });
-    const now = new Date();
-    await prisma.subscription.create({
-      data: {
-        organizationId: org.id,
-        planId: plan.id,
-        status: "active",
-        billingCycle: "monthly",
-        mrr: plan.monthlyPrice,
-        quantity: 1,
-        currentPeriodStart: now,
-        currentPeriodEnd: new Date(now.getTime() + 30 * 86_400_000),
-      },
-    });
-    await syncOrgMrr(org.id);
+    const userId = await userByEmail(spec.email);
+    if (contact && userId) {
+      await bindPortalIdentity({ kind: "org_contact", refId: contact.id, userId, boundBy: "demo-seed" }).catch(() => {});
+    }
   }
 }

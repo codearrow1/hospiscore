@@ -23,7 +23,7 @@ export default function FranchiseManager({ initialTerritories, initialFranchisee
 }) {
   const router = useRouter();
   const [territories, setTerritories] = useState(initialTerritories);
-  const [franchisees] = useState(initialFranchisees);
+  const [franchisees, setFranchisees] = useState(initialFranchisees);
   const [newT, setNewT] = useState(false);
   const [newF, setNewF] = useState(false);
   const [tf, setTf] = useState<Record<string, string>>({ country: "", type: "city", exclusive: "" });
@@ -35,6 +35,11 @@ export default function FranchiseManager({ initialTerritories, initialFranchisee
   const refreshTerritories = async () => {
     const res = await fetch("/api/saas/franchise/territories");
     if (res.ok) { const d = await res.json(); setTerritories(d.territories); router.refresh(); }
+  };
+
+  const refreshFranchisees = async () => {
+    const res = await fetch("/api/saas/franchise/franchisees");
+    if (res.ok) { const d = await res.json(); setFranchisees(d.franchisees ?? []); router.refresh(); }
   };
 
   const createTerritory = async () => {
@@ -56,13 +61,13 @@ export default function FranchiseManager({ initialTerritories, initialFranchisee
     });
     const d = await res.json().catch(() => ({}));
     if (!res.ok) { setError(d.error ?? "Create failed"); return; }
-    setNewF(false); setFf({ revenueShareBps: "1500" }); router.refresh();
+    setNewF(false); setFf({ revenueShareBps: "1500" }); refreshFranchisees();
   };
 
   const fStatus = async (id: string, status: string) => {
     const res = await fetch(`/api/saas/franchise/franchisees/${id}`, { method: "PATCH", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ status }) });
     if (!res.ok) { const d = await res.json().catch(() => ({})); alert(d.error ?? "Update failed"); return; }
-    router.refresh();
+    refreshFranchisees();
   };
 
   const tStatus = async (id: string, status: string) => {

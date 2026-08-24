@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 import { getCurrentUser } from "@/lib/sessionCookie";
-import { getAffiliateByEmail } from "@/lib/saas/affiliates";
+import { findAffiliateForUser } from "@/lib/saas/portalLinks";
 import { prisma } from "@/lib/prisma";
 import { initSaasDb } from "@/lib/saas/init";
 
@@ -12,13 +12,9 @@ export async function GET() {
   await initSaasDb().catch(() => {});
   const user = await getCurrentUser();
   if (!user) return NextResponse.json({ error: "Not signed in" }, { status: 401 });
-  // Find affiliate by email (or userId link)
-  let aff = await getAffiliateByEmail(user.email);
-  if (!aff) {
-    // also try by userId
-    const byUser = await prisma.affiliate.findFirst({ where: { userId: user.id } });
-    aff = byUser;
-  }
+  // Identity requires an explicit binding (userId column or admin-minted
+  // claim) — a matching email alone grants nothing.
+  const aff = await findAffiliateForUser(user.id);
   if (!aff) return NextResponse.json({ affiliate: null, commissions: [], payouts: [] });
 
   const [commissions, payouts, clicks] = await Promise.all([

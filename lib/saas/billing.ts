@@ -11,19 +11,10 @@ export async function listInvoices(opts?: { orgId?: string; status?: string; tak
   return { items, total };
 }
 
-export async function createInvoice(input: { organizationId: string; subscriptionId?: string; amount: number; currency?: string; type?: string; dueAt?: Date }) {
-  return prisma.invoice.create({
-    data: {
-      organizationId: input.organizationId,
-      subscriptionId: input.subscriptionId || null,
-      amount: input.amount,
-      currency: input.currency || "USD",
-      type: input.type || "subscription",
-      status: "issued",
-      dueAt: input.dueAt || null,
-    },
-  });
-}
+// NOTE: invoice creation intentionally lives ONLY in lib/saas/gateway.ts
+// (createInvoice) — it enforces coupon rules, audit logging and the tx-aware
+// write path. A bare prisma.invoice.create here would silently bypass all of
+// that, so the previous duplicate was removed.
 
 export async function listPayments(opts?: { orgId?: string; status?: string; take?: number }) {
   const where: Record<string, unknown> = {};

@@ -45,7 +45,9 @@ export async function recoverCase(invoiceId: string): Promise<boolean> {
   // restore subscription if it was downgraded by dunning
   if (dc.subscriptionId) {
     const sub = await prisma.subscription.findUnique({ where: { id: dc.subscriptionId }, select: { status: true } });
-    if (sub && (sub.status === "past_due" || sub.status === "grace")) {
+    // A case given up by the retry ladder suspends the subscription; a paying
+    // customer must come back to active from that state too.
+    if (sub && (sub.status === "past_due" || sub.status === "grace" || sub.status === "suspended")) {
       await prisma.subscription.update({ where: { id: dc.subscriptionId }, data: { status: "active" } });
       try {
         const { syncOrgMrr } = await import("./subscriptions");

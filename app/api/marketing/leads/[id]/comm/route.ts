@@ -1,7 +1,8 @@
 import { NextRequest, NextResponse } from "next/server";
 import { requireCapability, originAllowed, clientIp } from "@/lib/marketing/guard";
-import { recordCommunication } from "@/lib/marketing/leads";
+import { getLead, recordCommunication } from "@/lib/marketing/leads";
 import { writeAudit } from "@/lib/marketing/audit";
+import { canAccessLead } from "@/lib/marketing/roles";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -24,6 +25,10 @@ export async function POST(
   const kind = body.kind;
   if (kind !== "email" && kind !== "whatsapp" && kind !== "call") {
     return NextResponse.json({ error: "kind must be email, whatsapp or call" }, { status: 400 });
+  }
+  const existing = await getLead(id);
+  if (!existing || !canAccessLead(guard.user, existing)) {
+    return NextResponse.json({ error: "Lead not found" }, { status: 404 });
   }
   const lead = await recordCommunication(
     id,

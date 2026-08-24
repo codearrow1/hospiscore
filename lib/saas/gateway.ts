@@ -5,7 +5,9 @@
  */
 
 import { prisma } from "@/lib/prisma";
+import type { Prisma } from "@/lib/generated/prisma/client";
 import { writeSaasAudit } from "./audit";
+import { applyCoupon } from "./coupons";
 
 export interface GatewayInvoice {
   id: string;
@@ -14,19 +16,28 @@ export interface GatewayInvoice {
   status: string;
 }
 
-export async function createInvoice(input: {
-  organizationId: string;
-  subscriptionId?: string;
-  amount: number;
-  currency?: string;
-  type?: string;
-  dueAt?: Date;
-  idempotencyKey?: string;
-  couponCode?: string;
-  actorEmail: string;
-  ip?: string;
-}): Promise<GatewayInvoice> {
+/** Transaction client so financial sections can run atomically. */
+export type GatewayTx = Prisma.TransactionClient;
+
+export async function createInvoice(
+  input: {
+    organizationId: string;
+    subscriptionId?: string;
+    amount: number;
+    currency?: string;
+    type?: string;
+    dueAt?: Date;
+    idempotencyKey?: string;
+    couponCode?: string;
+    /** "renewal" lets repeating/forever coupons re-apply on later invoices. */
+    couponMode?: "new" | "renewal";
+    actorEmail: string;
+    ip?: string;
+  },
+  tx?: GatewayTx,
+): Promise<GatewayInvoice> {
   if (input.amount < 0) throw new Error("amount must be >= 0");
+  const db = tx ?? prisma;
   // NOTE: idempotencyKey is accepted for API compatibility but not yet enforced
   // (no stored key column). Two legitimate identical invoices may coexist.
   let amount = input.amount;
@@ -36,15 +47,14 @@ export async function createInvoice(input: {
     // (and enforced) against the right plan.
     let couponPlanId: string | undefined;
     if (input.subscriptionId) {
-      const sub = await prisma.subscription.findUnique({ where: { id: input.subscriptionId }, select: { planId: true } });
+      const sub = await db.subscription.findUnique({ where: { id: input.subscriptionId }, select: { planId: true } });
       couponPlanId = sub?.planId;
     }
-    const { applyCoupon } = await import("./coupons");
-    const res = await applyCoupon({ code: input.couponCode, organizationId: input.organizationId, subscriptionId: input.subscriptionId ?? null, amount, planId: couponPlanId });
+    const res = await applyCoupon({ code: input.couponCode, organizationId: input.organizationId, subscriptionId: input.subscriptionId ?? null, amount, planId: couponPlanId, mode: input.couponMode }, tx);
     amount = res.amountDue;
     couponApplied = res.couponId;
   }
-  const inv = await prisma.invoice.create({
+  const inv = await db.invoice.create({
     data: {
       organizationId: input.organizationId,
       subscriptionId: input.subscriptionId || null,
@@ -82,27 +92,62 @@ export async function recordPayment(input: {
   // Currency always matches the invoice's own currency — never settle an
   // INR invoice against a USD payment total.
   let currency = input.currency || "USD";
-  if (input.invoiceId) {
-    const inv = await prisma.invoice.findUnique({ where: { id: input.invoiceId }, select: { amount: true, currency: true, status: true, subscriptionId: true } });
-    if (!inv) throw new Error("Invoice not found");
-    if (input.currency && inv.currency && input.currency !== inv.currency) {
-      throw new Error(`Payment currency ${input.currency} does not match invoice currency ${inv.currency}`);
-    }
-    if (inv.currency) currency = inv.currency;
+  if (!Number.isInteger(input.amount) || input.amount < 0) {
+    throw new Error("amount must be a non-negative integer (minor units)");
   }
-  const pay = await prisma.payment.create({
-    data: {
-      organizationId: input.organizationId,
-      invoiceId: input.invoiceId || null,
-      amount: input.amount,
-      currency,
-      gateway: input.gateway || "manual",
-      status: input.status || "succeeded",
-    },
-  });
+  let fullySettled = false;
+  const pay = await prisma.$transaction(async (tx) => {
+    if (input.invoiceId) {
+      const inv = await tx.invoice.findUnique({ where: { id: input.invoiceId }, select: { amount: true, currency: true, status: true } });
+      if (!inv) throw new Error("Invoice not found");
+      if (input.currency && inv.currency && input.currency !== inv.currency) {
+        throw new Error(`Payment currency ${input.currency} does not match invoice currency ${inv.currency}`);
+      }
+      if (inv.currency) currency = inv.currency;
+      if (inv.status === "void") throw new Error("Cannot pay a voided invoice");
+      // Overpayment cap (M-02), evaluated INSIDE the transaction so two
+      // concurrent payments cannot both observe the same outstanding
+      // balance and collectively overpay the invoice.
+      const paidAgg = await tx.payment.aggregate({ where: { invoiceId: input.invoiceId, status: "succeeded" }, _sum: { amount: true } });
+      const outstanding = inv.amount - (paidAgg._sum.amount ?? 0);
+      if (input.amount > outstanding) {
+        throw new Error(`Payment exceeds outstanding balance (${outstanding} ${currency})`);
+      }
+    }
+    const created = await tx.payment.create({
+      data: {
+        organizationId: input.organizationId,
+        invoiceId: input.invoiceId || null,
+        amount: input.amount,
+        currency,
+        gateway: input.gateway || "manual",
+        status: input.status || "succeeded",
+      },
+    });
+    if (input.invoiceId && (input.status || "succeeded") === "succeeded") {
+      // Settle inside the same transaction as the payment insert — invoice
+      // status can never disagree with its succeeded payment total. Our
+      // INSERT took the DB write lock, so this aggregate observes every
+      // committed contender: the authoritative post-race balance.
+      const paidAgg = await tx.payment.aggregate({ where: { invoiceId: input.invoiceId, status: "succeeded" }, _sum: { amount: true } });
+      const inv = await tx.invoice.findUnique({ where: { id: input.invoiceId }, select: { amount: true, status: true } });
+      if (!inv) throw new Error("Invoice not found");
+      if (inv.status === "void") throw new Error("Cannot pay a voided invoice");
+      const totalPaid = paidAgg._sum.amount ?? 0;
+      if (totalPaid > inv.amount) {
+        // A concurrent payment committed after our (stale) pre-check —
+        // refuse ours so persisted money can never exceed the invoice.
+        throw new Error(`Payment raced past the invoice balance (${totalPaid}/${inv.amount})`);
+      }
+      const newStatus = totalPaid >= inv.amount ? "paid" : totalPaid > 0 ? "partially_paid" : inv.status;
+      fullySettled = newStatus === "paid";
+      await tx.invoice.update({ where: { id: input.invoiceId! }, data: { status: newStatus, paidAt: newStatus === "paid" ? new Date() : null } });
+    }
+    return created;
+  }, { maxWait: 20_000, timeout: 60_000 });
   await writeSaasAudit({ byEmail: input.actorEmail, action: "payment.recorded", entity: "payment", entityId: pay.id, detail: `${pay.gateway} ${(pay.amount/100).toFixed(2)} ${pay.status}`, ip: input.ip });
 
-  // Dunning hooks
+  // Dunning hooks (side-effecting emails stay outside the DB transaction).
   const { startDunning, recoverCase } = await import("./dunning");
   if (pay.status === "failed" && input.invoiceId) {
     let subscriptionId: string | null = null;
@@ -125,17 +170,40 @@ export async function recordPayment(input: {
       await fireRule("payment_failed", input.organizationId, { amount: (pay.amount / 100).toFixed(2) });
     } catch {}
   } else if (pay.status === "succeeded" && input.invoiceId) {
-    await recoverCase(input.invoiceId);
-    // mark invoice paid when fully settled
-    const paidAgg = await prisma.payment.aggregate({ where: { invoiceId: input.invoiceId, status: "succeeded" }, _sum: { amount: true } });
-    const inv = await prisma.invoice.findUnique({ where: { id: input.invoiceId }, select: { amount: true, status: true } });
-    if (inv && inv.status !== "void") {
-      const totalPaid = paidAgg._sum.amount ?? 0;
-      const newStatus = totalPaid >= inv.amount ? "paid" : totalPaid > 0 ? "partially_paid" : inv.status;
-      await prisma.invoice.update({ where: { id: input.invoiceId }, data: { status: newStatus, paidAt: newStatus === "paid" ? new Date() : null } });
+    // Settlement math already ran inside the payment transaction; `fullySettled`
+    // was computed there. Dunning recovery (M-01) fires only on FULL
+    // settlement — a partial payment must neither close the collection case
+    // nor reactivate service.
+    if (fullySettled) {
+      await recoverCase(input.invoiceId);
     }
   }
   return pay;
+}
+
+/**
+ * Void an unsettled invoice (M-03). Paid invoices go through refunds instead;
+ * open dunning cases are closed because nothing is collectable anymore.
+ * The status flip is a conditional claim, so a concurrent double-void or a
+ * void racing a settlement cannot both win.
+ */
+export async function voidInvoice(invoiceId: string, actorEmail: string, ip?: string) {
+  const inv = await prisma.invoice.findUnique({ where: { id: invoiceId }, select: { status: true } });
+  if (!inv) throw new Error("Invoice not found");
+  if (inv.status === "void") throw new Error("Invoice is already void");
+  if (inv.status === "paid") throw new Error("Paid invoices must be refunded, not voided");
+  if (!["issued", "past_due", "partially_paid"].includes(inv.status)) {
+    throw new Error(`Cannot void a ${inv.status} invoice`);
+  }
+  const claimed = await prisma.invoice.updateMany({
+    where: { id: invoiceId, status: { in: ["issued", "past_due", "partially_paid"] } },
+    data: { status: "void" },
+  });
+  if (claimed.count === 0) throw new Error("Invoice state changed — retry");
+  // Nothing left to collect — stop the retry ladder.
+  await prisma.dunningCase.updateMany({ where: { invoiceId, status: "active" }, data: { status: "given_up", nextRetryAt: null } });
+  await writeSaasAudit({ byEmail: actorEmail, action: "invoice.voided", entity: "invoice", entityId: invoiceId, detail: `was ${inv.status}`, ip });
+  return prisma.invoice.findUniqueOrThrow({ where: { id: invoiceId } });
 }
 
 export async function refundPayment(paymentId: string, actorEmail: string, ip?: string) {

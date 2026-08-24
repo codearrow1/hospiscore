@@ -43,13 +43,20 @@ export async function POST(req: NextRequest) {
   }
   const amount = Number(body.amount);
   if (!organizationId || !Number.isFinite(amount) || amount < 0) return NextResponse.json({ error: "organizationId and amount>=0 required" }, { status: 400 });
+  // Only succeeded/failed enter via this endpoint. A payment created directly
+  // as "refunded" would skip REFUND_APPROVE, invoice re-settlement and
+  // commission reversal — refunds go exclusively through action:"refund".
+  const status = typeof body.status === "string" ? body.status : "succeeded";
+  if (status !== "succeeded" && status !== "failed") {
+    return NextResponse.json({ error: "status must be succeeded|failed (refunds use action:\"refund\")" }, { status: 400 });
+  }
   try {
     const pay = await recordPayment({
       organizationId,
       invoiceId: typeof body.invoiceId === "string" ? body.invoiceId : undefined,
       amount: Math.round(amount),
       gateway: typeof body.gateway === "string" ? body.gateway : "manual",
-      status: typeof body.status === "string" ? body.status : "succeeded",
+      status,
       actorEmail: guard.user.email,
       ip: clientIp(req),
       idempotencyKey: typeof body.idempotencyKey === "string" ? body.idempotencyKey : undefined,

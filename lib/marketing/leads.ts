@@ -241,7 +241,7 @@ export function filterLeads(
     if (filter.source && filter.source !== "all" && l.source !== filter.source) return false;
     if (filter.country && l.country !== filter.country.toUpperCase()) return false;
     if (filter.plan && l.planInterest !== filter.plan) return false;
-    if (filter.owner && l.ownerEmail !== filter.owner) return false;
+    if (filter.owner && l.ownerEmail?.toLowerCase() !== filter.owner.toLowerCase()) return false;
     if (filter.band && filter.band !== "all" && l.band !== filter.band) return false;
     if (typeof filter.minScore === "number" && l.score < filter.minScore) return false;
     if (q) {

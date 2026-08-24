@@ -177,7 +177,9 @@ function PlanModal({ plan, onClose, onSaved, busy, setBusy, error, setError }: {
       maxUsers: form.maxUsers ? Number(form.maxUsers) : null,
       maxBookings: form.maxBookings ? Number(form.maxBookings) : null,
       storageGb: form.storageGb ? Number(form.storageGb) : null,
-      features,
+      // Merge over the plan's existing feature JSON — the modal only edits a
+      // subset (cardFeatures etc. must survive the save).
+      features: plan ? { ...(plan.features ?? {}), ...features } : features,
       isActive,
       tagline: form.tagline || null,
       descriptor: form.descriptor || null,

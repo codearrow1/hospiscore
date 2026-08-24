@@ -4,15 +4,27 @@ import { verifyPassword } from "@/lib/auth";
 import { CONFIG } from "@/lib/config";
 import { roleFor } from "@/lib/marketing/roles";
 import { resolveAppRole, dashboardPathFor } from "@/lib/rbac";
+import { rateLimit } from "@/lib/marketing/guard";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 
+/** Client IP (XFF-aware) — mirrors guard.clientIp for plain Request handlers. */
+function clientIp(req: Request): string {
+  const fwd = req.headers.get("x-forwarded-for");
+  if (fwd) return fwd.split(",")[0].trim();
+  return req.headers.get("x-real-ip") ?? "unknown";
+}
+
 /**
  * POST /api/auth/login { email, password }
  * Sets an httpOnly session cookie on success.
+ * Brute-force blunting: sliding-window limits per IP and per account.
  */
 export async function POST(request: Request) {
+  if (!rateLimit(`login:ip:${clientIp(request)}`, 20, 60_000)) {
+    return NextResponse.json({ error: "Too many attempts, slow down" }, { status: 429 });
+  }
   let body: { email?: string; password?: string };
   try {
     body = await request.json();
@@ -20,8 +32,12 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: "invalid JSON body" }, { status: 400 });
   }
 
-  const email = (body.email ?? "").toString().trim();
+  const email = (body.email ?? "").toString().trim().toLowerCase();
   const password = (body.password ?? "").toString();
+
+  if (email && !rateLimit(`login:acct:${email}`, 8, 60_000)) {
+    return NextResponse.json({ error: "Too many attempts for this account, try again later" }, { status: 429 });
+  }
 
   const user = await findUserByEmail(email);
   const ok = user ? await verifyPassword(password, user.passwordHash) : false;
