@@ -14,6 +14,7 @@ import { PLAN_IDS, PLANS } from "@/lib/pricing/catalog";
 import { GATEWAY_LABELS } from "@/lib/pricing/defaults";
 import type { PricingDoc } from "@/lib/pricing/types";
 import { annualSavings, formatPrice, taxLine } from "@/lib/pricing/engine";
+import { ConfirmDialog } from "@/components/ui/ConfirmDialog";
 
 const REGIONS: PricingRegion[] = ["na", "europe", "mena", "asia", "africa", "oceania", "global"];
 const TAX_MODES: TaxMode[] = ["inclusive", "exclusive", "none"];
@@ -33,6 +34,7 @@ export default function PricingManager({
   const [label, setLabel] = useState("");
   const [status, setStatus] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
+  const [confirmReset, setConfirmReset] = useState(false);
 
   // Preview-as-customer
   const [previewCountry, setPreviewCountry] = useState("IN");
@@ -116,7 +118,6 @@ export default function PricingManager({
   }
 
   async function reset() {
-    if (!window.confirm("Reset all countries to seed defaults? This creates a new version.")) return;
     setSaving(true);
     setStatus(null);
     try {
@@ -128,6 +129,7 @@ export default function PricingManager({
       const data = await res.json();
       if (!res.ok) throw new Error(data.error ?? "Reset failed");
       setDraft(structuredClone(data.doc) as Draft);
+      setConfirmReset(false);
       setStatus(`Reset to seed defaults — now version ${data.doc.version}.`);
     } catch (err) {
       setStatus(err instanceof Error ? err.message : "Reset failed");
@@ -183,7 +185,7 @@ export default function PricingManager({
           </button>
           <button
             type="button"
-            onClick={reset}
+            onClick={() => setConfirmReset(true)}
             disabled={saving}
             className="rounded-lg border border-zinc-300 px-4 py-2 text-sm font-medium text-zinc-600 transition hover:border-rose-400 hover:text-rose-600 dark:border-zinc-700 dark:text-zinc-300"
           >
@@ -191,6 +193,25 @@ export default function PricingManager({
           </button>
         </div>
       </div>
+
+      <ConfirmDialog
+        action={confirmReset
+          ? {
+              title: "Reset pricing to seeds",
+              message: "Reset every country profile to the built-in seed defaults?",
+              consequences: [
+                "All unsaved local edits in this editor are discarded.",
+                "A new published pricing version is created immediately.",
+                "Checkout prices change as soon as the version is saved.",
+              ],
+              confirmLabel: "Reset pricing",
+              tone: "danger",
+            }
+          : null}
+        onClose={() => setConfirmReset(false)}
+        onConfirm={reset}
+        busy={saving}
+      />
 
       {/* Add country */}
       {addable.length > 0 && (

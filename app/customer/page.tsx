@@ -1,8 +1,6 @@
 import { redirect } from "next/navigation";
 import { getCurrentUser } from "@/lib/sessionCookie";
 import { prisma } from "@/lib/prisma";
-import Header from "@/components/Header";
-import PortalNav from "@/components/portal/PortalNav";
 import { SectionCard, Badge, EmptyState } from "@/components/marketing-admin/ui";
 import { resolveAppRole } from "@/lib/rbac";
 import { initSaasDb } from "@/lib/saas/init";
@@ -29,14 +27,11 @@ export default async function CustomerPortal() {
     const appRole = await resolveAppRole(user);
     if (appRole !== "super_admin") redirect("/account?next=/customer");
     return (
-      <div className="min-h-screen flex flex-col">
-        <Header />
-        <main className="mx-auto w-full max-w-3xl flex-1 px-4 py-10">
-          <h1 className="text-2xl font-bold">Customer Portal</h1>
-          <p className="mt-2 text-sm text-zinc-600">
-            No customer account found for {user.email}. Contact your account manager to get set up.
-          </p>
-        </main>
+      <div className="mx-auto w-full max-w-3xl py-10">
+        <h1 className="text-2xl font-bold">Customer Portal</h1>
+        <p className="mt-2 text-sm text-zinc-600">
+          No customer account found for {user.email}. Contact your account manager to get set up.
+        </p>
       </div>
     );
   }
@@ -67,14 +62,12 @@ export default async function CustomerPortal() {
   const outstanding = invoices
     .filter((i) => i.status === "issued" || i.status === "past_due" || i.status === "partially_paid")
     .reduce((s, i) => s + i.amount, 0);
-  const appRole = (await resolveAppRole(user)) ?? "customer";
+  const needsPayment = outstanding > 0;
+  const subAttention = active && ["past_due", "grace"].includes(active.status);
 
   return (
-    <div className="min-h-screen flex flex-col">
-      <Header />
-      <PortalNav role={appRole} />
-      <main className="mx-auto w-full max-w-5xl flex-1 px-4 py-8 space-y-6">
-        <div className="flex items-center justify-between">
+    <div className="space-y-6">
+      <div className="flex items-center justify-between">
           <div>
             <h1 className="text-2xl font-bold">Customer Portal</h1>
             <p className="mt-1 text-sm text-zinc-600">
@@ -84,6 +77,21 @@ export default async function CustomerPortal() {
           </div>
           <Badge>{org.healthStatus || org.status}</Badge>
         </div>
+
+        {(needsPayment || subAttention) && (
+          <div className="rounded-2xl border border-amber-300 bg-amber-50 p-4 dark:border-amber-800 dark:bg-amber-950/40">
+            {needsPayment && (
+              <p className="text-sm font-semibold text-amber-800 dark:text-amber-200">
+                Action needed: outstanding balance {money(outstanding)} — <a href="#billing" className="underline">view billing</a>
+              </p>
+            )}
+            {subAttention && (
+              <p className={`text-sm font-semibold text-amber-800 dark:text-amber-200 ${needsPayment ? "mt-1" : ""}`}>
+                Your subscription is {active!.status} — update your payment method to avoid interruption.
+              </p>
+            )}
+          </div>
+        )}
 
         <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
           <SectionCard>
@@ -161,7 +169,6 @@ export default async function CustomerPortal() {
             </ul>
           )}
         </SectionCard>
-      </main>
-    </div>
+      </div>
   );
 }

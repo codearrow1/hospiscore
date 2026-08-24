@@ -3,6 +3,7 @@
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { btnGhost, btnPrimary, Field, inputCls, Modal, Badge } from "@/components/marketing-admin/ui";
+import { useToast } from "@/components/ui/Toast";
 
 type Partner = {
   id: string; name: string; company?: string | null; email: string; country?: string | null;
@@ -17,6 +18,7 @@ export default function PartnersManager({ initialPartners, initialCommissions, i
   canManage: boolean;
 }) {
   const router = useRouter();
+  const toast = useToast();
   const [partners, setPartners] = useState(initialPartners);
   const [creating, setCreating] = useState(false);
   const [form, setForm] = useState<Record<string, string>>({ type: "reseller", tier: "bronze", commissionModel: "percent_first", commissionValue: "1500" });
@@ -44,13 +46,13 @@ export default function PartnersManager({ initialPartners, initialCommissions, i
 
   const setStatus = async (id: string, status: string) => {
     const res = await fetch(`/api/saas/partners/${id}`, { method: "PATCH", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ status }) });
-    if (!res.ok) { const d = await res.json().catch(() => ({})); alert(d.error ?? "Update failed"); return; }
+    if (!res.ok) { const d = await res.json().catch(() => ({})); toast.error(d.error ?? "Update failed"); return; }
     refresh();
   };
 
   const requestPayout = async () => {
     const res = await fetch("/api/saas/partners/payouts", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ partnerId: payoutPartner, amount: Number(payoutAmount) }) });
-    if (!res.ok) { const d = await res.json().catch(() => ({})); alert(d.error ?? "Payout failed"); return; }
+    if (!res.ok) { const d = await res.json().catch(() => ({})); toast.error(d.error ?? "Payout failed"); return; }
     setPayoutPartner(""); setPayoutAmount(""); router.refresh();
   };
 

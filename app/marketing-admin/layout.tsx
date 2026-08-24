@@ -1,6 +1,8 @@
 import type { ReactNode } from "react";
 import { redirect } from "next/navigation";
-import AdminShell from "@/components/marketing-admin/AdminShell";
+import { AppShell } from "@/components/shell/AppShell";
+import { NavIcon } from "@/components/shell/NavIcon";
+import type { NavItem } from "@/components/shell/types";
 import { restrictedPanel } from "@/app/marketing-admin/restricted";
 import { getCurrentUser } from "@/lib/sessionCookie";
 import {
@@ -9,24 +11,37 @@ import {
   roleFor,
   ROLE_LABELS,
 } from "@/lib/marketing/roles";
-import type { AdminNavItem } from "@/components/marketing-admin/AdminShell";
 
 export const dynamic = "force-dynamic";
 export const runtime = "nodejs";
 
-const ALL_NAV: (AdminNavItem & { capability?: Parameters<typeof hasCapability>[1] })[] = [
-  { href: "/marketing-admin", label: "Dashboard", icon: "dashboard" },
-  { href: "/marketing-admin/leads", label: "Leads", icon: "leads", capability: "leads.read" },
-  { href: "/marketing-admin/pipeline", label: "Pipeline", icon: "pipeline", capability: "leads.read" },
-  { href: "/marketing-admin/demos", label: "Demos", icon: "demos", capability: "leads.read" },
-  { href: "/marketing-admin/campaigns", label: "Campaigns", icon: "campaigns", capability: "campaigns.manage" },
-  { href: "/marketing-admin/forms", label: "Forms", icon: "forms", capability: "forms.manage" },
-  { href: "/marketing-admin/pricing", label: "Pricing", icon: "pricing", capability: "pricing.manage" },
-  { href: "/marketing-admin/analytics", label: "Analytics", icon: "analytics", capability: "analytics.read" },
-  { href: "/marketing-admin/audit", label: "Audit log", icon: "audit", capability: "audit.read" },
-  { href: "/marketing-admin/settings", label: "Settings", icon: "settings", capability: "settings.manage" },
-  { href: "/saas", label: "SaaS Control Plane", icon: "pricing" },
+const ALL_NAV: (NavItem & { capability?: Parameters<typeof hasCapability>[1] })[] = [
+  { href: "/marketing-admin", label: "Dashboard" },
+  { href: "/marketing-admin/leads", label: "Leads", capability: "leads.read" },
+  { href: "/marketing-admin/pipeline", label: "Pipeline", capability: "leads.read" },
+  { href: "/marketing-admin/demos", label: "Demos", capability: "leads.read" },
+  { href: "/marketing-admin/campaigns", label: "Campaigns", capability: "campaigns.manage" },
+  { href: "/marketing-admin/forms", label: "Forms", capability: "forms.manage" },
+  { href: "/marketing-admin/pricing", label: "Pricing", capability: "pricing.manage" },
+  { href: "/marketing-admin/analytics", label: "Analytics", capability: "analytics.read" },
+  { href: "/marketing-admin/audit", label: "Audit log", capability: "audit.read" },
+  { href: "/marketing-admin/settings", label: "Settings", capability: "settings.manage" },
+  { href: "/saas", label: "SaaS Control Plane" },
 ];
+
+const ICONS: Record<string, string> = {
+  "/marketing-admin": "dashboard",
+  "/marketing-admin/leads": "leads",
+  "/marketing-admin/pipeline": "pipeline",
+  "/marketing-admin/demos": "demos",
+  "/marketing-admin/campaigns": "campaigns",
+  "/marketing-admin/forms": "forms",
+  "/marketing-admin/pricing": "pricing",
+  "/marketing-admin/analytics": "analytics",
+  "/marketing-admin/audit": "audit",
+  "/marketing-admin/settings": "settings",
+  "/saas": "pricing",
+};
 
 export const metadata = {
   title: "Marketing Command Center · HospiOS",
@@ -45,20 +60,26 @@ export default async function MarketingAdminLayout({ children }: { children: Rea
   }
 
   const role = roleFor(user);
-  const nav: AdminNavItem[] = ALL_NAV.filter(
+  const nav = ALL_NAV.filter(
     (n) => !n.capability || hasCapability(user, n.capability),
-  ).map(({ href, label, icon }) => ({ href, label, icon }));
+  ).map((n) => ({
+    href: n.href,
+    label: n.label,
+    icon: <NavIcon name={ICONS[n.href] ?? "dashboard"} />,
+  }));
 
   return (
-    <AdminShell
+    <AppShell
+      plane={{ id: "growth", name: "HospiOS Growth" }}
       user={{
         name: user.name,
         email: user.email,
-        roleLabel: role ? ROLE_LABELS[role] : null,
+        roleLabel: role ? ROLE_LABELS[role] : "",
       }}
       nav={nav}
+      leadSearch
     >
       {children}
-    </AdminShell>
+    </AppShell>
   );
 }

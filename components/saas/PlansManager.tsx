@@ -3,6 +3,9 @@
 import { useRouter } from "next/navigation";
 import { useState } from "react";
 import { btnGhost, btnPrimary, Field, inputCls, Modal, Badge } from "@/components/marketing-admin/ui";
+import { useToast } from "@/components/ui/Toast";
+import { ConfirmDialog } from "@/components/ui/ConfirmDialog";
+import { formatMoney } from "@/lib/format";
 
 type Plan = {
   id: string;
@@ -41,9 +44,11 @@ const FEATURE_KEYS = [
 
 export default function PlansManager({ initialPlans }: { initialPlans: Plan[] }) {
   const router = useRouter();
+  const toast = useToast();
   const [plans, setPlans] = useState(initialPlans);
   const [editing, setEditing] = useState<Plan | null>(null);
   const [creating, setCreating] = useState(false);
+  const [archiving, setArchiving] = useState<Plan | null>(null);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
 
@@ -57,13 +62,13 @@ export default function PlansManager({ initialPlans }: { initialPlans: Plan[] })
   };
 
   const archive = async (id: string) => {
-    if (!confirm("Archive this plan? It stays linked to subscriptions/invoices but disappears from checkout and sync.")) return;
     const res = await fetch(`/api/saas/plans/${id}`, { method: "DELETE" });
     if (!res.ok) {
       const d = await res.json().catch(() => ({}));
-      alert(d.error ?? "Archive failed");
+      toast.error(d.error ?? "Archive failed");
       return;
     }
+    setArchiving(null);
     refresh();
   };
 
@@ -75,7 +80,7 @@ export default function PlansManager({ initialPlans }: { initialPlans: Plan[] })
 
       <div className="overflow-x-auto rounded-2xl border bg-white dark:bg-zinc-900 dark:border-zinc-800">
         <table className="w-full text-left text-sm">
-          <thead><tr className="text-xs uppercase text-zinc-400"><th className="px-3 py-2">Plan</th><th className="px-3 py-2">Slug</th><th className="px-3 py-2">Price</th><th className="px-3 py-2">Rooms</th><th className="px-3 py-2">Seats</th><th className="px-3 py-2">Trial</th><th className="px-3 py-2">Features</th><th className="px-3 py-2">State</th><th className="px-3 py-2"></th></tr></thead>
+          <thead><tr className="text-xs uppercase text-zinc-400"><th className="px-3 py-2">Plan</th><th className="px-3 py-2">Slug</th><th className="px-3 py-2">Price</th><th className="px-3 py-2">Limits</th><th className="px-3 py-2">Trial</th><th className="px-3 py-2">Features</th><th className="px-3 py-2">State</th><th className="px-3 py-2"></th></tr></thead>
           <tbody>
             {plans.map((p) => (
               <tr key={p.id} className={`border-t ${!p.isActive ? "opacity-50" : ""}`}>
@@ -85,15 +90,18 @@ export default function PlansManager({ initialPlans }: { initialPlans: Plan[] })
                   {p.isCustomPrice ? <span className="ml-1 rounded bg-zinc-200 px-1 text-[10px] font-bold text-zinc-600 dark:bg-zinc-800 dark:text-zinc-300">CUSTOM</span> : null}
                 </td>
                 <td className="px-3 py-2 font-mono text-xs">{p.slug}</td>
-                <td className="px-3 py-2">{p.isCustomPrice ? <span className="text-xs italic">Contact sales</span> : <>${(p.monthlyPrice/100).toFixed(2)}/mo · ${(p.annualPrice/100).toFixed(2)}/yr {p.currency}</>}</td>
-                <td className="px-3 py-2 text-xs">{p.roomMin ?? "?"}–{p.roomMax ?? "+"}</td>
-                <td className="px-3 py-2 text-xs">{p.adminLimit ?? "∞"} admins · {p.staffLimit ?? "∞"} staff</td>
+                <td className="px-3 py-2">{p.isCustomPrice ? <span className="text-xs italic">Contact sales</span> : <span className="whitespace-nowrap tabular-nums">{formatMoney(p.monthlyPrice, p.currency)}/mo · {formatMoney(p.annualPrice, p.currency)}/yr</span>}</td>
+                <td className="px-3 py-2 text-xs">
+                  {[["prop", p.maxProperties], ["users", p.maxUsers], ["bookings", p.maxBookings], ["GB", p.storageGb]].map(([k, v]) => (
+                    <span key={k as string} className="mr-2 whitespace-nowrap tabular-nums">{v == null ? `${k}:∞` : `${k}:${v}`}</span>
+                  ))}
+                </td>
                 <td className="px-3 py-2">{p.trialDays}d</td>
                 <td className="px-3 py-2 text-xs">{p.features ? Object.entries(p.features).filter(([,v])=>v).map(([k])=>k).join(", ") || "—" : "—"}</td>
                 <td className="px-3 py-2">{p.isActive ? <Badge>Active</Badge> : <Badge>Off</Badge>}</td>
                 <td className="px-3 py-2 flex gap-1">
                   <button onClick={() => setEditing(p)} className={btnGhost}>Edit</button>
-                  <button onClick={() => archive(p.id)} className="rounded-lg border border-red-200 px-2 py-1 text-xs text-red-600">Archive</button>
+                  <button onClick={() => setArchiving(p)} className="rounded-lg border border-red-200 px-2 py-1 text-xs text-red-600">Archive</button>
                 </td>
               </tr>
             ))}
@@ -124,6 +132,24 @@ export default function PlansManager({ initialPlans }: { initialPlans: Plan[] })
           setError={setError}
         />
       )}
+
+      <ConfirmDialog
+        action={archiving
+          ? {
+              title: "Archive plan",
+              message: `Archive "${archiving.name}"?`,
+              consequences: [
+                "The plan disappears from checkout and plan sync immediately.",
+                "Existing subscriptions and invoices keep their link to this plan.",
+                "Historical reporting is preserved.",
+              ],
+              confirmLabel: "Archive",
+              tone: "warning",
+            }
+          : null}
+        onClose={() => setArchiving(null)}
+        onConfirm={() => archiving && archive(archiving.id)}
+      />
     </div>
   );
 }
@@ -150,6 +176,12 @@ function PlanModal({ plan, onClose, onSaved, busy, setBusy, error, setError }: {
     roomMax: plan?.roomMax != null ? String(plan.roomMax) : "",
     adminLimit: plan?.adminLimit != null ? String(plan.adminLimit) : "",
     staffLimit: plan?.staffLimit != null ? String(plan.staffLimit) : "",
+    // P0 FIX (Phase 3): these four were never initialized from `plan`, so every
+    // save sent null and silently wiped the plan's limits.
+    maxProperties: plan?.maxProperties != null ? String(plan.maxProperties) : "",
+    maxUsers: plan?.maxUsers != null ? String(plan.maxUsers) : "",
+    maxBookings: plan?.maxBookings != null ? String(plan.maxBookings) : "",
+    storageGb: plan?.storageGb != null ? String(plan.storageGb) : "",
     displayOrder: plan?.displayOrder != null ? String(plan.displayOrder) : "0",
   });
   const [features, setFeatures] = useState<Record<string, boolean>>(() => {
@@ -166,17 +198,27 @@ function PlanModal({ plan, onClose, onSaved, busy, setBusy, error, setError }: {
   const submit = async () => {
     setBusy(true);
     setError("");
+    // NaN-safe cents conversion: an empty/garbage price keeps the stored value
+    // (edit) or falls back to 0 (create) instead of corrupting the plan.
+    const toCents = (raw: string, fallback: number): number => {
+      const n = Number(raw);
+      return Number.isFinite(n) && raw !== "" ? Math.round(n * 100) : fallback;
+    };
+    const toInt = (raw: string): number | null => {
+      const n = Number(raw);
+      return raw !== "" && Number.isInteger(n) && n >= 0 ? n : null;
+    };
     const payload: Record<string, unknown> = {
       name: form.name,
       slug: form.slug,
-      monthlyPrice: Math.round(Number(form.monthlyPrice) * 100),
-      annualPrice: Math.round(Number(form.annualPrice) * 100),
-      currency: form.currency,
-      trialDays: Number(form.trialDays),
-      maxProperties: form.maxProperties ? Number(form.maxProperties) : null,
-      maxUsers: form.maxUsers ? Number(form.maxUsers) : null,
-      maxBookings: form.maxBookings ? Number(form.maxBookings) : null,
-      storageGb: form.storageGb ? Number(form.storageGb) : null,
+      monthlyPrice: toCents(form.monthlyPrice, plan?.monthlyPrice ?? 0),
+      annualPrice: toCents(form.annualPrice, plan?.annualPrice ?? 0),
+      currency: form.currency.trim().toUpperCase().slice(0, 3) || "USD",
+      trialDays: Number.isFinite(Number(form.trialDays)) ? Number(form.trialDays) : 0,
+      maxProperties: toInt(form.maxProperties),
+      maxUsers: toInt(form.maxUsers),
+      maxBookings: toInt(form.maxBookings),
+      storageGb: toInt(form.storageGb),
       // Merge over the plan's existing feature JSON — the modal only edits a
       // subset (cardFeatures etc. must survive the save).
       features: plan ? { ...(plan.features ?? {}), ...features } : features,
@@ -208,10 +250,14 @@ function PlanModal({ plan, onClose, onSaved, busy, setBusy, error, setError }: {
       <div className="grid gap-3 md:grid-cols-2">
         <Field label="Name" required><input className={inputCls} value={form.name} onChange={set("name")} /></Field>
         <Field label="Slug" required><input className={inputCls} value={form.slug} onChange={set("slug")} placeholder="starter" /></Field>
-        <Field label="Monthly $"><input className={inputCls} type="number" step="0.01" value={form.monthlyPrice} onChange={set("monthlyPrice")} disabled={isCustomPrice} /></Field>
-        <Field label="Annual $"><input className={inputCls} type="number" step="0.01" value={form.annualPrice} onChange={set("annualPrice")} disabled={isCustomPrice} /></Field>
-        <Field label="Currency"><input className={inputCls} value={form.currency} onChange={set("currency")} maxLength={3} /></Field>
+        <Field label={`Monthly price (${form.currency || "USD"})`}><input className={inputCls} type="number" step="0.01" value={form.monthlyPrice} onChange={set("monthlyPrice")} disabled={isCustomPrice} /></Field>
+        <Field label={`Annual price (${form.currency || "USD"})`}><input className={inputCls} type="number" step="0.01" value={form.annualPrice} onChange={set("annualPrice")} disabled={isCustomPrice} /></Field>
+        <Field label="Currency (ISO 4217)"><input className={inputCls} value={form.currency} onChange={set("currency")} maxLength={3} placeholder="USD" /></Field>
         <Field label="Trial Days"><input className={inputCls} type="number" value={form.trialDays} onChange={set("trialDays")} /></Field>
+        <Field label="Max Properties"><input className={inputCls} type="number" min="0" value={form.maxProperties} onChange={set("maxProperties")} placeholder="blank = unlimited" /></Field>
+        <Field label="Max Users"><input className={inputCls} type="number" min="0" value={form.maxUsers} onChange={set("maxUsers")} placeholder="blank = unlimited" /></Field>
+        <Field label="Max Bookings / month"><input className={inputCls} type="number" min="0" value={form.maxBookings} onChange={set("maxBookings")} placeholder="blank = unlimited" /></Field>
+        <Field label="Storage (GB)"><input className={inputCls} type="number" min="0" step="0.1" value={form.storageGb} onChange={set("storageGb")} placeholder="blank = unlimited" /></Field>
         <Field label="Tagline"><input className={inputCls} value={form.tagline} onChange={set("tagline")} placeholder="For small hotels & growing guesthouses" /></Field>
         <Field label="Descriptor"><input className={inputCls} value={form.descriptor} onChange={set("descriptor")} placeholder="Best for growing properties" /></Field>
         <Field label="Room Min"><input className={inputCls} type="number" value={form.roomMin} onChange={set("roomMin")} placeholder="7" /></Field>

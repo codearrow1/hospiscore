@@ -51,8 +51,8 @@ export default function BillingManager({ orgs }: { orgs: { id: string; legalName
             </select>
           </Field>
           <div className="grid grid-cols-2 gap-3">
-            <Field label="Amount $"><input className={inputCls} type="number" step="0.01" value={form.amount ?? ""} onChange={set("amount")} /></Field>
-            <Field label="Currency"><input className={inputCls} value={form.currency ?? "USD"} onChange={set("currency")} /></Field>
+            <Field label={`Amount (${form.currency || "USD"})`}><input className={inputCls} type="number" step="0.01" value={form.amount ?? ""} onChange={set("amount")} /></Field>
+            <Field label="Currency"><input className={inputCls} value={form.currency ?? "USD"} onChange={set("currency")} maxLength={3} /></Field>
           </div>
           <div className="grid grid-cols-2 gap-3">
             <Field label="Type"><select className={inputCls} value={form.type ?? "subscription"} onChange={set("type")}><option value="subscription">subscription</option><option value="addon">addon</option><option value="usage">usage</option><option value="onetime">onetime</option><option value="credit">credit</option></select></Field>
@@ -74,7 +74,7 @@ export default function BillingManager({ orgs }: { orgs: { id: string; legalName
           </Field>
           <Field label="Invoice ID (optional)"><input className={inputCls} value={form.invoiceId ?? ""} onChange={set("invoiceId")} /></Field>
           <div className="grid grid-cols-2 gap-3">
-            <Field label="Amount $"><input className={inputCls} type="number" step="0.01" value={form.amount ?? ""} onChange={set("amount")} /></Field>
+            <Field label="Amount (invoice currency)"><input className={inputCls} type="number" step="0.01" value={form.amount ?? ""} onChange={set("amount")} /></Field>
             <Field label="Gateway"><select className={inputCls} value={form.gateway ?? "manual"} onChange={set("gateway")}><option value="manual">manual</option><option value="stripe">stripe</option><option value="razorpay">razorpay</option></select></Field>
           </div>
           <Field label="Idempotency Key"><input className={inputCls} value={form.idempotencyKey ?? ""} onChange={set("idempotencyKey")} placeholder="prevents double payment" /></Field>

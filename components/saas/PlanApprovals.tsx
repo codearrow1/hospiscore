@@ -2,6 +2,7 @@
 
 import { useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
+import { ConfirmDialog } from "@/components/ui/ConfirmDialog";
 
 export interface ApprovalRequestView {
   id: string;
@@ -19,6 +20,8 @@ export interface ApprovalRequestView {
   proposedSnapshot: Record<string, unknown> | null;
   plan?: { name?: string; slug?: string; version?: number } | null;
 }
+
+export type ApprovalImpact = { subscribers: number; mrrCents: number; newMonthly: number | null };
 
 const FIELDS: [string, string][] = [
   ["name", "Name"],
@@ -65,11 +68,16 @@ function StatusBadge({ status }: { status: string }) {
   );
 }
 
-export default function PlanApprovals({ requests, isSuper }: { requests: ApprovalRequestView[]; isSuper: boolean }) {
+export default function PlanApprovals({ requests, isSuper, impact = {} }: {
+  requests: ApprovalRequestView[];
+  isSuper: boolean;
+  impact?: Record<string, ApprovalImpact>;
+}) {
   const router = useRouter();
   const [busy, setBusy] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [rejecting, setRejecting] = useState<string | null>(null);
+  const [approving, setApproving] = useState<ApprovalRequestView | null>(null);
   const [reason, setReason] = useState("");
   const [filter, setFilter] = useState<"pending" | "all">("pending");
 
@@ -151,6 +159,15 @@ export default function PlanApprovals({ requests, isSuper }: { requests: Approva
               ))}
             </dl>
             {r.reason && <p className="mt-2 text-sm text-zinc-600 dark:text-zinc-400">Reason: {r.reason}</p>}
+            {impact[r.id] && (impact[r.id].subscribers > 0 || impact[r.id].newMonthly != null) && (
+              <p className="mt-2 rounded-lg bg-zinc-50 px-2.5 py-1.5 text-xs text-zinc-600 dark:bg-zinc-800/60 dark:text-zinc-300">
+                <strong className="font-semibold">Impact:</strong>{" "}
+                {impact[r.id].subscribers} active subscriber{impact[r.id].subscribers === 1 ? "" : "s"} on this plan
+                {impact[r.id].newMonthly != null && (
+                  <> · proposed monthly price ${(impact[r.id].newMonthly as number) / 100}{impact[r.id].subscribers > 0 ? " applies at renewal" : ""}</>
+                )}
+              </p>
+            )}
             {r.status === "rejected" && r.rejectionReason && (
               <p className="mt-2 text-sm text-rose-600">Rejected: {r.rejectionReason}</p>
             )}
@@ -163,7 +180,7 @@ export default function PlanApprovals({ requests, isSuper }: { requests: Approva
               <div className="mt-3 flex flex-wrap items-center gap-2">
                 <button
                   disabled={busy !== null}
-                  onClick={() => act(r.id, "approve")}
+                  onClick={() => setApproving(r)}
                   className="rounded-md bg-emerald-600 px-3 py-1.5 text-xs font-semibold text-white hover:bg-emerald-500 disabled:opacity-50"
                 >
                   Approve
@@ -200,6 +217,27 @@ export default function PlanApprovals({ requests, isSuper }: { requests: Approva
           </div>
         );
       })}
+
+      <ConfirmDialog
+        action={
+          approving
+            ? {
+                title: "Approve plan change",
+                message: `${ACTION_LABELS[approving.action] ?? approving.action} — ${String(approving.plan?.name ?? approving.proposedSnapshot?.name ?? "Plan")}`,
+                consequences: [
+                  "The proposal is applied to the canonical plan and versioned.",
+                  "The storefront baseline re-syncs immediately.",
+                  ...(impact[approving.id]?.subscribers > 0 ? [`Affects ${impact[approving.id].subscribers} existing subscriber${impact[approving.id].subscribers === 1 ? "" : "s"} at their next renewal.`] : []),
+                  "This decision is recorded on the audit log under your account.",
+                ],
+                confirmLabel: "Approve",
+                tone: "primary",
+              }
+            : null
+        }
+        onClose={() => setApproving(null)}
+        onConfirm={() => approving && act(approving.id, "approve")}
+      />
     </div>
   );
 }

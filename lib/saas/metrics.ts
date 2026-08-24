@@ -1,4 +1,7 @@
 import { prisma } from "@/lib/prisma";
+import { listDunningCases } from "./dunning";
+import { isSlaBreached, listTickets } from "./support";
+import { listRequests } from "./planSync";
 
 export type SaasMetrics = {
   generatedAt: string;
@@ -7,6 +10,7 @@ export type SaasMetrics = {
   totalCustomers: number;
   activeCustomers: number;
   newCustomers7d: number;
+  newCustomersWindow: number;
   trials: number;
   trialConversion: number | null; // %
   churnRate: number | null;
@@ -23,8 +27,9 @@ function dayKey(d: Date): string {
   return d.toISOString().slice(0, 10);
 }
 
-export async function saasMetrics(): Promise<SaasMetrics> {
+export async function saasMetrics(windowDays = 14): Promise<SaasMetrics> {
   const now = new Date();
+  const windowStart = new Date(now.getTime() - Math.max(windowDays, 1) * 86400000);
   const sevenDaysAgo = new Date(now.getTime() - 7 * 86400000);
   const thirtyDaysAgo = new Date(now.getTime() - 30 * 86400000);
 
@@ -37,6 +42,7 @@ export async function saasMetrics(): Promise<SaasMetrics> {
   const totalCustomers = orgs.length;
   const activeCustomers = orgs.filter((o) => o.status === "active").length;
   const newCustomers7d = orgs.filter((o) => o.createdAt >= sevenDaysAgo).length;
+  const newCustomersWindow = orgs.filter((o) => o.createdAt >= windowStart).length;
 
   const activeSubs = subs.filter((s) => ["active", "past_due", "grace"].includes(s.status));
   const trials = subs.filter((s) => s.status === "trial").length;
@@ -52,12 +58,13 @@ export async function saasMetrics(): Promise<SaasMetrics> {
   const converted = subs.filter((s) => s.createdAt >= thirtyDaysAgo && s.status === "active").length;
   const trialConversion = trials30 > 0 ? Math.round((converted / Math.max(trials30, 1)) * 1000) / 10 : null;
 
-  // MRR growth last 14 days (simplified: cumulative MRR of subs created each day)
+  // MRR growth over the window (simplified: cumulative MRR of subs created each day)
   const mrrGrowth: { day: string; mrr: number }[] = [];
+  const span = Math.max(Math.round(windowDays), 2);
   const start = new Date(now);
-  start.setDate(start.getDate() - 13);
+  start.setDate(start.getDate() - (span - 1));
   start.setHours(0, 0, 0, 0);
-  for (let i = 0; i < 14; i++) {
+  for (let i = 0; i < span; i++) {
     const day = new Date(start.getTime() + i * 86400000);
     const key = dayKey(day).slice(5);
     const daySubs = subs.filter((s) => s.createdAt <= new Date(day.getTime() + 86400000) && ["active", "trial", "past_due", "grace"].includes(s.status));
@@ -96,6 +103,7 @@ export async function saasMetrics(): Promise<SaasMetrics> {
     totalCustomers,
     activeCustomers,
     newCustomers7d,
+    newCustomersWindow,
     trials,
     trialConversion,
     churnRate,
@@ -112,4 +120,56 @@ export async function saasMetrics(): Promise<SaasMetrics> {
 export function centsToLabel(cents: number | null): string {
   if (cents == null || cents === 0) return "—";
   return `$${(cents / 100).toLocaleString("en-US", { minimumFractionDigits: 2 })}`;
+}
+
+export type SaasOpsSummary = {
+  outstandingArCents: number;
+  openInvoiceCount: number;
+  overdueInvoiceCount: number;
+  dunningActiveCount: number;
+  slaBreachedCount: number;
+  pendingApprovalCount: number;
+};
+
+const OPEN_INVOICE_STATUSES = ["issued", "past_due", "partially_paid"];
+
+/** Operational exceptions for the console overview (read-only, additive). */
+export async function saasOpsSummary(): Promise<SaasOpsSummary> {
+  const [invoices, payments, dunning, tickets, approvals] = await Promise.all([
+    prisma.invoice.findMany({
+      where: { status: { in: OPEN_INVOICE_STATUSES } },
+      select: { id: true, amount: true, status: true, dueAt: true },
+    }),
+    prisma.payment.findMany({
+      where: { invoiceId: { not: null }, status: "succeeded" },
+      select: { invoiceId: true, amount: true },
+    }),
+    listDunningCases({ status: "active" }),
+    listTickets(),
+    listRequests("pending"),
+  ]);
+
+  const paidByInvoice = new Map<string, number>();
+  for (const p of payments) {
+    if (!p.invoiceId) continue;
+    paidByInvoice.set(p.invoiceId, (paidByInvoice.get(p.invoiceId) ?? 0) + p.amount);
+  }
+
+  const now = Date.now();
+  let outstandingArCents = 0;
+  let overdueInvoiceCount = 0;
+  for (const inv of invoices) {
+    const remaining = inv.status === "partially_paid" ? Math.max(inv.amount - (paidByInvoice.get(inv.id) ?? 0), 0) : inv.amount;
+    outstandingArCents += remaining;
+    if (inv.status === "past_due" || (inv.dueAt && inv.dueAt.getTime() < now)) overdueInvoiceCount += 1;
+  }
+
+  return {
+    outstandingArCents,
+    openInvoiceCount: invoices.length,
+    overdueInvoiceCount,
+    dunningActiveCount: dunning.items.length,
+    slaBreachedCount: tickets.items.filter(isSlaBreached).length,
+    pendingApprovalCount: approvals.length,
+  };
 }

@@ -3,11 +3,8 @@ import { redirect } from "next/navigation";
 import { getCurrentUser } from "@/lib/sessionCookie";
 import { canAccess, ROLE_LABELS, roleFor } from "@/lib/marketing/roles";
 import { readData } from "@/lib/db";
-import Header from "@/components/Header";
-import PortalNav from "@/components/portal/PortalNav";
 import { SectionCard, Badge, EmptyState } from "@/components/marketing-admin/ui";
 import { PIPELINE_STAGES } from "@/lib/marketing/types";
-import { resolveAppRole } from "@/lib/rbac";
 
 export const dynamic = "force-dynamic";
 export const runtime = "nodejs";
@@ -34,7 +31,6 @@ export default async function SubadminDashboard() {
     .sort((a, b) => b.createdAt.localeCompare(a.createdAt))
     .slice(0, 8);
   const role = roleFor(user);
-  const appRole = (await resolveAppRole(user)) ?? "subadmin";
 
   const kpis: { label: string; value: string; hint?: string }[] = [
     { label: "Total leads", value: String(leads.length) },
@@ -44,11 +40,8 @@ export default async function SubadminDashboard() {
   ];
 
   return (
-    <div className="min-h-screen flex flex-col">
-      <Header />
-      <PortalNav role={appRole} />
-      <main className="mx-auto w-full max-w-5xl flex-1 px-4 py-8 space-y-6">
-        <div className="flex items-center justify-between">
+    <div className="space-y-6">
+      <div className="flex items-center justify-between">
           <div>
             <h1 className="text-2xl font-bold">Subadmin Dashboard</h1>
             <p className="mt-1 text-sm text-zinc-600">
@@ -108,7 +101,6 @@ export default async function SubadminDashboard() {
           Full CRM lives in{" "}
           <Link className="underline" href="/marketing-admin/leads">Marketing Admin → Leads</Link>.
         </p>
-      </main>
-    </div>
+      </div>
   );
 }

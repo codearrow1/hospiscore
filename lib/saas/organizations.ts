@@ -13,7 +13,17 @@ export type OrgInput = {
   primaryContact?: { name: string; email: string; phone?: string };
 };
 
-export async function listOrganizations(opts?: { q?: string; country?: string; status?: string; take?: number; skip?: number }) {
+export type OrgSortField = "createdAt" | "legalName" | "mrr" | "healthScore";
+
+export async function listOrganizations(opts?: {
+  q?: string;
+  country?: string;
+  status?: string;
+  take?: number;
+  skip?: number;
+  sort?: OrgSortField;
+  dir?: "asc" | "desc";
+}) {
   const where: Record<string, unknown> = {};
   if (opts?.q) {
     // SQLite has no Prisma `mode:"insensitive"` (it throws at runtime).
@@ -26,17 +36,30 @@ export async function listOrganizations(opts?: { q?: string; country?: string; s
   }
   if (opts?.country) where.country = opts.country;
   if (opts?.status) where.status = opts.status;
+  const sort: OrgSortField = opts?.sort && ["createdAt", "legalName", "mrr", "healthScore"].includes(opts.sort) ? opts.sort : "createdAt";
+  const orderBy: Record<string, "asc" | "desc"> = { [sort]: opts?.dir === "asc" ? "asc" : "desc" };
   const [items, total] = await Promise.all([
     prisma.organization.findMany({
       where,
       include: { contacts: true, properties: true, subscriptions: { include: { plan: true } } },
-      orderBy: { createdAt: "desc" },
+      orderBy,
       take: opts?.take ?? 50,
       skip: opts?.skip ?? 0,
     }),
     prisma.organization.count({ where }),
   ]);
   return { items, total };
+}
+
+/** Distinct countries present across organizations — powers the country filter. */
+export async function listOrganizationCountries(): Promise<string[]> {
+  const rows = await prisma.organization.findMany({
+    where: { country: { not: null } },
+    select: { country: true },
+    distinct: ["country"],
+    orderBy: { country: "asc" },
+  });
+  return rows.map((r) => r.country as string);
 }
 
 export async function getOrganization(id: string) {

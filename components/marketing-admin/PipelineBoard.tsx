@@ -5,7 +5,10 @@ import { useRouter } from "next/navigation";
 import { useState } from "react";
 import { STAGE_LABELS, STAGE_STYLES, STAGE_ORDER } from "@/lib/marketing/stages";
 import { canMove } from "@/lib/marketing/stages";
+import type { LostReason } from "@/lib/marketing/stages";
 import type { LeadStage } from "@/lib/marketing/types";
+import { useToast } from "@/components/ui/Toast";
+import { LostReasonDialog } from "./LostReasonDialog";
 
 export interface PipelineLead {
   id: string;
@@ -19,7 +22,9 @@ export interface PipelineLead {
 
 export default function PipelineBoard({ leads }: { leads: PipelineLead[] }) {
   const router = useRouter();
+  const toast = useToast();
   const [busy, setBusy] = useState(false);
+  const [losing, setLosing] = useState<{ lead: PipelineLead; to: LeadStage } | null>(null);
 
   const groups = STAGE_ORDER.reduce<Record<string, PipelineLead[]>>((acc, s) => {
     acc[s] = [];
@@ -29,26 +34,27 @@ export default function PipelineBoard({ leads }: { leads: PipelineLead[] }) {
     (groups[lead.stage] ??= []).push(lead);
   }
 
-  const move = async (id: string, from: LeadStage, to: LeadStage) => {
+  const move = async (id: string, from: LeadStage, to: LeadStage, lostReason?: LostReason) => {
     if (!to || to === from) return;
     setBusy(true);
     const body: Record<string, unknown> = { stage: to };
-    if (to === "lost") {
-      const reason = window.prompt("Lost reason? budget / chose_competitor / no_response / timing / feature_gap / pricing / other");
-      if (!reason) {
-        setBusy(false);
-        return;
-      }
-      body.lostReason = reason;
-    }
+    if (to === "lost" && lostReason) body.lostReason = lostReason;
     const res = await fetch(`/api/marketing/leads/${id}/stage`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify(body),
     });
     setBusy(false);
-    if (res.ok) router.refresh();
-    else alert((await res.json()).error ?? "Could not move lead");
+    if (res.ok) {
+      setLosing(null);
+      router.refresh();
+    } else toast.error((await res.json().catch(() => ({}))).error ?? "Could not move lead");
+  };
+
+  /** Intercept moves: marking lost requires a structured reason. */
+  const requestMove = (lead: PipelineLead, to: LeadStage) => {
+    if (to === "lost") setLosing({ lead, to });
+    else void move(lead.id, lead.stage, to);
   };
 
   return (
@@ -98,7 +104,7 @@ export default function PipelineBoard({ leads }: { leads: PipelineLead[] }) {
                         value={lead.stage}
                         disabled={busy}
                         aria-label={`Move ${lead.name}`}
-                        onChange={(e) => move(lead.id, lead.stage, e.target.value as LeadStage)}
+                        onChange={(e) => requestMove(lead, e.target.value as LeadStage)}
                         className="rounded-md border border-zinc-200 bg-white px-1 py-0.5 text-[10px] text-zinc-600 outline-none focus:border-indigo-400 dark:border-zinc-700 dark:bg-zinc-800 dark:text-zinc-200"
                       >
                         <option value={lead.stage}>{STAGE_LABELS[lead.stage]}</option>
@@ -116,6 +122,19 @@ export default function PipelineBoard({ leads }: { leads: PipelineLead[] }) {
           </div>
         );
       })}
+
+      {losing && (
+        <LostReasonDialog
+          leadName={losing.lead.name}
+          onClose={() => setLosing(null)}
+          onConfirm={(reason) => {
+            const target = losing;
+            setLosing(null);
+            void move(target.lead.id, target.lead.stage, target.to, reason);
+          }}
+          busy={busy}
+        />
+      )}
     </div>
   );
 }

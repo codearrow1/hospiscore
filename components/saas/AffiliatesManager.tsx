@@ -3,6 +3,7 @@
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { btnGhost, btnPrimary, Field, inputCls, Modal, Badge } from "@/components/marketing-admin/ui";
+import { useToast } from "@/components/ui/Toast";
 
 type Aff = { id: string; name: string; email: string; status: string; referralCode: string; tier: string; commissionModel: string; commissionValue: number; website?: string | null; country?: string | null };
 
@@ -13,6 +14,7 @@ export default function AffiliatesManager({ initialAffiliates, initialCommission
   canManage: boolean; canApprove: boolean; canPayout: boolean;
 }) {
   const router = useRouter();
+  const toast = useToast();
   const [affiliates, setAffiliates] = useState(initialAffiliates);
   const [creating, setCreating] = useState(false);
   const [form, setForm] = useState<Record<string, string>>({});
@@ -41,13 +43,13 @@ export default function AffiliatesManager({ initialAffiliates, initialCommission
 
   const setStatus = async (id: string, status: string) => {
     const res = await fetch(`/api/saas/affiliates/${id}`, { method: "PATCH", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ status }) });
-    if (!res.ok) { const d = await res.json().catch(()=>({})); alert(d.error ?? "Update failed"); return; }
+    if (!res.ok) { const d = await res.json().catch(()=>({})); toast.error(d.error ?? "Update failed"); return; }
     refresh();
   };
 
   const createPayout = async () => {
     const res = await fetch("/api/saas/payouts", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ affiliateId: payoutAff, amount: Number(payoutAmount) }) });
-    if (!res.ok) { const d = await res.json().catch(()=>({})); alert(d.error ?? "Payout failed"); return; }
+    if (!res.ok) { const d = await res.json().catch(()=>({})); toast.error(d.error ?? "Payout failed"); return; }
     setPayoutAff(""); setPayoutAmount(""); router.refresh();
   };
 
@@ -98,7 +100,7 @@ export default function AffiliatesManager({ initialAffiliates, initialCommission
                 <option value="">Select affiliate…</option>
                 {affiliates.map((a) => <option key={a.id} value={a.id}>{a.name}</option>)}
               </select>
-              <input className="w-24 rounded-lg border px-2 py-1 text-xs dark:bg-zinc-800" placeholder="$ cents" type="number" value={payoutAmount} onChange={(e) => setPayoutAmount(e.target.value)} />
+              <input className="w-24 rounded-lg border px-2 py-1 text-xs dark:bg-zinc-800" placeholder="cents" type="number" value={payoutAmount} onChange={(e) => setPayoutAmount(e.target.value)} />
               <button className={btnGhost} disabled={!payoutAff || !Number(payoutAmount)} onClick={createPayout}>+ Payout</button>
             </div>
           )}

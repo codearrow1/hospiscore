@@ -3,6 +3,7 @@
 import { useRouter } from "next/navigation";
 import { useState } from "react";
 import { btnGhost, btnPrimary, Field, inputCls, SectionCard } from "./ui";
+import { ConfirmDialog } from "@/components/ui/ConfirmDialog";
 
 export interface FormConfigRow {
   slug: string;
@@ -33,6 +34,7 @@ export default function FormsManager({ forms }: { forms: FormConfigRow[] }) {
   const [rows, setRows] = useState<FormConfigRow[]>(() => structuredClone(forms));
   const [status, setStatus] = useState("");
   const [busy, setBusy] = useState(false);
+  const [confirmReset, setConfirmReset] = useState(false);
   const [open, setOpen] = useState<string | null>(rows[0]?.slug ?? null);
 
   const patch = (slug: string, p: Partial<FormConfigRow>) =>
@@ -78,7 +80,6 @@ export default function FormsManager({ forms }: { forms: FormConfigRow[] }) {
   };
 
   const reset = async () => {
-    if (!window.confirm("Reset all forms to the built-in defaults?")) return;
     setBusy(true);
     setStatus("");
     const res = await fetch("/api/marketing/forms", { method: "DELETE" });
@@ -88,6 +89,7 @@ export default function FormsManager({ forms }: { forms: FormConfigRow[] }) {
       setStatus(data.error ?? "Reset failed");
       return;
     }
+    setConfirmReset(false);
     setStatus("Forms reset to defaults.");
     router.refresh();
   };
@@ -105,7 +107,7 @@ export default function FormsManager({ forms }: { forms: FormConfigRow[] }) {
           Each public form submits to the marketing pipeline. Changes apply to new submissions only.
         </p>
         <div className="flex gap-2">
-          <button className={btnGhost} onClick={reset} disabled={busy}>Reset to defaults</button>
+          <button className={btnGhost} onClick={() => setConfirmReset(true)} disabled={busy}>Reset to defaults</button>
           <button className={btnPrimary} onClick={save} disabled={busy}>
             {busy ? "Saving…" : "Save all changes"}
           </button>
@@ -233,6 +235,25 @@ export default function FormsManager({ forms }: { forms: FormConfigRow[] }) {
           </SectionCard>
         );
       })}
+
+      <ConfirmDialog
+        action={confirmReset
+          ? {
+              title: "Reset all forms",
+              message: "Reset every form configuration to the built-in defaults?",
+              consequences: [
+                "All custom fields, destinations, and auto-reply copy are discarded.",
+                "Live website forms fall back to the default schema immediately.",
+                "This action cannot be undone.",
+              ],
+              confirmLabel: "Reset forms",
+              tone: "danger",
+            }
+          : null}
+        onClose={() => setConfirmReset(false)}
+        onConfirm={reset}
+        busy={busy}
+      />
     </div>
   );
 }

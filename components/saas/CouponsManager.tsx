@@ -3,6 +3,8 @@
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { btnGhost, btnPrimary, Field, inputCls, Modal, Badge } from "@/components/marketing-admin/ui";
+import { useToast } from "@/components/ui/Toast";
+import { ConfirmDialog } from "@/components/ui/ConfirmDialog";
 
 type Coupon = {
   id: string; code: string; description?: string | null; type: string; value: number;
@@ -12,8 +14,10 @@ type Coupon = {
 
 export default function CouponsManager({ initialCoupons, canManage }: { initialCoupons: Coupon[]; canManage: boolean }) {
   const router = useRouter();
+  const toast = useToast();
   const [coupons, setCoupons] = useState(initialCoupons);
   const [creating, setCreating] = useState(false);
+  const [archiving, setArchiving] = useState<Coupon | null>(null);
   const [form, setForm] = useState<Record<string, string>>({ type: "percent", duration: "once" });
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
@@ -48,7 +52,8 @@ export default function CouponsManager({ initialCoupons, canManage }: { initialC
 
   const toggle = async (id: string, isActive: boolean) => {
     const res = await fetch(`/api/saas/coupons/${id}`, { method: "PATCH", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ isActive }) });
-    if (!res.ok) { const d = await res.json().catch(() => ({})); alert(d.error ?? "Update failed"); return; }
+    if (!res.ok) { const d = await res.json().catch(() => ({})); toast.error(d.error ?? "Update failed"); return; }
+    setArchiving(null);
     refresh();
   };
 
@@ -73,7 +78,9 @@ export default function CouponsManager({ initialCoupons, canManage }: { initialC
                 <td className="px-3 py-2 text-xs">${((c.totalDiscounted ?? 0) / 100).toFixed(2)}</td>
                 <td className="px-3 py-2"><Badge>{c.isActive ? "active" : "archived"}</Badge></td>
                 <td className="px-3 py-2">
-                  {canManage && <button onClick={() => toggle(c.id, !c.isActive)} className={btnGhost}>{c.isActive ? "Archive" : "Activate"}</button>}
+                  {canManage && (c.isActive
+                    ? <button onClick={() => setArchiving(c)} className={btnGhost}>Archive</button>
+                    : <button onClick={() => toggle(c.id, true)} className={btnGhost}>Activate</button>)}
                 </td>
               </tr>
             ))}
@@ -83,11 +90,12 @@ export default function CouponsManager({ initialCoupons, canManage }: { initialC
       </div>
 
       <Modal open={creating} onClose={() => setCreating(false)} title="New Coupon">
+
         <div className="space-y-3">
           <div className="grid grid-cols-2 gap-3">
             <Field label="Code (blank = auto)"><input className={inputCls} value={form.code ?? ""} onChange={set("code")} /></Field>
             <Field label="Description"><input className={inputCls} value={form.description ?? ""} onChange={set("description")} /></Field>
-            <Field label="Type" required><select className={inputCls} value={form.type} onChange={set("type")}><option value="percent">percent</option><option value="fixed">fixed ($)</option></select></Field>
+            <Field label="Type" required><select className={inputCls} value={form.type} onChange={set("type")}><option value="percent">percent</option><option value="fixed">fixed (cents)</option></select></Field>
             <Field label={form.type === "percent" ? "Value (bps: 2000 = 20%)" : "Value (cents)"} required><input className={inputCls} type="number" value={form.value ?? ""} onChange={set("value")} /></Field>
             <Field label="Duration" required><select className={inputCls} value={form.duration} onChange={set("duration")}><option value="once">once</option><option value="repeating">repeating</option><option value="forever">forever</option></select></Field>
             {form.duration === "repeating" && <Field label="Months" required><input className={inputCls} type="number" min={1} max={36} value={form.months ?? ""} onChange={set("months")} /></Field>}
@@ -101,6 +109,24 @@ export default function CouponsManager({ initialCoupons, canManage }: { initialC
           </div>
         </div>
       </Modal>
+
+      <ConfirmDialog
+        action={archiving
+          ? {
+              title: "Archive coupon",
+              message: `Archive "${archiving.code}"?`,
+              consequences: [
+                "The code stops applying at checkout immediately.",
+                "Past redemptions and reporting history are kept.",
+                "You can reactivate it later from this list.",
+              ],
+              confirmLabel: "Archive",
+              tone: "warning",
+            }
+          : null}
+        onClose={() => setArchiving(null)}
+        onConfirm={() => archiving && toggle(archiving.id, false)}
+      />
     </div>
   );
 }

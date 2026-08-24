@@ -2,7 +2,11 @@
 
 import { useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
-import { btnGhost, btnPrimary, Field, inputCls, Modal, Badge } from "@/components/marketing-admin/ui";
+import { btnGhost, btnPrimary, Field, inputCls, Modal } from "@/components/marketing-admin/ui";
+import { useToast } from "@/components/ui/Toast";
+import { ConfirmDialog } from "@/components/ui/ConfirmDialog";
+import { StatusBadge } from "@/components/ui/Badge";
+import { formatMoney } from "@/lib/format";
 
 type Sub = {
   id: string;
@@ -21,145 +25,310 @@ type Sub = {
 type OrgOpt = { id: string; legalName: string; country?: string | null };
 type PlanOpt = { id: string; name: string; slug: string; isCustomPrice?: boolean; isActive?: boolean };
 type CountryOpt = { code: string; name: string; currency: string };
+type Filters = { status: string; plan: string; country: string; currency: string; cycle: string };
 
 const STATUSES = ["trial", "active", "past_due", "grace", "suspended", "cancelled", "expired", "paused"] as const;
 
-const COUNTRY_NAMES = new Map<string, string>();
+/** Authoritative lifecycle graph — mirrors lib/saas/subscriptions.ts. */
+const ALLOWED_TRANSITIONS: Record<string, string[]> = {
+  trial: ["active", "cancelled", "expired", "past_due"],
+  active: ["past_due", "grace", "suspended", "cancelled", "paused", "expired"],
+  past_due: ["grace", "suspended", "cancelled", "active"],
+  grace: ["suspended", "cancelled", "active"],
+  suspended: ["cancelled", "expired", "active"],
+  cancelled: ["expired"],
+  expired: [],
+  paused: ["active", "cancelled"],
+};
 
-/** Authoritative charged-amount display. Legacy USD rows (unitAmount null)
- * keep their historical cents-based MRR snapshot; newer rows show their own
- * market currency at face value — never converted or re-labelled. */
+const STATUS_EXPLANATIONS: Record<string, string> = {
+  trial: "Free evaluation window. Converts to active, or ends in cancelled/expired.",
+  active: "Paying and healthy. Renews at each period boundary.",
+  past_due: "Latest payment failed. Retry schedule is running (day 1/3/5/7).",
+  grace: "Final courtesy window after past_due before access is cut.",
+  suspended: "Access is blocked. Billing is held; data is retained.",
+  cancelled: "Ended by choice or policy. Terminal unless expired transition is recorded.",
+  expired: "Historical record only. No further transitions.",
+  paused: "Temporary hold requested by the customer — no new invoices, resumes on reactivate.",
+};
+
+/** Per-target consequence copy so every mutation is explicit. */
+const TRANSITION_COPY: Record<string, { title: string; consequences: string[]; tone: "danger" | "warning" | "primary" }> = {
+  active: {
+    title: "Reactivate subscription",
+    tone: "primary",
+    consequences: [
+      "The customer regains workspace access immediately.",
+      "Billing resumes on the next sweep with the existing plan and cycle.",
+      "Recorded on the audit log under your account.",
+    ],
+  },
+  past_due: {
+    title: "Mark as past due",
+    tone: "warning",
+    consequences: [
+      "Starts the dunning retry schedule (days 1, 3, 5, 7).",
+      "The customer sees a payment-failed notice in their portal.",
+    ],
+  },
+  grace: {
+    title: "Move to grace period",
+    tone: "warning",
+    consequences: [
+      "This is the last courtesy window before suspension.",
+      "The customer is prompted to update their payment method.",
+    ],
+  },
+  suspended: {
+    title: "Suspend subscription",
+    tone: "danger",
+    consequences: [
+      "The customer immediately loses access to their workspace.",
+      "Billing stops generating new invoices while suspended.",
+      "Data is retained; reactivation restores access without data loss.",
+    ],
+  },
+  cancelled: {
+    title: "Cancel subscription",
+    tone: "danger",
+    consequences: [
+      "The subscription ends — this is the point of no return before expiry.",
+      "The customer loses access at the end of the current period.",
+      "Historical invoices and usage stay intact for reporting.",
+    ],
+  },
+  expired: {
+    title: "Expire subscription",
+    tone: "danger",
+    consequences: [
+      "The subscription becomes a terminal historical record.",
+      "No further lifecycle actions are possible after this.",
+    ],
+  },
+  paused: {
+    title: "Pause subscription",
+    tone: "warning",
+    consequences: [
+      "No new invoices are generated while paused.",
+      "The customer keeps read-only portal visibility.",
+      "Resume anytime via the Reactivate action.",
+    ],
+  },
+};
+
 function amountLabel(s: Sub): string {
-  if (s.unitAmount !== null && s.unitAmount !== undefined) return `${s.unitAmount.toLocaleString()} ${s.currency}`;
-  if (s.currency === "USD") return `$${(s.mrr / 100).toFixed(2)} USD`;
-  return `— ${s.currency}`;
+  if (s.unitAmount !== null && s.unitAmount !== undefined) return formatMoney(s.unitAmount, s.currency);
+  return formatMoney(s.mrr, s.currency);
 }
 
-export default function SubscriptionsManager({ initialSubs, orgs, plans, countries }: {
+export default function SubscriptionsManager({ initialSubs, orgs, plans, countries, filters }: {
   initialSubs: Sub[];
   orgs: OrgOpt[];
   plans: PlanOpt[];
   countries: CountryOpt[];
+  filters: Filters;
 }) {
   const router = useRouter();
-  const [subs, setSubs] = useState(initialSubs);
+  const toast = useToast();
+  const [subs] = useState(initialSubs);
   const [creating, setCreating] = useState(false);
+  const [pending, setPending] = useState<{ sub: Sub; status: string } | null>(null);
+  const [renewing, setRenewing] = useState<Sub | null>(null);
+  const [menuFor, setMenuFor] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
-  const [fCountry, setFCountry] = useState("");
-  const [fCurrency, setFCurrency] = useState("");
-  const [fPlan, setFPlan] = useState("");
-  const [fStatus, setFStatus] = useState("");
-  const [fCycle, setFCycle] = useState("");
 
-  for (const c of countries) COUNTRY_NAMES.set(c.code, c.name);
+  const COUNTRY_NAMES = useMemo(() => new Map(countries.map((c) => [c.code, c.name])), [countries]);
 
-  const visible = useMemo(
-    () =>
-      subs.filter((s) => {
-        if (fCountry && s.country !== fCountry) return false;
-        if (fCurrency && s.currency !== fCurrency) return false;
-        if (fPlan && s.plan.id !== fPlan) return false;
-        if (fStatus && s.status !== fStatus) return false;
-        if (fCycle && s.billingCycle !== fCycle) return false;
-        return true;
-      }),
-    [subs, fCountry, fCurrency, fPlan, fStatus, fCycle],
-  );
+  /** URL-synced filter updates keep shareable views + browser back working. */
+  const setFilter = (key: keyof Filters, value: string) => {
+    const params = new URLSearchParams(window.location.search);
+    if (value) params.set(key, value);
+    else params.delete(key);
+    router.replace(`/saas/subscriptions${params.toString() ? `?${params}` : ""}`);
+  };
+  const hasFilters = Object.values(filters).some(Boolean);
 
   const refresh = async () => {
-    const res = await fetch("/api/saas/subscriptions");
-    if (res.ok) {
-      const d = await res.json();
-      setSubs(d.subscriptions);
-      router.refresh();
-    }
+    router.refresh();
   };
 
   const transition = async (id: string, status: string) => {
     const res = await fetch(`/api/saas/subscriptions/${id}`, { method: "PATCH", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ status }) });
     if (!res.ok) {
       const d = await res.json().catch(() => ({}));
-      alert(d.error ?? "Transition failed");
+      toast.error(d.error ?? "Transition failed");
       return;
     }
+    setPending(null);
+    toast.success(`Subscription moved to ${status}`);
+    refresh();
+  };
+
+  const renew = async (id: string) => {
+    const res = await fetch(`/api/saas/subscriptions/${id}`, { method: "PATCH", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ action: "renew" }) });
+    if (!res.ok) {
+      const d = await res.json().catch(() => ({}));
+      toast.error(d.error ?? "Renew failed");
+      return;
+    }
+    setRenewing(null);
+    toast.success("Subscription renewed — new invoice issued");
     refresh();
   };
 
   const selectCls = `${inputCls} py-1.5 text-xs`;
+  const canRenew = (s: Sub) => ["active", "past_due", "grace"].includes(s.status);
 
   return (
     <div className="space-y-4">
       <div className="flex flex-wrap items-end justify-between gap-2">
         <div className="flex flex-wrap items-end gap-2">
           <div>
+            <label className="mb-1 block text-[10px] font-semibold uppercase tracking-wide text-zinc-400">Status</label>
+            <select className={selectCls} value={filters.status} onChange={(e) => setFilter("status", e.target.value)}>
+              <option value="">All statuses</option>
+              {STATUSES.map((s) => <option key={s} value={s}>{s}</option>)}
+            </select>
+          </div>
+          <div>
+            <label className="mb-1 block text-[10px] font-semibold uppercase tracking-wide text-zinc-400">Plan</label>
+            <select className={selectCls} value={filters.plan} onChange={(e) => setFilter("plan", e.target.value)}>
+              <option value="">All plans</option>
+              {plans.map((p) => <option key={p.id} value={p.id}>{p.name}</option>)}
+            </select>
+          </div>
+          <div>
             <label className="mb-1 block text-[10px] font-semibold uppercase tracking-wide text-zinc-400">Country</label>
-            <select className={selectCls} value={fCountry} onChange={(e) => setFCountry(e.target.value)}>
-              <option value="">All Countries</option>
+            <select className={selectCls} value={filters.country} onChange={(e) => setFilter("country", e.target.value)}>
+              <option value="">All countries</option>
               {countries.map((c) => <option key={c.code} value={c.code}>{c.name}</option>)}
             </select>
           </div>
           <div>
             <label className="mb-1 block text-[10px] font-semibold uppercase tracking-wide text-zinc-400">Currency</label>
-            <select className={selectCls} value={fCurrency} onChange={(e) => setFCurrency(e.target.value)}>
-              <option value="">All Currencies</option>
+            <select className={selectCls} value={filters.currency} onChange={(e) => setFilter("currency", e.target.value)}>
+              <option value="">All currencies</option>
               {[...new Set(countries.map((c) => c.currency))].sort().map((cur) => <option key={cur} value={cur}>{cur}</option>)}
             </select>
           </div>
           <div>
-            <label className="mb-1 block text-[10px] font-semibold uppercase tracking-wide text-zinc-400">Plan</label>
-            <select className={selectCls} value={fPlan} onChange={(e) => setFPlan(e.target.value)}>
-              <option value="">All Plans</option>
-              {plans.map((p) => <option key={p.id} value={p.id}>{p.name}</option>)}
-            </select>
-          </div>
-          <div>
-            <label className="mb-1 block text-[10px] font-semibold uppercase tracking-wide text-zinc-400">Status</label>
-            <select className={selectCls} value={fStatus} onChange={(e) => setFStatus(e.target.value)}>
-              <option value="">All Statuses</option>
-              {STATUSES.map((s) => <option key={s} value={s}>{s}</option>)}
-            </select>
-          </div>
-          <div>
             <label className="mb-1 block text-[10px] font-semibold uppercase tracking-wide text-zinc-400">Interval</label>
-            <select className={selectCls} value={fCycle} onChange={(e) => setFCycle(e.target.value)}>
+            <select className={selectCls} value={filters.cycle} onChange={(e) => setFilter("cycle", e.target.value)}>
               <option value="">Both</option>
               <option value="monthly">monthly</option>
               <option value="yearly">yearly</option>
             </select>
           </div>
+          {hasFilters && (
+            <button onClick={() => router.replace("/saas/subscriptions")} className="pb-1.5 text-xs font-semibold text-indigo-600 hover:underline dark:text-indigo-400">
+              Clear all
+            </button>
+          )}
         </div>
         <button onClick={() => setCreating(true)} className={btnPrimary}>+ New Subscription</button>
       </div>
 
-      <div className="overflow-x-auto rounded-2xl border bg-white dark:bg-zinc-900 dark:border-zinc-800">
-        <table className="w-full text-left text-sm">
-          <thead><tr className="text-xs uppercase text-zinc-400"><th className="px-3 py-2">Org</th><th className="px-3 py-2">Plan</th><th className="px-3 py-2">Country</th><th className="px-3 py-2">Charged</th><th className="px-3 py-2">Cycle</th><th className="px-3 py-2">Status</th><th className="px-3 py-2">Period</th><th className="px-3 py-2">Actions</th></tr></thead>
-          <tbody>
-            {visible.map((s) => (
-              <tr key={s.id} className="border-t">
-                <td className="px-3 py-2 font-medium">{s.organization.legalName}</td>
-                <td className="px-3 py-2">{s.plan.name}</td>
-                <td className="px-3 py-2">{COUNTRY_NAMES.get(s.country) ?? s.country} <span className={`ml-1 rounded px-1 font-mono text-[10px] ${s.country === "US" ? "bg-zinc-100 text-zinc-500 dark:bg-zinc-800" : "bg-emerald-100 text-emerald-700 dark:bg-emerald-900/40 dark:text-emerald-300"}`}>{s.country}</span></td>
-                <td className="px-3 py-2 tabular-nums">{amountLabel(s)}</td>
-                <td className="px-3 py-2">{s.billingCycle}</td>
-                <td className="px-3 py-2"><Badge>{s.status}</Badge></td>
-                <td className="px-3 py-2 text-xs">{new Date(s.currentPeriodStart).toLocaleDateString()} → {new Date(s.currentPeriodEnd).toLocaleDateString()}</td>
-                <td className="px-3 py-2">
-                  <select onChange={(e) => e.target.value && transition(s.id, e.target.value)} defaultValue="" className="rounded border px-1 py-0.5 text-xs">
-                    <option value="">Move to…</option>
-                    {STATUSES.filter((st) => st !== s.status).map((st) => <option key={st} value={st}>{st}</option>)}
-                  </select>
-                </td>
-              </tr>
-            ))}
-          </tbody>
-        </table>
-      </div>
+      {subs.length === 0 ? (
+        <div className="rounded-2xl border border-zinc-200 bg-white p-8 text-center dark:border-zinc-800 dark:bg-zinc-900">
+          <p className="text-sm font-semibold">{hasFilters ? "No subscriptions match these filters" : "No subscriptions yet"}</p>
+          <p className="mt-1 text-xs text-zinc-500">{hasFilters ? "Clear the filters to see the full book." : "Create one with the button above."}</p>
+        </div>
+      ) : (
+        <div className="overflow-x-auto rounded-2xl border border-zinc-200 bg-white dark:border-zinc-800 dark:bg-zinc-900">
+          <table className="w-full min-w-[900px] text-left text-sm">
+            <thead><tr className="border-b border-zinc-200 text-xs uppercase tracking-wide text-zinc-400 dark:border-zinc-800"><th className="px-3 py-2">Org</th><th className="px-3 py-2">Plan</th><th className="px-3 py-2">Market</th><th className="px-3 py-2">Charged</th><th className="px-3 py-2">Cycle</th><th className="px-3 py-2">Status</th><th className="px-3 py-2">Period</th><th className="px-3 py-2">Lifecycle</th></tr></thead>
+            <tbody>
+              {subs.map((s) => (
+                <tr key={s.id} className="border-b border-zinc-100 last:border-0 dark:border-zinc-800/60">
+                  <td className="px-3 py-2 font-medium">{s.organization.legalName}</td>
+                  <td className="px-3 py-2">{s.plan.name}</td>
+                  <td className="px-3 py-2 text-xs">{COUNTRY_NAMES.get(s.country) ?? s.country} <span className={`ml-1 rounded px-1 font-mono text-[10px] ${s.country === "US" ? "bg-zinc-100 text-zinc-500 dark:bg-zinc-800" : "bg-emerald-100 text-emerald-700 dark:bg-emerald-900/40 dark:text-emerald-300"}`}>{s.country}</span></td>
+                  <td className="px-3 py-2 tabular-nums">{amountLabel(s)}</td>
+                  <td className="px-3 py-2">{s.billingCycle}</td>
+                  <td className="px-3 py-2"><StatusBadge domain="subscription" status={s.status} /></td>
+                  <td className="px-3 py-2 text-xs">{new Date(s.currentPeriodStart).toLocaleDateString()} → {new Date(s.currentPeriodEnd).toLocaleDateString()}</td>
+                  <td className="relative px-3 py-2">
+                    <div className="flex items-center gap-1">
+                      {canRenew(s) && (
+                        <button onClick={() => setRenewing(s)} className={`${btnGhost} px-2 py-1 text-xs`} title="Extend period + issue invoice">
+                          Renew
+                        </button>
+                      )}
+                      <button
+                        onClick={() => setMenuFor(menuFor === s.id ? null : s.id)}
+                        aria-expanded={menuFor === s.id}
+                        className="rounded-lg border border-zinc-200 px-2 py-1 text-xs font-semibold hover:bg-zinc-50 dark:border-zinc-700 dark:hover:bg-zinc-800"
+                      >
+                        Lifecycle ▾
+                      </button>
+                    </div>
+                    {menuFor === s.id && (
+                      <div className="absolute right-3 z-20 mt-1 w-72 rounded-xl border border-zinc-200 bg-white p-2 shadow-xl dark:border-zinc-700 dark:bg-zinc-900">
+                        <p className="px-2 pb-1.5 pt-0.5 text-[11px] leading-snug text-zinc-500 dark:text-zinc-400">
+                          <strong className="text-zinc-700 dark:text-zinc-200">{s.status}:</strong> {STATUS_EXPLANATIONS[s.status]}
+                        </p>
+                        {(ALLOWED_TRANSITIONS[s.status] ?? []).length === 0 && (
+                          <p className="px-2 pb-1 text-xs text-zinc-400">Terminal state — no transitions available.</p>
+                        )}
+                        {(ALLOWED_TRANSITIONS[s.status] ?? []).map((target) => (
+                          <button
+                            key={target}
+                            onClick={() => { setMenuFor(null); setPending({ sub: s, status: target }); }}
+                            className="block w-full rounded-lg px-2 py-1.5 text-left text-sm font-medium hover:bg-zinc-100 dark:hover:bg-zinc-800"
+                          >
+                            → {target}
+                            <span className="block truncate text-[10px] font-normal text-zinc-400">{STATUS_EXPLANATIONS[target]}</span>
+                          </button>
+                        ))}
+                      </div>
+                    )}
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      )}
 
       {creating && (
         <CreateModal orgs={orgs} plans={plans.filter((p) => p.isActive !== false)} countries={countries} onClose={() => setCreating(false)} onCreated={() => { setCreating(false); refresh(); }} busy={busy} setBusy={setBusy} error={error} setError={setError} />
       )}
+
+      {/* Consequence-aware confirmation for EVERY lifecycle move — never silent */}
+      <ConfirmDialog
+        action={
+          pending
+            ? {
+                ...(TRANSITION_COPY[pending.status] ?? { title: `Move to ${pending.status}`, consequences: ["Recorded on the audit log."], tone: "primary" as const }),
+                message: `${pending.sub.organization.legalName} — ${pending.sub.plan.name}: ${pending.sub.status} → ${pending.status}.`,
+                confirmLabel: TRANSITION_COPY[pending.status]?.title.split(" ")[0] ?? "Apply",
+              }
+            : null
+        }
+        onClose={() => setPending(null)}
+        onConfirm={() => pending && transition(pending.sub.id, pending.status)}
+      />
+
+      <ConfirmDialog
+        action={
+          renewing
+            ? {
+                title: "Renew subscription",
+                message: `Renew ${renewing.organization.legalName} — ${renewing.plan.name}?`,
+                consequences: [
+                  "A new invoice for the next period is issued immediately.",
+                  "The current period end date advances by one full cycle.",
+                  "If a payment gateway is attached, collection starts automatically.",
+                ],
+                confirmLabel: "Renew now",
+                tone: "primary",
+              }
+            : null
+        }
+        onClose={() => setRenewing(null)}
+        onConfirm={() => renewing && renew(renewing.id)}
+      />
     </div>
   );
 }

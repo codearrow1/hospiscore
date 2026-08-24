@@ -1,8 +1,6 @@
 import { redirect } from "next/navigation";
 import { getCurrentUser } from "@/lib/sessionCookie";
 import { prisma } from "@/lib/prisma";
-import Header from "@/components/Header";
-import PortalNav from "@/components/portal/PortalNav";
 import { SectionCard, Badge, EmptyState } from "@/components/marketing-admin/ui";
 import { resolveAppRole } from "@/lib/rbac";
 import { initSaasDb } from "@/lib/saas/init";
@@ -27,14 +25,11 @@ export default async function PartnerPortal() {
     const appRole = await resolveAppRole(user);
     if (appRole !== "super_admin") redirect("/account?next=/partner");
     return (
-      <div className="min-h-screen flex flex-col">
-        <Header />
-        <main className="mx-auto w-full max-w-3xl flex-1 px-4 py-10">
-          <h1 className="text-2xl font-bold">Partner Portal</h1>
-          <p className="mt-2 text-sm text-zinc-600">
-            No partner account found for {user.email}. Apply via the SaaS team or contact support.
-          </p>
-        </main>
+      <div className="mx-auto w-full max-w-3xl py-10">
+        <h1 className="text-2xl font-bold">Partner Portal</h1>
+        <p className="mt-2 text-sm text-zinc-600">
+          No partner account found for {user.email}. Apply via the SaaS team or contact support.
+        </p>
       </div>
     );
   }
@@ -61,14 +56,11 @@ export default async function PartnerPortal() {
   const earned = commissions.filter((c) => c.status !== "reversed").reduce((s, c) => s + c.amount, 0);
   const paid = payouts.reduce((s, p) => s + p.amount, 0);
   const referralLink = `${process.env.SITE_URL || "https://thebuddharice.online"}/?ref=${partner.referralCode}`;
-  const appRole = (await resolveAppRole(user)) ?? "partner";
+  const pendingBalance = Math.max(earned - paid, 0);
 
   return (
-    <div className="min-h-screen flex flex-col">
-      <Header />
-      <PortalNav role={appRole} />
-      <main className="mx-auto w-full max-w-5xl flex-1 px-4 py-8 space-y-6">
-        <div className="flex items-center justify-between">
+    <div className="space-y-6">
+      <div className="flex items-center justify-between">
           <div>
             <h1 className="text-2xl font-bold">Partner Portal</h1>
             <p className="mt-1 text-sm text-zinc-600">
@@ -78,6 +70,12 @@ export default async function PartnerPortal() {
           </div>
           <Badge>{partner.status}</Badge>
         </div>
+
+        {pendingBalance > 0 && (
+          <div className="rounded-2xl border border-sky-300 bg-sky-50 p-4 text-sm font-semibold text-sky-800 dark:border-sky-800 dark:bg-sky-950/40 dark:text-sky-200">
+            {money(pendingBalance)} earned but not yet paid out — clears on the next payout run.
+          </div>
+        )}
 
         <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
           <SectionCard>
@@ -163,7 +161,6 @@ export default async function PartnerPortal() {
             </ul>
           )}
         </SectionCard>
-      </main>
-    </div>
+      </div>
   );
 }

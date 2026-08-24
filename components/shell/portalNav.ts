@@ -1,14 +1,15 @@
-import Link from "next/link";
 import type { AppRole } from "@/lib/rbac";
 
-type NavItem = { href: string; label: string };
+export interface PortalNavItem {
+  href: string;
+  label: string;
+}
 
 /**
- * Permission-aware portal navigation. Items are generated from the caller's
- * canonical role only — every link points at a route the role is authorized
- * to use, so the nav never exposes a route the backend would reject.
+ * Role-scoped portal navigation. Items derive from the caller's canonical
+ * role only — every link points at a route the role is authorized to use.
  */
-const ROLE_NAV: Record<AppRole, NavItem[]> = {
+export const PORTAL_NAV: Record<AppRole, PortalNavItem[]> = {
   super_admin: [
     { href: "/saas", label: "Dashboard" },
     { href: "/saas/organizations", label: "Tenants" },
@@ -17,6 +18,7 @@ const ROLE_NAV: Record<AppRole, NavItem[]> = {
     { href: "/saas/affiliates", label: "Affiliates" },
     { href: "/saas/partners", label: "Partners" },
     { href: "/saas/support", label: "Support" },
+    { href: "/account", label: "Profile" },
   ],
   subadmin: [
     { href: "/subadmin", label: "Dashboard" },
@@ -52,22 +54,19 @@ const ROLE_NAV: Record<AppRole, NavItem[]> = {
   ],
 };
 
-export default function PortalNav({ role }: { role: AppRole }) {
-  const items = ROLE_NAV[role];
-  return (
-    <nav aria-label="Portal navigation" className="border-b border-zinc-200 dark:border-zinc-800">
-      <ul className="mx-auto flex w-full max-w-5xl gap-1 overflow-x-auto px-4 text-sm">
-        {items.map((i) => (
-          <li key={i.href}>
-            <Link
-              href={i.href}
-              className="inline-block whitespace-nowrap rounded-md px-3 py-2 font-medium text-zinc-600 hover:bg-zinc-100 hover:text-zinc-900 dark:text-zinc-300 dark:hover:bg-zinc-800 dark:hover:text-white"
-            >
-              {i.label}
-            </Link>
-          </li>
-        ))}
-      </ul>
-    </nav>
-  );
+export function portalPlane(role: AppRole): { id: string; name: string } {
+  switch (role) {
+    case "super_admin":
+      return { id: "saas", name: "HospiOS Control" };
+    case "subadmin":
+      return { id: "growth", name: "HospiOS Growth" };
+    case "staff":
+      return { id: "staff", name: "HospiOS Support Desk" };
+    case "affiliate":
+      return { id: "affiliate", name: "Affiliate Portal" };
+    case "partner":
+      return { id: "partner", name: "Partner Portal" };
+    default:
+      return { id: "customer", name: "Customer Portal" };
+  }
 }

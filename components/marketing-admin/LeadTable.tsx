@@ -4,6 +4,7 @@ import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
 import { useCallback, useEffect, useState } from "react";
 import { btnGhost, btnPrimary, EmptyState, Field, inputCls, Modal } from "./ui";
+import { ConfirmDialog } from "@/components/ui/ConfirmDialog";
 import { STAGE_STYLES } from "@/lib/marketing/stages";
 import type { LeadStage } from "@/lib/marketing/types";
 
@@ -101,6 +102,7 @@ export function BulkStageBar({
   const [stage, setStage] = useState<LeadStage>("contacted");
   const [owner, setOwner] = useState("");
   const [busy, setBusy] = useState(false);
+  const [confirmDelete, setConfirmDelete] = useState(false);
   const [message, setMessage] = useState("");
 
   const applyStage = async () => {
@@ -142,7 +144,6 @@ export function BulkStageBar({
   };
 
   const deleteSelected = async () => {
-    if (!confirm(`Delete ${selected.length} leads? This cannot be undone.`)) return;
     setBusy(true);
     setMessage("");
     let done = 0;
@@ -151,6 +152,7 @@ export function BulkStageBar({
       if (res.ok) done++;
     }
     setBusy(false);
+    setConfirmDelete(false);
     setMessage(`${done} deleted.`);
     router.refresh();
     setTimeout(onDone, 800);
@@ -189,9 +191,28 @@ export function BulkStageBar({
           </button>
         </div>
       )}
-      <button onClick={deleteSelected} disabled={busy} className="ml-auto inline-flex min-h-9 items-center rounded-xl border border-red-200 bg-white px-3 py-2 text-xs font-semibold text-red-600 hover:bg-red-50 dark:border-red-900 dark:bg-zinc-900 dark:text-red-400">
+      <button onClick={() => setConfirmDelete(true)} disabled={busy} className="ml-auto inline-flex min-h-9 items-center rounded-xl border border-red-200 bg-white px-3 py-2 text-xs font-semibold text-red-600 hover:bg-red-50 dark:border-red-900 dark:bg-zinc-900 dark:text-red-400">
         Delete
       </button>
+
+      <ConfirmDialog
+        action={confirmDelete
+          ? {
+              title: "Delete leads",
+              message: `Delete ${selected.length} selected ${selected.length === 1 ? "lead" : "leads"}?`,
+              consequences: [
+                "The selected lead records are permanently removed.",
+                "Associated activity and notes are deleted with them.",
+                "This action cannot be undone.",
+              ],
+              confirmLabel: `Delete ${selected.length}`,
+              tone: "danger",
+            }
+          : null}
+        onClose={() => setConfirmDelete(false)}
+        onConfirm={deleteSelected}
+        busy={busy}
+      />
     </div>
   );
 }

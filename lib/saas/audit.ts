@@ -58,11 +58,12 @@ export async function writeSaasAudit(input: {
   }
 }
 
-export async function listAuditLogs(opts?: { actorEmail?: string; action?: string; targetType?: string; take?: number; skip?: number }) {
+export async function listAuditLogs(opts?: { actorEmail?: string; action?: string; targetType?: string; targetId?: string; take?: number; skip?: number }) {
   const where: Record<string, unknown> = {};
   if (opts?.actorEmail) where.actorEmail = opts.actorEmail;
   if (opts?.action) where.action = { contains: opts.action };
   if (opts?.targetType) where.targetType = opts.targetType;
+  if (opts?.targetId) where.targetId = opts.targetId;
   const [items, total] = await Promise.all([
     prisma.auditLog.findMany({ where, orderBy: { timestamp: "desc" }, take: opts?.take ?? 50, skip: opts?.skip ?? 0 }),
     prisma.auditLog.count({ where }),

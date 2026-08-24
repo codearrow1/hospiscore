@@ -3,6 +3,7 @@
 import { useRouter } from "next/navigation";
 import { useMemo, useState } from "react";
 import { Badge, btnGhost, btnPrimary, Field, inputCls, Modal } from "./ui";
+import { ConfirmDialog } from "@/components/ui/ConfirmDialog";
 
 export interface CampaignRow {
   id: string;
@@ -39,6 +40,7 @@ export default function CampaignsManager({
   const [status, setStatus] = useState("");
   const [busy, setBusy] = useState(false);
   const [showNew, setShowNew] = useState(false);
+  const [deleting, setDeleting] = useState<CampaignRow | null>(null);
   const [form, setForm] = useState<Record<string, string>>({});
   const set = (k: string) => (e: { target: { value: string } }) => setForm((f) => ({ ...f, [k]: e.target.value }));
 
@@ -98,8 +100,7 @@ export default function CampaignsManager({
     router.refresh();
   };
 
-  const del = async (id: string, name: string) => {
-    if (!window.confirm(`Delete "${name}"? Lead history is kept; only the campaign config is removed.`)) return;
+  const del = async (id: string) => {
     setBusy(true);
     const res = await fetch(`/api/marketing/campaigns/${id}`, { method: "DELETE" });
     setBusy(false);
@@ -107,6 +108,7 @@ export default function CampaignsManager({
       setStatus((await res.json().catch(() => ({}))).error ?? "Delete failed");
       return;
     }
+    setDeleting(null);
     setStatus("Campaign deleted.");
     router.refresh();
   };
@@ -166,7 +168,7 @@ export default function CampaignsManager({
                 </div>
                 <div className="flex items-center gap-2">
                   {statusMenu(c)}
-                  <button onClick={() => del(c.id, c.name)} className="text-xs text-zinc-400 transition hover:text-rose-500">
+                  <button onClick={() => setDeleting(c)} className="text-xs text-zinc-400 transition hover:text-rose-500">
                     Delete
                   </button>
                 </div>
@@ -218,6 +220,24 @@ export default function CampaignsManager({
           </div>
         </div>
       </Modal>
+
+      <ConfirmDialog
+        action={deleting
+          ? {
+              title: "Delete campaign",
+              message: `Delete "${deleting.name}"?`,
+              consequences: [
+                "The campaign configuration is permanently removed.",
+                "Lead history and attribution records are kept.",
+                "This action cannot be undone.",
+              ],
+              confirmLabel: "Delete",
+              tone: "danger",
+            }
+          : null}
+        onClose={() => setDeleting(null)}
+        onConfirm={() => deleting && del(deleting.id)}
+      />
     </div>
   );
 }

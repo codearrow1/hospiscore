@@ -3,7 +3,11 @@
 import { useEffect, useState } from "react";
 import { Badge, btnGhost, btnPrimary, EmptyState, Field, inputCls, Modal, SectionCard } from "./ui";
 import { STAGE_LABELS, STAGE_STYLES } from "@/lib/marketing/stages";
+import type { LostReason } from "@/lib/marketing/stages";
 import type { LeadEventType } from "@/lib/marketing/types";
+import { useToast } from "@/components/ui/Toast";
+import { ConfirmDialog } from "@/components/ui/ConfirmDialog";
+import { LostReasonDialog } from "./LostReasonDialog";
 
 export interface LeadDetailShape {
   id: string;
@@ -105,6 +109,7 @@ export default function LeadWorkspace({
   const canWrite = capabilities.includes("leads.write");
   const canManage = capabilities.includes("leads.manage");
   const canDemos = capabilities.includes("demos.manage");
+  const toast = useToast();
 
   const [draft, setDraft] = useState<Record<string, string>>({});
   const [status, setStatus] = useState("");
@@ -112,6 +117,8 @@ export default function LeadWorkspace({
   const [demosState, setDemosState] = useState<DemoLite[]>(demos);
   const [notesState, setNotesState] = useState<string[]>(lead.notes ?? []);
   const [busy, setBusy] = useState(false);
+  const [losingStage, setLosingStage] = useState(false);
+  const [confirmConvert, setConfirmConvert] = useState(false);
 
   useEffect(() => {
     setDraft({
@@ -169,21 +176,23 @@ export default function LeadWorkspace({
     }
   };
 
-  const moveStage = async (stage: string) => {
+  const performMoveStage = async (stage: string, lostReason?: LostReason) => {
     if (stage === lead.stage) return;
     const body: Record<string, unknown> = { stage };
-    if (stage === "lost") {
-      const reason = window.prompt("Lost reason? budget / chose_competitor / no_response / timing / feature_gap / pricing / other");
-      if (!reason) return;
-      body.lostReason = reason;
-    }
+    if (stage === "lost" && lostReason) body.lostReason = lostReason;
     const res = await fetch(`/api/marketing/leads/${lead.id}/stage`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify(body),
     });
     if (res.ok) window.location.reload();
-    else alert((await res.json()).error ?? "Could not move stage");
+    else toast.error((await res.json().catch(() => ({}))).error ?? "Could not move stage");
+  };
+
+  /** Marking a lead lost requires picking a structured reason first. */
+  const requestMoveStage = (stage: string) => {
+    if (stage === "lost") setLosingStage(true);
+    else void performMoveStage(stage);
   };
 
   const addNote = async (text: string) => {
@@ -243,7 +252,10 @@ export default function LeadWorkspace({
   const [bookMeeting, setBookMeeting] = useState("");
 
   const bookDemo = async () => {
-    if (!bookDate) return alert("Pick a date");
+    if (!bookDate) {
+      toast.error("Pick a date before booking the demo.");
+      return;
+    }
     const startAt = new Date(`${bookDate}T${bookTime}:00`);
     const res = await fetch("/api/marketing/demos", {
       method: "POST",
@@ -272,7 +284,6 @@ export default function LeadWorkspace({
   };
 
   const convert = async () => {
-    if (!window.confirm("Convert this lead to a customer? Attribution (source, campaign, country, plan) is preserved.")) return;
     const res = await fetch(`/api/marketing/leads/${lead.id}`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
@@ -305,7 +316,7 @@ export default function LeadWorkspace({
           {canWrite && (
             <div className="mb-4 grid gap-3 sm:grid-cols-2">
               <Field label="Stage" required>
-                <select className={inputCls} value={lead.stage} onChange={(e) => moveStage(e.target.value)} disabled={!canWrite}>
+                <select className={inputCls} value={lead.stage} onChange={(e) => requestMoveStage(e.target.value)} disabled={!canWrite}>
                   {Object.entries(STAGE_LABELS).map(([k, v]) => (
                     <option key={k} value={k}>{v}</option>
                   ))}
@@ -472,7 +483,7 @@ export default function LeadWorkspace({
             <p className="mb-3 text-xs text-zinc-400">
               Converting preserves the original source, campaign, country, room count, plan and demo history.
             </p>
-            <button className={btnPrimary + " w-full"} onClick={convert} disabled={Boolean(lead.convertedCustomerId)}>
+            <button className={btnPrimary + " w-full"} onClick={() => setConfirmConvert(true)} disabled={Boolean(lead.convertedCustomerId)}>
               {lead.convertedCustomerId ? "Converted ✓" : "Convert to customer"}
             </button>
           </SectionCard>
@@ -500,6 +511,34 @@ export default function LeadWorkspace({
           </div>
         </div>
       </Modal>
+
+      {losingStage && (
+        <LostReasonDialog
+          leadName={lead.name}
+          onClose={() => setLosingStage(false)}
+          onConfirm={(reason) => {
+            setLosingStage(false);
+            void performMoveStage("lost", reason);
+          }}
+        />
+      )}
+
+      <ConfirmDialog
+        action={confirmConvert
+          ? {
+              title: "Convert lead to customer",
+              message: `Convert ${lead.name} to a paying customer?`,
+              consequences: [
+                "A customer organization is created for this lead.",
+                "Attribution (source, campaign, country, plan) is preserved.",
+                "The lead becomes read-only in the CRM.",
+              ],
+              confirmLabel: "Convert",
+            }
+          : null}
+        onClose={() => setConfirmConvert(false)}
+        onConfirm={() => void convert()}
+      />
     </div>
   );
 }
