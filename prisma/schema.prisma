@@ -507,6 +507,21 @@ model SupportTicket {
   @@index([slaDueAt])
 }
 
+/// Persistent onboarding checklist marks for the role portals (Phase 7).
+/// Auto-derivable steps are computed from real state and never stored; only
+/// explicit "mark done" actions persist here.
+model OnboardingProgress {
+  id          String   @id @default(cuid())
+  subjectKind String // customer|affiliate|partner
+  subjectId   String // organizationId | affiliateId | partnerId
+  stepKey     String
+  completedAt DateTime @default(now())
+  completedBy String?
+
+  @@unique([subjectKind, subjectId, stepKey])
+  @@index([subjectKind, subjectId])
+}
+
 model Partner {
   id              String   @id @default(cuid())
   name            String

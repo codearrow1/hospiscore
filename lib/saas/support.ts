@@ -1,41 +1,29 @@
 /**
  * SaaS Support — Phase N (P2 #25)
  * Tickets feed customer health (open-ticket signal) and track SLA.
- * SLA targets by priority: urgent 4h, high 8h, medium 24h, low 72h.
+ * Pure lifecycle/SLA rules live in ticketRules.ts (client-safe); this module
+ * adds the Prisma-backed operations.
  */
 import { prisma } from "@/lib/prisma";
+import {
+  TICKET_CATEGORIES,
+  PRIORITIES,
+  slaDueFor,
+  canTransitionTicket,
+  type TicketStatus,
+} from "@/lib/saas/ticketRules";
 
-export const TICKET_CATEGORIES = ["billing","technical","subscription","account","integration","bug","onboarding","affiliate","partner","franchise"] as const;
-export type TicketCategory = (typeof TICKET_CATEGORIES)[number];
-
-export type TicketStatus = "open" | "pending" | "in_progress" | "resolved" | "closed";
-export const TICKET_STATUSES: TicketStatus[] = ["open", "pending", "in_progress", "resolved", "closed"];
-
-const ALLOWED_STATUS: Record<TicketStatus, TicketStatus[]> = {
-  open: ["pending", "in_progress", "resolved", "closed"],
-  pending: ["in_progress", "resolved", "closed"],
-  in_progress: ["pending", "resolved", "closed"],
-  resolved: ["closed", "in_progress"], // reopen path
-  closed: [],
-};
-
-export function canTransitionTicket(from: TicketStatus, to: TicketStatus): boolean {
-  if (from === to) return false;
-  return ALLOWED_STATUS[from]?.includes(to) ?? false;
-}
-
-export const PRIORITIES = ["low", "medium", "high", "urgent"] as const;
-export type TicketPriority = (typeof PRIORITIES)[number];
-
-export function slaDueFor(priority: string, from = new Date()): Date {
-  const hours = priority === "urgent" ? 4 : priority === "high" ? 8 : priority === "medium" ? 24 : 72;
-  return new Date(from.getTime() + hours * 3600000);
-}
-
-export function isSlaBreached(t: { status: string; slaDueAt: Date | null; resolvedAt: Date | null; firstResponseAt: Date | null }): boolean {
-  if (!t.slaDueAt || t.resolvedAt || t.status === "closed") return false;
-  return t.slaDueAt.getTime() < Date.now();
-}
+export {
+  TICKET_CATEGORIES,
+  type TicketCategory,
+  type TicketStatus,
+  TICKET_STATUSES,
+  canTransitionTicket,
+  PRIORITIES,
+  type TicketPriority,
+  slaDueFor,
+  isSlaBreached,
+} from "@/lib/saas/ticketRules";
 
 export async function createTicket(input: {
   organizationId: string;

@@ -6,6 +6,7 @@ import { StatusBadge } from "@/components/ui/Badge";
 import { formatMoney } from "@/lib/format";
 import { resolveAppRole } from "@/lib/rbac";
 import { findPartnerForUser } from "@/lib/saas/portalLinks";
+import OnboardingChecklist from "@/components/saas/OnboardingChecklist";
 import { initSaasDb } from "@/lib/saas/init";
 
 export const dynamic = "force-dynamic";
@@ -78,6 +79,8 @@ export default async function PartnerPortal() {
           {formatMoney(pendingBalance, "USD")} earned but not yet paid out — clears on the next payout run.
         </div>
       )}
+
+      <OnboardingChecklist title="Getting started" />
 
       <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
         <SectionCard>

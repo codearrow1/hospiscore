@@ -8,6 +8,7 @@ import { SectionCard, Badge, EmptyState } from "@/components/marketing-admin/ui"
 import { StatusBadge } from "@/components/ui/Badge";
 import { formatMoney } from "@/lib/format";
 import PortalShareCard from "@/components/saas/PortalShareCard";
+import OnboardingChecklist from "@/components/saas/OnboardingChecklist";
 import { initSaasDb } from "@/lib/saas/init";
 
 export const dynamic = "force-dynamic";
@@ -94,6 +95,8 @@ export default async function AffiliatePortal() {
           {pendingCount} commission{pendingCount === 1 ? "" : "s"} pending payout — they clear on the next payout run.
         </div>
       )}
+
+      <OnboardingChecklist title="Getting started" />
 
       <SectionCard title="Your referral link">
         <PortalShareCard link={referralLink} />

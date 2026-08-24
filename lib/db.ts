@@ -48,6 +48,8 @@ export interface DataFile {
   auditLog?: AuditEntry[];
   pageViews?: PageView[];
   convertedCustomers?: ConvertedCustomer[];
+  /** Password reset tokens (stored hashed; see lib/accounts.ts). */
+  passwordResets?: { email: string; tokenHash: string; expiresAt: string; createdAt: string; usedAt?: string }[];
 }
 
 export function emptyData(): DataFile {
