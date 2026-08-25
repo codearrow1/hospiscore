@@ -69,27 +69,22 @@ export async function runSettlementBatch(opts?: { campaignId?: string }) {
   const where: Record<string, unknown> = { status: "active" };
   if (opts?.campaignId) where.campaignId = opts.campaignId;
 
-  const affiliates = await prisma.affiliate.findMany({ where, select: { id: true } });
+  const affiliates = await prisma.affiliate.findMany({ where, select: { id: true, campaignId: true } });
   const results: Array<{ affiliateId: string; payoutId?: string; error?: string }> = [];
+
+  // Batch-fetch all campaign minPayout values to avoid N+1
+  const campaignIds = [...new Set(affiliates.map(a => a.campaignId).filter(Boolean))] as string[];
+  const campaigns = campaignIds.length > 0
+    ? await prisma.affiliateCampaign.findMany({ where: { id: { in: campaignIds } }, select: { id: true, minPayout: true } })
+    : [];
+  const campaignMinPayouts = new Map(campaigns.map(c => [c.id, c.minPayout]));
 
   for (const aff of affiliates) {
     try {
       const balance = await availablePayoutBalance({ affiliateId: aff.id });
       if (balance <= 0) continue;
 
-      // Check min payout
-      const affDetails = await prisma.affiliate.findUnique({
-        where: { id: aff.id },
-        select: { campaignId: true },
-      });
-      let minPayout = 5000;
-      if (affDetails?.campaignId) {
-        const campaign = await prisma.affiliateCampaign.findUnique({
-          where: { id: affDetails.campaignId },
-          select: { minPayout: true },
-        });
-        if (campaign) minPayout = campaign.minPayout;
-      }
+      const minPayout = (aff.campaignId && campaignMinPayouts.get(aff.campaignId)) || 5000;
       if (balance < minPayout) continue;
 
       const payout = await requestPayout({

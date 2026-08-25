@@ -46,10 +46,10 @@ export async function createRecurringCommission(params: {
   if (recurringDuration === 0) return null; // First payment only
 
   const now = new Date();
-  const holdingPeriodDays = campaign.holdingPeriodDays;
-  const holdUntil = holdingPeriodDays > 0
-    ? new Date(now.getTime() + holdingPeriodDays * 86400000)
-    : null;
+
+  // Holding period only applies to the first (direct) commission — recurring renewals
+  // skip it since the subscriber is already retained beyond the initial hold window.
+  const holdUntil = null;
 
   // Calculate commission amount
   const model = aff.customCommissionModel || campaign.commissionModel;
@@ -129,16 +129,21 @@ export async function advanceDeferredCommissions(batchSize = 100) {
       status: "pending",
       holdUntil: { not: null, lte: now },
     },
+    select: { id: true },
     take: batchSize,
   });
+  if (ready.length === 0) return { advanced: 0, remaining: 0 };
 
-  let advanced = 0;
-  for (const c of ready) {
-    await prisma.affiliateCommission.update({
-      where: { id: c.id },
-      data: { status: "eligible", eligibleAt: now },
-    });
-    advanced++;
-  }
-  return { advanced, remaining: await prisma.affiliateCommission.count({ where: { status: "pending", holdUntil: { not: null, lte: now } } }) };
+  const ids = ready.map((c) => c.id);
+  await prisma.affiliateCommission.updateMany({
+    where: { id: { in: ids } },
+    data: { status: "eligible", eligibleAt: now },
+  });
+
+  return {
+    advanced: ids.length,
+    remaining: await prisma.affiliateCommission.count({
+      where: { status: "pending", holdUntil: { not: null, lte: now } },
+    }),
+  };
 }
