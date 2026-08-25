@@ -24,7 +24,11 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
   let body: Record<string, unknown>;
   try { body = await req.json(); } catch { return NextResponse.json({ error: "Invalid JSON" }, { status: 400 }); }
   const affiliateId = String(body.affiliateId ?? "");
-  if (!affiliateId) return NextResponse.json({ error: "affiliateId required" }, { status: 400 });
+  if (!affiliateId || typeof body.affiliateId !== "string") return NextResponse.json({ error: "affiliateId required" }, { status: 400 });
+  if (body.customRate !== undefined && body.customRate !== null && body.customRate !== "") {
+    const n = Number(body.customRate);
+    if (!Number.isFinite(n) || n < 0) return NextResponse.json({ error: "customRate must be a non-negative number" }, { status: 400 });
+  }
   try {
     const member = await assignAffiliateToCampaign(affiliateId, id, {
       customRate: body.customRate != null ? Number(body.customRate) : undefined,

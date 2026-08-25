@@ -36,10 +36,20 @@ export async function POST(req: NextRequest) {
   const { user } = guard;
   if (!hasSaasPerm(user, "AFFILIATE_MANAGE")) return NextResponse.json({ error: "Forbidden" }, { status: 403 });
 
-  const { affiliateId, riskScore, reasons } = await req.json();
+  let body: Record<string, unknown>;
+  try { body = await req.json(); } catch { return NextResponse.json({ error: "Invalid JSON" }, { status: 400 }); }
+  if (!body.affiliateId || typeof body.affiliateId !== "string") {
+    return NextResponse.json({ error: "affiliateId required" }, { status: 400 });
+  }
+  const riskScore = Number(body.riskScore);
+  if (!Number.isFinite(riskScore)) {
+    return NextResponse.json({ error: "riskScore must be a number" }, { status: 400 });
+  }
+
+  const { affiliateId, reasons } = body as { affiliateId: string; reasons?: Record<string, unknown> };
 
   const fraudCase = await prisma.affiliateFraudCase.create({
-    data: { affiliateId, riskScore, reasons },
+    data: { affiliateId, riskScore, reasons: reasons as unknown as import("@prisma/client/runtime/library").InputJsonValue },
   });
 
   await writeSaasAudit({ byEmail: user.email, action: "affiliate_fraud.flagged", entity: "affiliateFraudCase", entityId: fraudCase.id, ip: clientIp(req) });

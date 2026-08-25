@@ -23,7 +23,13 @@ export async function POST(req: NextRequest) {
   const { user } = guard;
   if (!hasSaasPerm(user, "AFFILIATE_MANAGE")) return NextResponse.json({ error: "Forbidden" }, { status: 403 });
 
-  const { key, value } = await req.json();
+  let body: Record<string, unknown>;
+  try { body = await req.json(); } catch { return NextResponse.json({ error: "Invalid JSON" }, { status: 400 }); }
+  if (!body.key || typeof body.key !== "string" || !body.key.trim()) {
+    return NextResponse.json({ error: "key is required" }, { status: 400 });
+  }
+
+  const { key, value } = body as { key: string; value: unknown };
 
   const setting = await prisma.affiliateSetting.upsert({
     where: { key },

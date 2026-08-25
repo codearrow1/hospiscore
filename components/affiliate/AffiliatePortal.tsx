@@ -13,11 +13,9 @@ export default function AffiliatePortal({ affiliate }: AffiliatePortalProps) {
   const [activeTab, setActiveTab] = useState<Tab>("dashboard");
   const [stats, setStats] = useState<any>(null);
   const [commissions, setCommissions] = useState<any[]>([]);
-  const [network, setNetwork] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [recruitCode, setRecruitCode] = useState("");
   const [payoutMethod, setPayoutMethod] = useState(affiliate.payoutMethod || "bank");
-  const [payoutHistory, setPayoutHistory] = useState<any[]>([]);
 
   const fetchDashboard = useCallback(async () => {
     try {
@@ -34,38 +32,9 @@ export default function AffiliatePortal({ affiliate }: AffiliatePortalProps) {
     }
   }, []);
 
-  const fetchNetwork = useCallback(async () => {
-    try {
-      const res = await fetch(`/api/saas/affiliates/${affiliate.id}/recruited`);
-      if (res.ok) {
-        const data = await res.json();
-        setNetwork(data.recruited || []);
-      }
-    } catch (e) {
-      console.error("Failed to load network", e);
-    }
-  }, [affiliate.id]);
-
-  const fetchPayouts = useCallback(async () => {
-    try {
-      const res = await fetch(`/api/saas/payouts/${affiliate.id}`);
-      if (res.ok) {
-        const data = await res.json();
-        setPayoutHistory(data.payouts || []);
-      }
-    } catch (e) {
-      console.error("Failed to load payouts", e);
-    }
-  }, [affiliate.id]);
-
   useEffect(() => {
     fetchDashboard();
   }, [fetchDashboard]);
-
-  useEffect(() => {
-    if (activeTab === "network") fetchNetwork();
-    if (activeTab === "settings") fetchPayouts();
-  }, [activeTab, fetchNetwork, fetchPayouts]);
 
   const copyLink = () => {
     const link = `${window.location.origin}/ref/${affiliate.referralCode}`;
@@ -88,7 +57,6 @@ export default function AffiliatePortal({ affiliate }: AffiliatePortalProps) {
       if (res.ok) {
         alert("Affiliate recruited successfully!");
         setRecruitCode("");
-        fetchNetwork();
       } else {
         const data = await res.json();
         alert(data.error || "Failed to recruit.");
@@ -212,43 +180,15 @@ export default function AffiliatePortal({ affiliate }: AffiliatePortalProps) {
             </div>
 
             <div className="bg-white rounded-lg border border-gray-200 p-6">
-              <h2 className="font-semibold text-gray-900 mb-4">QR Code</h2>
-              <div className="flex justify-center">
-                <div className="w-48 h-48 bg-gray-100 rounded-lg flex items-center justify-center">
-                  <svg viewBox="0 0 100 100" className="w-40 h-40">
-                    <rect width="100" height="100" fill="white" />
-                    <rect x="10" y="10" width="25" height="25" fill="black" />
-                    <rect x="65" y="10" width="25" height="25" fill="black" />
-                    <rect x="10" y="65" width="25" height="25" fill="black" />
-                    <rect x="15" y="15" width="15" height="15" fill="white" />
-                    <rect x="70" y="15" width="15" height="15" fill="white" />
-                    <rect x="15" y="70" width="15" height="15" fill="white" />
-                    <rect x="18" y="18" width="9" height="9" fill="black" />
-                    <rect x="73" y="18" width="9" height="9" fill="black" />
-                    <rect x="18" y="73" width="9" height="9" fill="black" />
-                    <rect x="40" y="10" width="5" height="5" fill="black" />
-                    <rect x="50" y="15" width="5" height="5" fill="black" />
-                    <rect x="45" y="25" width="5" height="5" fill="black" />
-                    <rect x="10" y="40" width="5" height="5" fill="black" />
-                    <rect x="20" y="45" width="5" height="5" fill="black" />
-                    <rect x="30" y="50" width="5" height="5" fill="black" />
-                    <rect x="40" y="40" width="5" height="5" fill="black" />
-                    <rect x="50" y="50" width="5" height="5" fill="black" />
-                    <rect x="60" y="40" width="5" height="5" fill="black" />
-                    <rect x="70" y="50" width="5" height="5" fill="black" />
-                    <rect x="80" y="40" width="5" height="5" fill="black" />
-                    <rect x="40" y="60" width="5" height="5" fill="black" />
-                    <rect x="50" y="70" width="5" height="5" fill="black" />
-                    <rect x="60" y="60" width="5" height="5" fill="black" />
-                    <rect x="70" y="70" width="5" height="5" fill="black" />
-                    <rect x="80" y="80" width="5" height="5" fill="black" />
-                    <rect x="60" y="80" width="5" height="5" fill="black" />
-                    <rect x="40" y="80" width="5" height="5" fill="black" />
-                    <rect x="80" y="60" width="5" height="5" fill="black" />
-                  </svg>
-                </div>
+              <h2 className="font-semibold text-gray-900 mb-4">Your Referral URL</h2>
+              <div className="flex items-center gap-3">
+                <code className="flex-1 border border-gray-300 rounded-lg px-4 py-2.5 text-sm font-mono bg-gray-50 break-all">
+                  {`${typeof window !== "undefined" ? window.location.origin : ""}/ref/${affiliate.referralCode}`}
+                </code>
+                <button onClick={copyLink} className="bg-blue-600 text-white px-5 py-2.5 rounded-lg text-sm font-medium hover:bg-blue-700 whitespace-nowrap">
+                  Copy
+                </button>
               </div>
-              <p className="text-center text-xs text-gray-500 mt-3">QR code for your referral link</p>
             </div>
 
             <div className="bg-white rounded-lg border border-gray-200 p-6">
@@ -290,27 +230,8 @@ export default function AffiliatePortal({ affiliate }: AffiliatePortalProps) {
               </div>
             </div>
 
-            <div className="bg-white rounded-lg border border-gray-200">
-              <div className="px-4 py-3 border-b border-gray-200">
-                <h2 className="font-semibold text-gray-900">Your Network</h2>
-              </div>
-              {network.length === 0 ? (
-                <div className="px-4 py-8 text-center text-gray-500">No recruited affiliates yet.</div>
-              ) : (
-                <div className="divide-y divide-gray-100">
-                  {network.map((a: any) => (
-                    <div key={a.id} className="px-4 py-3 flex items-center justify-between">
-                      <div>
-                        <p className="text-sm font-medium text-gray-900">{a.user?.name || a.referralCode}</p>
-                        <p className="text-xs text-gray-500">Joined {new Date(a.createdAt).toLocaleDateString()}</p>
-                      </div>
-                      <span className={`text-xs px-2 py-0.5 rounded-full ${a.status === "active" ? "bg-green-100 text-green-700" : "bg-gray-100 text-gray-600"}`}>
-                        {a.status}
-                      </span>
-                    </div>
-                  ))}
-                </div>
-              )}
+            <div className="bg-white rounded-lg border border-gray-200 p-6">
+              <p className="text-sm text-gray-500 text-center py-4">Network view coming soon</p>
             </div>
           </div>
         )}
@@ -327,7 +248,7 @@ export default function AffiliatePortal({ affiliate }: AffiliatePortalProps) {
                 >
                   <option value="bank">Bank Transfer</option>
                   <option value="paypal">PayPal</option>
-                  <option value="crypto">Crypto</option>
+                  <option value="upi">UPI</option>
                 </select>
                 <button onClick={handleUpdatePayout} className="bg-blue-600 text-white px-5 py-2.5 rounded-lg text-sm font-medium hover:bg-blue-700">
                   Update
@@ -335,30 +256,8 @@ export default function AffiliatePortal({ affiliate }: AffiliatePortalProps) {
               </div>
             </div>
 
-            <div className="bg-white rounded-lg border border-gray-200">
-              <div className="px-4 py-3 border-b border-gray-200">
-                <h2 className="font-semibold text-gray-900">Payout History</h2>
-              </div>
-              {payoutHistory.length === 0 ? (
-                <div className="px-4 py-8 text-center text-gray-500">No payouts yet.</div>
-              ) : (
-                <div className="divide-y divide-gray-100">
-                  {payoutHistory.map((p: any) => (
-                    <div key={p.id} className="px-4 py-3 flex items-center justify-between">
-                      <div>
-                        <p className="text-sm font-medium text-gray-900">{p.method || "Bank Transfer"}</p>
-                        <p className="text-xs text-gray-500">{new Date(p.createdAt).toLocaleDateString()}</p>
-                      </div>
-                      <div className="text-right">
-                        <span className="text-sm font-semibold text-gray-900">{formatCents(p.amount)}</span>
-                        <span className={`ml-2 text-xs px-2 py-0.5 rounded-full ${p.status === "completed" ? "bg-green-100 text-green-700" : "bg-yellow-100 text-yellow-700"}`}>
-                          {p.status}
-                        </span>
-                      </div>
-                    </div>
-                  ))}
-                </div>
-              )}
+            <div className="bg-white rounded-lg border border-gray-200 p-6">
+              <p className="text-sm text-gray-500 text-center py-4">Contact admin for payout details</p>
             </div>
           </div>
         )}

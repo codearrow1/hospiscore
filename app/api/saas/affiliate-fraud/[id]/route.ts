@@ -4,6 +4,7 @@ import { hasSaasPerm } from "@/lib/saas/roles";
 import { writeSaasAudit } from "@/lib/saas/audit";
 import { initSaasDb } from "@/lib/saas/init";
 import { prisma } from "@/lib/prisma";
+import { FRAUD_STATUSES, FRAUD_RESOLUTIONS } from "@/lib/saas/fraud";
 
 export async function GET(req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   await initSaasDb().catch(() => {});
@@ -32,7 +33,15 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id
   if (!hasSaasPerm(user, "AFFILIATE_MANAGE")) return NextResponse.json({ error: "Forbidden" }, { status: 403 });
 
   const { id } = await params;
-  const { status, resolution, resolutionNote } = await req.json();
+  let body: Record<string, unknown>;
+  try { body = await req.json(); } catch { return NextResponse.json({ error: "Invalid JSON" }, { status: 400 }); }
+  if (body.status && !FRAUD_STATUSES.includes(body.status as never)) {
+    return NextResponse.json({ error: "Invalid status" }, { status: 400 });
+  }
+  if (body.resolution && !FRAUD_RESOLUTIONS.includes(body.resolution as never)) {
+    return NextResponse.json({ error: "Invalid resolution" }, { status: 400 });
+  }
+  const { status, resolution, resolutionNote } = body as { status?: string; resolution?: string; resolutionNote?: string };
 
   const fraudCase = await prisma.affiliateFraudCase.update({
     where: { id },

@@ -67,8 +67,10 @@ export async function POST(req: NextRequest) {
   });
 
   // Set referral cookie with campaign-configurable duration
+  const isProd = process.env.NODE_ENV === "production";
   res.cookies.set("aff_ref", code, {
     httpOnly: true,
+    secure: isProd,
     maxAge: effectiveCookieDays * 86400,
     path: "/",
     sameSite: "lax",
@@ -78,6 +80,7 @@ export async function POST(req: NextRequest) {
   if (campaignSlug) {
     res.cookies.set("aff_campaign", campaignSlug, {
       httpOnly: true,
+      secure: isProd,
       maxAge: effectiveCookieDays * 86400,
       path: "/",
       sameSite: "lax",

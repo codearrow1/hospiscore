@@ -36,7 +36,22 @@ export async function POST(req: NextRequest) {
   const { user } = guard;
   if (!hasSaasPerm(user, "AFFILIATE_MANAGE")) return NextResponse.json({ error: "Forbidden" }, { status: 403 });
 
-  const { affiliateId, campaignId, version, title, content } = await req.json();
+  let body: Record<string, unknown>;
+  try { body = await req.json(); } catch { return NextResponse.json({ error: "Invalid JSON" }, { status: 400 }); }
+  if (!body.affiliateId || typeof body.affiliateId !== "string" || !(body.affiliateId as string).trim()) {
+    return NextResponse.json({ error: "affiliateId required" }, { status: 400 });
+  }
+  if (!body.version || typeof body.version !== "string" || !(body.version as string).trim()) {
+    return NextResponse.json({ error: "version required" }, { status: 400 });
+  }
+  if (!body.title || typeof body.title !== "string" || !(body.title as string).trim()) {
+    return NextResponse.json({ error: "title required" }, { status: 400 });
+  }
+  if (!body.content || typeof body.content !== "string" || !(body.content as string).trim()) {
+    return NextResponse.json({ error: "content required" }, { status: 400 });
+  }
+
+  const { affiliateId, campaignId, version, title, content } = body as { affiliateId: string; campaignId?: string; version: string; title: string; content: string };
 
   const agreement = await prisma.affiliateAgreement.create({
     data: { affiliateId, campaignId, version, title, content },

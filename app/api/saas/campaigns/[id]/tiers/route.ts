@@ -24,6 +24,13 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
   const { id } = await params;
   let body: Record<string, unknown>;
   try { body = await req.json(); } catch { return NextResponse.json({ error: "Invalid JSON" }, { status: 400 }); }
+  if (!String(body.tierName ?? "").trim()) return NextResponse.json({ error: "tierName required" }, { status: 400 });
+  for (const f of ["threshold","rate","bonusAmount","minCustomers","minMrr","minRevenue","commissionValue","displayOrder"]) {
+    if (body[f] !== undefined && body[f] !== null && body[f] !== "") {
+      const n = Number(body[f]);
+      if (!Number.isFinite(n) || n < 0) return NextResponse.json({ error: `${f} must be a non-negative number` }, { status: 400 });
+    }
+  }
   try {
     const tier = await upsertPerformanceTier(id, {
       tierName: String(body.tierName ?? ""),

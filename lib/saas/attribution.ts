@@ -51,23 +51,28 @@ export async function lockAttribution(params: {
   touchpoint: "click" | "coupon" | "manual";
   source?: string;
 }) {
-  const existing = await prisma.affiliateAttribution.findUnique({
-    where: { organizationId: params.organizationId },
-  });
-  if (existing) return existing;
-
-  return prisma.affiliateAttribution.create({
-    data: {
-      organizationId: params.organizationId,
-      affiliateId: params.affiliateId,
-      campaignId: params.campaignId || null,
-      subscriptionId: params.subscriptionId,
-      touchpoint: params.touchpoint,
-      clickId: params.clickId || null,
-      source: params.source || null,
-      lockedAt: new Date(),
-    },
-  });
+  // Idempotent — return existing if already locked (race-safe via upsert)
+  try {
+    return await prisma.affiliateAttribution.upsert({
+      where: { organizationId: params.organizationId },
+      create: {
+        organizationId: params.organizationId,
+        affiliateId: params.affiliateId,
+        campaignId: params.campaignId || null,
+        subscriptionId: params.subscriptionId,
+        touchpoint: params.touchpoint,
+        clickId: params.clickId || null,
+        source: params.source || null,
+        lockedAt: new Date(),
+      },
+      update: {}, // No-op update — first lock wins
+    });
+  } catch {
+    // If upsert fails (concurrent race), fetch existing
+    return prisma.affiliateAttribution.findUnique({
+      where: { organizationId: params.organizationId },
+    });
+  }
 }
 
 /**
@@ -93,7 +98,7 @@ export async function resolveAffiliateForSubscription(params: {
 }> {
   let affiliateId: string | null = null;
   let campaignId: string | null = null;
-  let clickId: string | null = null;
+  const clickId: string | null = null;
   let touchpoint: "click" | "coupon" | "manual" = "manual";
   let source: string | null = null;
 
@@ -135,25 +140,10 @@ export async function resolveAffiliateForSubscription(params: {
     }
   }
 
-  // Step 3: For last-touch, find the most recent click for this org's email
-  // (only if no first-touch attribution was found)
-  if (!affiliateId && params.attributionModel === "last_touch" && params.organizationEmail) {
-    const recentClick = await prisma.affiliateClick.findFirst({
-      where: {
-        affiliate: { status: { in: ["active", "approved"] } },
-        createdAt: { gte: new Date(Date.now() - 90 * 86400000) }, // within cookie window
-      },
-      orderBy: { createdAt: "desc" },
-      select: { id: true, affiliateId: true, campaignId: true },
-    });
-    if (recentClick) {
-      affiliateId = recentClick.affiliateId;
-      campaignId = recentClick.campaignId || null;
-      clickId = recentClick.id;
-      touchpoint = "click";
-      source = "last_touch";
-    }
-  }
+  // Step 3: Last-touch attribution requires email tracking on clicks, which isn't
+  // supported by the current AffiliateClick schema (no email field). Fall back to
+  // cookie/coupon only. Last-touch will be implemented when click tracking includes
+  // email association.
 
   return { affiliateId, campaignId, clickId, touchpoint, source };
 }

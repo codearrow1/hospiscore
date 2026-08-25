@@ -46,8 +46,7 @@ export default function ApplicationReview() {
   const [applications, setApplications] = useState<Application[]>([]);
   const [loading, setLoading] = useState(true);
   const [filter, setFilter] = useState<Filter>("all");
-  const [reviewNote, setReviewNote] = useState("");
-  const [actingId, setActingId] = useState<string | null>(null);
+  const [reviewNotes, setReviewNotes] = useState<Record<string, string>>({});
 
   const fetchApplications = async () => {
     setLoading(true);
@@ -68,22 +67,25 @@ export default function ApplicationReview() {
   }, [filter]);
 
   const reviewApplication = async (id: string, status: "approved" | "rejected") => {
-    setActingId(id);
     try {
       const res = await fetch(`/api/saas/affiliate-applications/${id}`, {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ status, reviewNote: reviewNote || undefined }),
+        body: JSON.stringify({ status, reviewNote: reviewNotes[id] || undefined }),
       });
       if (!res.ok) {
         const d = await res.json().catch(() => ({}));
         alert(d.error ?? "Failed to update application");
         return;
       }
-      setReviewNote("");
+      setReviewNotes(prev => {
+        const next = { ...prev };
+        delete next[id];
+        return next;
+      });
       fetchApplications();
     } finally {
-      setActingId(null);
+      fetchApplications();
     }
   };
 
@@ -202,9 +204,8 @@ export default function ApplicationReview() {
                   className={inputCls + " mb-2"}
                   rows={2}
                   placeholder="Review note (optional)"
-                  value={actingId === app.id ? reviewNote : ""}
-                  onChange={(e) => setReviewNote(e.target.value)}
-                  onFocus={() => setActingId(app.id)}
+                  value={reviewNotes[app.id] || ""}
+                  onChange={(e) => setReviewNotes(prev => ({ ...prev, [app.id]: e.target.value }))}
                 />
                 <div className="flex gap-2">
                   <button

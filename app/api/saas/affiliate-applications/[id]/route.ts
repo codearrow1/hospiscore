@@ -32,7 +32,12 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id
   if (!hasSaasPerm(user, "AFFILIATE_APPROVE")) return NextResponse.json({ error: "Forbidden" }, { status: 403 });
 
   const { id } = await params;
-  const { status, reviewNote } = await req.json();
+  let body: Record<string, unknown>;
+  try { body = await req.json(); } catch { return NextResponse.json({ error: "Invalid JSON" }, { status: 400 }); }
+  if (body.status && !["pending", "approved", "rejected"].includes(body.status as string)) {
+    return NextResponse.json({ error: "Invalid status" }, { status: 400 });
+  }
+  const { status, reviewNote } = body as { status?: string; reviewNote?: string };
 
   const application = await prisma.affiliateApplication.update({
     where: { id },

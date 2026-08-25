@@ -86,7 +86,7 @@ export default function CampaignManager() {
     name: "",
     slug: "",
     description: "",
-    commissionModel: "percent_mrr",
+    commissionModel: "percent_mrr_12",
     commissionValue: "10",
     cookieDays: "30",
     holdingPeriodDays: "30",
@@ -150,7 +150,7 @@ export default function CampaignManager() {
     }
     setShowCreate(false);
     setForm({
-      name: "", slug: "", description: "", commissionModel: "percent_mrr",
+      name: "", slug: "", description: "", commissionModel: "percent_mrr_12",
       commissionValue: "10", cookieDays: "30", holdingPeriodDays: "30",
       maxCommission: "", minPayout: "5000", recurringDuration: "",
       recurringLimit: "", tier2OverrideRate: "", tier3OverrideRate: "", maxTierDepth: "3",
@@ -370,10 +370,10 @@ export default function CampaignManager() {
               <div>
                 <label className="mb-1 block text-xs font-medium">Commission Model</label>
                 <select className={inputCls} value={form.commissionModel} onChange={set("commissionModel")}>
-                  <option value="percent_mrr">% of MRR</option>
+                  <option value="percent_mrr_12">% of MRR x12</option>
                   <option value="fixed">Fixed amount</option>
                   <option value="percent_first">% first payment</option>
-                  <option value="recurring">Recurring %</option>
+                  <option value="percent_mrr_recurring">% of MRR (recurring)</option>
                 </select>
               </div>
               <div>
@@ -592,10 +592,10 @@ function EditCampaignFields({
         <div>
           <label className="mb-1 block text-xs font-medium">Commission Model</label>
           <select className={inputCls} value={form.commissionModel} onChange={set("commissionModel")}>
-            <option value="percent_mrr">% of MRR</option>
+            <option value="percent_mrr_12">% of MRR x12</option>
             <option value="fixed">Fixed amount</option>
             <option value="percent_first">% first payment</option>
-            <option value="recurring">Recurring %</option>
+            <option value="percent_mrr_recurring">% of MRR (recurring)</option>
           </select>
         </div>
         <div>

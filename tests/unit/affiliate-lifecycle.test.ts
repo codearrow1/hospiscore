@@ -25,10 +25,10 @@ describe("Affiliate Commission Calculation", () => {
     expect(result).toBe(10000); // 2000/10000 * 50000
   });
 
-  it("returns value for unknown model (default case)", async () => {
+  it("returns 0 for unknown model (default case)", async () => {
     const { calcCommissionAmount } = await import("@/lib/saas/commissions");
     const result = calcCommissionAmount("invalid" as any, 2000, 50000);
-    expect(result).toBe(2000); // default returns value directly
+    expect(result).toBe(0); // unknown model returns 0 (no silent fallback)
   });
 
   it("fixed commission returns value regardless of MRR", async () => {

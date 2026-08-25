@@ -24,7 +24,13 @@ const STATUS_COLORS: Record<string, string> = {
   dismissed: "bg-zinc-200 text-zinc-600 dark:bg-zinc-700 dark:text-zinc-400",
 };
 
-const RESOLUTIONS = ["confirmed_fraud", "false_positive", "policy_violation", "inconclusive"];
+const RESOLUTIONS = [
+  { value: "no_action", label: "No Action" },
+  { value: "warning", label: "Warning" },
+  { value: "commission_hold", label: "Commission Hold" },
+  { value: "account_suspend", label: "Suspend Account" },
+  { value: "account_terminate", label: "Terminate Account" },
+];
 
 const inputCls =
   "w-full rounded-lg border border-zinc-300 bg-white px-3 py-1.5 text-sm dark:border-zinc-700 dark:bg-zinc-800";
@@ -249,7 +255,7 @@ export default function FraudDashboard() {
                       >
                         <option value="">Select…</option>
                         {RESOLUTIONS.map((r) => (
-                          <option key={r} value={r}>{r.replace(/_/g, " ")}</option>
+                          <option key={r.value} value={r.value}>{r.label}</option>
                         ))}
                       </select>
                     </div>

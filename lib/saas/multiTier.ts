@@ -13,14 +13,13 @@ import { prisma } from "@/lib/prisma";
 export async function recruitAffiliate(params: {
   parentAffiliateId: string;
   childAffiliateId: string;
-  depth?: number;
 }) {
   if (params.parentAffiliateId === params.childAffiliateId) {
     throw new Error("Cannot recruit yourself");
   }
 
   const [parent, child] = await Promise.all([
-    prisma.affiliate.findUnique({ where: { id: params.parentAffiliateId }, select: { id: true, status: true, campaignId: true } }),
+    prisma.affiliate.findUnique({ where: { id: params.parentAffiliateId }, select: { id: true, status: true, campaignId: true, parentId: true } }),
     prisma.affiliate.findUnique({ where: { id: params.childAffiliateId }, select: { id: true, status: true } }),
   ]);
   if (!parent) throw new Error("Parent affiliate not found");
@@ -34,13 +33,13 @@ export async function recruitAffiliate(params: {
   });
   if (existing) throw new Error("Recruitment relationship already exists");
 
-  // Check max depth (look up parent's own chain)
-  const depth = params.depth ?? 1;
+  // Calculate depth from parent's actual tree position (don't trust caller)
+  const depth = await getParentDepth(params.parentAffiliateId);
   const campaign = parent.campaignId
     ? await prisma.affiliateCampaign.findUnique({ where: { id: parent.campaignId }, select: { maxTierDepth: true } })
     : null;
   const maxDepth = campaign?.maxTierDepth ?? 3;
-  if (depth > maxDepth) throw new Error(`Maximum tier depth (${maxDepth}) exceeded`);
+  if (depth >= maxDepth) throw new Error(`Maximum tier depth (${maxDepth}) exceeded`);
 
   // Cycle check: ensure child is not an ancestor of parent
   const isAncestor = await checkAncestry(params.childAffiliateId, params.parentAffiliateId);
@@ -74,6 +73,19 @@ async function checkAncestry(candidateId: string, descendantId: string): Promise
     current = aff.parentId;
   }
   return false;
+}
+
+/** Calculate the depth of an affiliate in the recruitment tree (1 = root). */
+async function getParentDepth(affiliateId: string): Promise<number> {
+  let depth = 1;
+  let current = affiliateId;
+  for (let i = 0; i < 5; i++) {
+    const aff = await prisma.affiliate.findUnique({ where: { id: current }, select: { parentId: true } });
+    if (!aff?.parentId) break;
+    depth++;
+    current = aff.parentId;
+  }
+  return depth;
 }
 
 /**

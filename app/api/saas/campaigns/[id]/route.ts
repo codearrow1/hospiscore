@@ -24,6 +24,12 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id
   const { id } = await params;
   let body: Record<string, unknown>;
   try { body = await req.json(); } catch { return NextResponse.json({ error: "Invalid JSON" }, { status: 400 }); }
+  for (const f of ["commissionValue","cookieDays","holdingPeriodDays","minPayout","recurringDuration","recurringLimit","tier2OverrideRate","tier3OverrideRate","maxCommission","maxTierDepth"]) {
+    if (body[f] !== undefined && body[f] !== null && body[f] !== "") {
+      const n = Number(body[f]);
+      if (!Number.isFinite(n) || n < 0) return NextResponse.json({ error: `${f} must be a non-negative number` }, { status: 400 });
+    }
+  }
   try {
     const campaign = await updateCampaign(id, {
       name: typeof body.name === "string" ? body.name : undefined,

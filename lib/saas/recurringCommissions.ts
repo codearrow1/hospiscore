@@ -18,10 +18,10 @@ export async function createRecurringCommission(params: {
   mrr: number;
   invoiceId?: string;
 }) {
-  // Find the original affiliate commission for this organization
+  // Find the original affiliate commission for this subscription (not just the org)
   const originalCommission = await prisma.affiliateCommission.findFirst({
     where: {
-      organizationId: params.organizationId,
+      subscriptionId: params.subscriptionId,
       status: { notIn: ["reversed", "rejected"] },
       affiliateId: { not: null },
     },
@@ -45,29 +45,11 @@ export async function createRecurringCommission(params: {
   const recurringDuration = aff.customRecurringDuration ?? campaign.recurringDuration;
   if (recurringDuration === 0) return null; // First payment only
 
-  // Count existing recurring commissions for this subscription
-  const existingRecurringCount = await prisma.affiliateCommission.count({
-    where: {
-      subscriptionId: params.subscriptionId,
-      affiliateId: aff.id,
-      commissionType: "recurring",
-      status: { notIn: ["reversed", "rejected"] },
-    },
-  });
-
-  // Check recurring limit
-  const recurringLimit = campaign.recurringLimit;
-  if (recurringLimit && existingRecurringCount >= recurringLimit) {
-    return null; // Limit reached
-  }
-
-  // Check duration (-1 = lifetime)
-  if (recurringDuration > 0) {
-    const monthsElapsed = existingRecurringCount + 1;
-    if (monthsElapsed > recurringDuration) {
-      return null; // Duration exceeded
-    }
-  }
+  const now = new Date();
+  const holdingPeriodDays = campaign.holdingPeriodDays;
+  const holdUntil = holdingPeriodDays > 0
+    ? new Date(now.getTime() + holdingPeriodDays * 86400000)
+    : null;
 
   // Calculate commission amount
   const model = aff.customCommissionModel || campaign.commissionModel;
@@ -79,43 +61,61 @@ export async function createRecurringCommission(params: {
     amount = campaign.maxCommission;
   }
 
-  const now = new Date();
-  const holdingPeriodDays = campaign.holdingPeriodDays;
-  const holdUntil = holdingPeriodDays > 0
-    ? new Date(now.getTime() + holdingPeriodDays * 86400000)
-    : null;
+  // Atomic count + create in transaction to prevent race condition
+  return prisma.$transaction(async (tx) => {
+    const existingRecurringCount = await tx.affiliateCommission.count({
+      where: {
+        subscriptionId: params.subscriptionId,
+        affiliateId: aff.id,
+        commissionType: "recurring",
+        status: { notIn: ["reversed", "rejected"] },
+      },
+    });
 
-  const ruleSnapshot = {
-    campaignId: campaign.id,
-    model,
-    value,
-    amount,
-    mrr: params.mrr,
-    type: "recurring",
-    recurringIndex: existingRecurringCount + 1,
-    recurringDuration,
-    recurringLimit,
-    resolvedAt: now.toISOString(),
-  };
+    const recurringLimit = campaign.recurringLimit;
+    if (recurringLimit && existingRecurringCount >= recurringLimit) {
+      return null; // Limit reached
+    }
 
-  return prisma.affiliateCommission.create({
-    data: {
-      affiliateId: aff.id,
-      organizationId: params.organizationId,
-      subscriptionId: params.subscriptionId,
+    if (recurringDuration > 0) {
+      const monthsElapsed = existingRecurringCount + 1;
+      if (monthsElapsed > recurringDuration) {
+        return null; // Duration exceeded
+      }
+    }
+
+    const ruleSnapshot = {
       campaignId: campaign.id,
-      amount,
-      currency: "USD",
-      status: holdUntil ? "pending" : "eligible",
       model,
-      commissionType: "recurring",
-      ruleSnapshot,
-      rate: value,
-      base: params.mrr,
-      holdUntil,
-      eligibleAt: holdUntil ? null : now,
-    },
-  });
+      value,
+      amount,
+      mrr: params.mrr,
+      type: "recurring",
+      recurringIndex: existingRecurringCount + 1,
+      recurringDuration,
+      recurringLimit,
+      resolvedAt: now.toISOString(),
+    };
+
+    return tx.affiliateCommission.create({
+      data: {
+        affiliateId: aff.id,
+        organizationId: params.organizationId,
+        subscriptionId: params.subscriptionId,
+        campaignId: campaign.id,
+        amount,
+        currency: "USD",
+        status: holdUntil ? "pending" : "eligible",
+        model,
+        commissionType: "recurring",
+        ruleSnapshot,
+        rate: value,
+        base: params.mrr,
+        holdUntil,
+        eligibleAt: holdUntil ? null : now,
+      },
+    });
+  }, { maxWait: 20_000, timeout: 60_000 });
 }
 
 /**

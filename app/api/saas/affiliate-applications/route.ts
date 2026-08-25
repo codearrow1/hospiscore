@@ -4,6 +4,7 @@ import { hasSaasPerm } from "@/lib/saas/roles";
 import { writeSaasAudit } from "@/lib/saas/audit";
 import { initSaasDb } from "@/lib/saas/init";
 import { prisma } from "@/lib/prisma";
+import { InputJsonValue } from "@prisma/client/runtime/library";
 
 export async function GET(req: NextRequest) {
   await initSaasDb().catch(() => {});
@@ -36,14 +37,20 @@ export async function POST(req: NextRequest) {
   const { user } = guard;
   if (!hasSaasPerm(user, "AFFILIATE_MANAGE")) return NextResponse.json({ error: "Forbidden" }, { status: 403 });
 
-  const { affiliateId, website, audience, socialProfiles, promotionMethod, geography, niche, expectedTraffic, planDescription } = await req.json();
+  let body: Record<string, unknown>;
+  try { body = await req.json(); } catch { return NextResponse.json({ error: "Invalid JSON" }, { status: 400 }); }
+  if (!body.affiliateId || typeof body.affiliateId !== "string" || !(body.affiliateId as string).trim()) {
+    return NextResponse.json({ error: "affiliateId required" }, { status: 400 });
+  }
+
+  const { affiliateId, website, audience, socialProfiles, promotionMethod, geography, niche, expectedTraffic, planDescription } = body as { affiliateId: string; website?: string; audience?: string; socialProfiles?: Record<string, unknown>; promotionMethod?: string; geography?: string; niche?: string; expectedTraffic?: string; planDescription?: string };
 
   const application = await prisma.affiliateApplication.create({
     data: {
       affiliateId,
       website,
       audience,
-      socialProfiles,
+      socialProfiles: socialProfiles as unknown as InputJsonValue,
       promotionMethod,
       geography,
       niche,

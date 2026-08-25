@@ -34,7 +34,7 @@ export function calcCommissionAmount(model: string, value: number, mrr: number):
     case "percent_first": return Math.round((mrr * value) / 10000);
     case "percent_mrr_12": return Math.round((mrr * value * 12) / 10000);
     case "percent_mrr_recurring": return Math.round((mrr * value) / 10000); // per month, caller aggregates
-    default: return value;
+    default: return 0;
   }
 }
 
@@ -119,7 +119,7 @@ export async function createCommissionForSubscription(params: {
   }
 
   // Determine commission type
-  const commissionType = params.clickId ? "direct" : "direct";
+  const commissionType = params.clickId ? "direct" : "coupon";
 
   // Create rule snapshot for historical accuracy
   const ruleSnapshot = {
@@ -208,7 +208,9 @@ export async function updateCommissionStatus(id: string, to: CommissionStatus) {
 export async function reverseCommission(id: string, reason?: string) {
   const cur = await prisma.affiliateCommission.findUnique({ where: { id } });
   if (!cur) throw new Error("Commission not found");
-  if (cur.status === "reversed" || cur.status === "paid") throw new Error("Cannot reverse paid/reversed");
+  if (!canTransitionCommission(cur.status as CommissionStatus, "reversed")) {
+    throw new Error(`Cannot reverse commission in status ${cur.status}`);
+  }
   return prisma.affiliateCommission.update({
     where: { id },
     data: {
