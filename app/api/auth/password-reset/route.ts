@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { originAllowed, clientIp, rateLimit } from "@/lib/marketing/guard";
 import { createPasswordReset } from "@/lib/accounts";
+import { sendMail } from "@/lib/mailer";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -40,10 +41,17 @@ export async function POST(req: NextRequest) {
 
   const origin = req.nextUrl.origin;
   const resetUrl = `${origin}/account?reset=${encodeURIComponent(result.token)}`;
-  if (process.env.NODE_ENV === "production") {
-    // BACKEND GAP (labeled): outbound mail delivery for reset links is not
-    // wired yet. The token exists only hashed server-side; surface nothing.
-    return NextResponse.json({ ...generic, delivered: false });
+  try {
+    await sendMail({
+      to: email,
+      subject: "Reset your HospiOS password",
+      html: `<p>You requested a password reset. Click the link below to set a new password. This link expires in 30 minutes.</p>
+<p><a href="${resetUrl}">Reset password</a></p>
+<p>If you didn't request this, you can safely ignore this email.</p>`,
+    });
+  } catch {
+    // Mail delivery failure is non-fatal — the token is stored server-side.
   }
-  return NextResponse.json({ ...generic, delivered: true, resetUrl });
+  // Always respond identically regardless of mail delivery outcome.
+  return NextResponse.json(generic);
 }

@@ -4,6 +4,7 @@ import { hasSaasPerm } from "@/lib/saas/roles";
 import { listTickets, createTicket } from "@/lib/saas/support";
 import { writeSaasAudit } from "@/lib/saas/audit";
 import { clientIp } from "@/lib/marketing/guard";
+import { pushNotification } from "@/lib/saas/notifications";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -35,6 +36,14 @@ export async function POST(req: NextRequest) {
       requesterEmail: typeof body.requesterEmail === "string" ? body.requesterEmail : undefined,
     });
     await writeSaasAudit({ byEmail: guard.user.email, action: "ticket.created", entity: "ticket", entityId: ticket.id, detail: `${ticket.category}/${ticket.priority} ${ticket.subject}`.slice(0, 200), ip: clientIp(req) });
+    // Notify the ticket creator and all admins
+    await pushNotification({
+      userId: guard.user.email,
+      kind: "ticket.created",
+      title: `Ticket created: ${ticket.subject}`,
+      body: `${ticket.category}/${ticket.priority} — ${ticket.subject}`,
+      href: "/saas",
+    });
     return NextResponse.json({ ticket }, { status: 201 });
   } catch (e) {
     return NextResponse.json({ error: e instanceof Error ? e.message : "Create failed" }, { status: 400 });

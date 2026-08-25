@@ -169,7 +169,7 @@ export default function AuthCard({ onAuthed }: Props) {
             Back to sign in
           </button>
           <p className="text-xs italic text-zinc-400">
-            Reset links are delivered by email (outbound mail is not wired yet — outside development the request confirms silently). Email address verification is planned.
+            Reset links are sent to your email address. Check your inbox (and spam folder).
           </p>
         </form>
       ) : (

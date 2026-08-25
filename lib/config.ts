@@ -88,6 +88,17 @@ export const CONFIG = {
   /** Optional webhook/endpoint that receives alert e-mails (e.g. Resend). */
   alertWebhookUrl: env("ALERT_WEBHOOK_URL"),
 
+  // --- SMTP (outbound transactional e-mail) --------------------------------
+  smtpHost: env("SMTP_HOST"),
+  smtpPort: Number(env("SMTP_PORT") || 587),
+  smtpUser: env("SMTP_USER"),
+  smtpPass: env("SMTP_PASS"),
+  smtpFrom: env("SMTP_FROM") || "noreply@thebuddharice.online",
+  /** Whether SMTP is configured (host + user set). */
+  get smtpEnabled() {
+    return this.smtpHost.length > 0 && this.smtpUser.length > 0;
+  },
+
   // --- Internal admin access -------------------------------------------------
   /** Comma-separated e-mail addresses allowed to view the internal leads view. */
   adminEmails: env("ADMIN_EMAILS")

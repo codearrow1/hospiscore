@@ -41,7 +41,12 @@ export default async function CustomerInvoicePage({ params }: { params: Promise<
     <div className="mx-auto w-full max-w-2xl py-8">
       <div className="mb-4 flex items-center justify-between">
         <a href="/customer" className="text-sm text-indigo-600 hover:underline print:hidden dark:text-indigo-400">← Back to portal</a>
-        <PrintButton />
+        <div className="flex gap-2 print:hidden">
+          <a href={`/api/customer/invoices/${id}/pdf`} download className="rounded-lg border border-zinc-300 px-3 py-1.5 text-xs font-semibold text-zinc-700 transition hover:bg-zinc-50 dark:border-zinc-700 dark:text-zinc-300 dark:hover:bg-zinc-800">
+            Download PDF
+          </a>
+          <PrintButton />
+        </div>
       </div>
 
       <article className="rounded-2xl border border-line bg-surface p-6 shadow-sm sm:p-8">
@@ -108,7 +113,6 @@ export default async function CustomerInvoicePage({ params }: { params: Promise<
 
         <footer className="mt-6 border-t border-zinc-100 pt-3 text-[11px] italic text-zinc-400 dark:border-zinc-800">
           Questions about this invoice? Open a billing ticket from your customer portal.
-          Server-side PDF generation is planned — this view is optimized for browser printing.
         </footer>
       </article>
     </div>

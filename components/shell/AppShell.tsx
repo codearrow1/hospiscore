@@ -5,6 +5,7 @@ import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import { ToastProvider, useToast } from "@/components/ui/Toast";
 import { CommandPalette } from "./CommandPalette";
+import NotificationBell from "./NotificationBell";
 import type { NavItem, PlaneInfo, QuickAction, ShellUser } from "./types";
 
 /**
@@ -344,22 +345,7 @@ function ShellFrame({
               </Link>
             ))}
 
-            <button
-              type="button"
-              aria-label="Notifications (not available yet)"
-              title="Notifications coming soon"
-              onClick={() => toast.info("Notifications are coming soon.")}
-              /* BACKEND GAP: no notification store exists yet. Until a
-                 Notification model (+ per-user preferences and delivery) ships,
-                 actionable items surface through the passive Attention Rails on
-                 each command center instead of a notification center. */
-              className="-m-1.5 relative rounded-lg p-3.5 text-zinc-400 transition hover:bg-surface-subtle hover:text-zinc-600"
-            >
-              <svg className="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2}>
-                <path d="M6 8a6 6 0 0 1 12 0c0 7 3 9 3 9H3s3-2 3-9" />
-                <path d="M10.3 21a1.94 1.94 0 0 0 3.4 0" />
-              </svg>
-            </button>
+            <NotificationBell />
 
             <a
               href="/docs"

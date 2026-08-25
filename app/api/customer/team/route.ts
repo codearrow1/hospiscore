@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { originAllowed, rateLimit } from "@/lib/marketing/guard";
 import { requireCustomerOrg } from "@/lib/saas/portalAccess";
 import { prisma } from "@/lib/prisma";
+import { sendMail } from "@/lib/mailer";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -10,10 +11,8 @@ export const dynamic = "force-dynamic";
  * Team management for the customer portal (Phase 7).
  *
  * Invites create OrgContact rows scoped to the caller's organization.
- * BACKEND GAP (labeled): outbound invitation emails are not wired to the
- * mailer yet — the portal surfaces this honestly. Identity binding happens
- * automatically when the invitee registers with the same email or redeems a
- * claim token minted by an admin.
+ * Identity binding happens automatically when the invitee registers with the
+ * same email or redeems a claim token minted by an admin.
  */
 
 const ROLES = ["owner", "billing", "tech"];
@@ -75,9 +74,22 @@ export async function POST(req: NextRequest) {
     data: { organizationId: access.org.organizationId, name: name.slice(0, 120), email, role },
     select: { id: true, name: true, email: true, role: true, isPrimary: true },
   });
+
+  const portalUrl = `${req.nextUrl.origin}/account`;
+  try {
+    const orgName = await prisma.organization.findUnique({ where: { id: access.org.organizationId }, select: { legalName: true } });
+    await sendMail({
+      to: email,
+      subject: `You've been added to a team on HospiOS`,
+      html: `<p>You've been added as <strong>${role}</strong> on the HospiOS customer portal${orgName?.legalName ? ` (${orgName.legalName})` : ""}.</p>
+<p><a href="${portalUrl}">Open the portal</a> and sign in or create an account with this email address. Your team access will bind automatically.</p>`,
+    });
+  } catch {
+    // Mail failure is non-fatal.
+  }
+
   return NextResponse.json({
     contact,
-    notice: "Invite saved. Email delivery is not wired yet — share the portal link with them directly.",
   }, { status: 201 });
 }
 

@@ -45,8 +45,35 @@ export default function FranchiseManager({ initialTerritories, initialFranchisee
   const [simFid, setSimFid] = useState("");
   const [simBps, setSimBps] = useState("1500");
   const [error, setError] = useState("");
+  // Settlement state
+  const [settlementPeriod, setSettlementPeriod] = useState(() => {
+    const d = new Date(); d.setMonth(d.getMonth() - 1);
+    return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}`;
+  });
+  const [settlementRunning, setSettlementRunning] = useState(false);
+  const [payouts, setPayouts] = useState<{ id: string; franchiseeId: string; period: string; grossAmount: number; shareBps: number; netAmount: number; currency: string; status: string; createdAt: string; franchisee?: { company: string } }[]>([]);
   const tset = (k: string) => (e: { target: { value: string } }) => setTf((f) => ({ ...f, [k]: e.target.value }));
   const fset = (k: string) => (e: { target: { value: string } }) => setFf((f) => ({ ...f, [k]: e.target.value }));
+
+  const runSettlement = async () => {
+    setSettlementRunning(true);
+    try {
+      const res = await fetch("/api/saas/franchise/settlement", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ period: settlementPeriod }),
+      });
+      const d = await res.json().catch(() => ({}));
+      if (!res.ok) { toast.error(d.error ?? "Settlement failed"); return; }
+      toast.success(`Settlement complete: ${d.created} payout(s) created, ${d.skipped} already settled`);
+      await loadPayouts();
+    } finally { setSettlementRunning(false); }
+  };
+
+  const loadPayouts = async () => {
+    const res = await fetch(`/api/saas/franchise/settlement?period=${settlementPeriod}`);
+    if (res.ok) { const d = await res.json(); setPayouts(d.payouts); }
+  };
 
   /** Hierarchy-aware ordering: masters first, then their descendants, indented by depth. */
   const orderedTerritories = useMemo(() => {
@@ -241,7 +268,7 @@ export default function FranchiseManager({ initialTerritories, initialFranchisee
       {/* Revenue-share simulator — client-side estimate, no server mutation */}
       <div className="rounded-2xl border bg-white p-4 dark:bg-zinc-900 dark:border-zinc-800">
         <h3 className="text-sm font-semibold">Revenue-share simulator</h3>
-        <p className="mt-0.5 text-xs text-zinc-500">Estimate a franchisee&apos;s monthly share from live territory MRR. Estimates only — invoicing is not automated yet.</p>
+        <p className="mt-0.5 text-xs text-zinc-500">Estimate a franchisee&apos;s monthly share from live territory MRR. Use the settlement section below to create actual payouts.</p>
         <div className="mt-3 flex flex-wrap items-end gap-3">
           <div className="min-w-56">
             <Field label="Franchisee">
@@ -280,12 +307,56 @@ export default function FranchiseManager({ initialTerritories, initialFranchisee
         </div>
       </div>
 
+      {/* Settlement run + payout history */}
+      {canManage && (
+        <div className="rounded-2xl border bg-white p-4 dark:bg-zinc-900 dark:border-zinc-800">
+          <h3 className="text-sm font-semibold">Payout settlement</h3>
+          <p className="mt-0.5 text-xs text-zinc-500">Calculate franchisee revenue-share payouts from territory MRR for a given month. Idempotent — re-running skips already-settled franchisees.</p>
+          <div className="mt-3 flex flex-wrap items-end gap-3">
+            <div className="w-40">
+              <Field label="Period (YYYY-MM)">
+                <input className={inputCls} type="month" value={settlementPeriod} onChange={(e) => setSettlementPeriod(e.target.value)} />
+              </Field>
+            </div>
+            <button className={btnPrimary} disabled={settlementRunning} onClick={runSettlement}>
+              {settlementRunning ? "Running…" : "Run settlement"}
+            </button>
+            <button className={btnGhost} onClick={loadPayouts}>Refresh</button>
+          </div>
+          {payouts.length > 0 && (
+            <div className="mt-3 overflow-x-auto rounded-xl border dark:border-zinc-800">
+              <table className="w-full text-left text-xs">
+                <thead><tr className="border-b text-[10px] uppercase text-zinc-400 dark:border-zinc-800">
+                  <th className="px-2.5 py-1.5">Franchisee</th>
+                  <th className="px-2.5 py-1.5">Period</th>
+                  <th className="px-2.5 py-1.5">Gross MRR</th>
+                  <th className="px-2.5 py-1.5">Share</th>
+                  <th className="px-2.5 py-1.5">Net Payout</th>
+                  <th className="px-2.5 py-1.5">Status</th>
+                </tr></thead>
+                <tbody>
+                  {payouts.map((p) => (
+                    <tr key={p.id} className="border-t dark:border-zinc-800">
+                      <td className="px-2.5 py-1.5 font-medium">{p.franchisee?.company ?? p.franchiseeId.slice(0, 8)}</td>
+                      <td className="px-2.5 py-1.5">{p.period}</td>
+                      <td className="px-2.5 py-1.5 tabular-nums">{formatMoney(p.grossAmount, p.currency)}</td>
+                      <td className="px-2.5 py-1.5">{(p.shareBps / 100).toFixed(1)}%</td>
+                      <td className="px-2.5 py-1.5 font-semibold tabular-nums">{formatMoney(p.netAmount, p.currency)}</td>
+                      <td className="px-2.5 py-1.5"><Badge>{p.status}</Badge></td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          )}
+        </div>
+      )}
+
       {/* Planned capabilities — visibly separated so nothing reads as shipped */}
       <div className="rounded-2xl border border-dashed border-zinc-300 bg-zinc-50 p-4 dark:border-zinc-700 dark:bg-zinc-800/40">
         <h3 className="text-xs font-bold uppercase tracking-wider text-zinc-400">Planned capabilities — not yet available</h3>
         <ul className="mt-2 list-inside list-disc space-y-0.5 text-sm text-zinc-500 dark:text-zinc-400">
           <li>Auto-routing of new signups into the correct exclusive territory</li>
-          <li>Payout settlement run — planned (monthly royalty invoices and franchisee payouts are not generated yet; the simulator above is an estimate only)</li>
           <li>Franchisee portal access with scoped territory dashboards</li>
         </ul>
       </div>

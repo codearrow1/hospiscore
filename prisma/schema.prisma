@@ -502,9 +502,57 @@ model SupportTicket {
   createdAt      DateTime  @default(now())
   updatedAt      DateTime  @updatedAt
 
+  comments       TicketComment[]
+
   @@index([organizationId])
   @@index([status])
   @@index([slaDueAt])
+}
+
+model TicketComment {
+  id             String        @id @default(cuid())
+  ticketId       String
+  ticket         SupportTicket @relation(fields: [ticketId], references: [id], onDelete: Cascade)
+  authorEmail    String
+  authorName     String?
+  body           String
+  isInternal     Boolean       @default(false)
+  createdAt      DateTime      @default(now())
+
+  @@index([ticketId])
+  @@index([createdAt])
+}
+
+model Notification {
+  id             String    @id @default(cuid())
+  userId         String
+  kind           String    // ticket.created|ticket.replied|subscription.renewed|dunning.alert|invoice.issued|payout.approved
+  title          String
+  body           String
+  href           String?
+  readAt         DateTime?
+  createdAt      DateTime @default(now())
+
+  @@index([userId, readAt])
+  @@index([createdAt])
+}
+
+model FranchisePayout {
+  id            String      @id @default(cuid())
+  franchiseeId  String
+  franchisee    Franchisee  @relation(fields: [franchiseeId], references: [id], onDelete: Cascade)
+  period        String      // YYYY-MM
+  grossAmount   Int         // cents — total subscription revenue in territory
+  shareBps      Int         // franchisee's revenue share at time of run
+  netAmount     Int         // cents — gross * shareBps / 10000
+  currency      String      @default("USD")
+  status        String      @default("draft") // draft|approved|paid|reversed
+  notes         String?
+  createdAt     DateTime    @default(now())
+  updatedAt     DateTime    @updatedAt
+
+  @@unique([franchiseeId, period])
+  @@index([status])
 }
 
 /// Persistent onboarding checklist marks for the role portals (Phase 7).
@@ -563,6 +611,7 @@ model Franchisee {
   updatedAt        DateTime  @updatedAt
 
   territories FranchiseTerritory[]
+  payouts    FranchisePayout[]
 
   @@index([status])
 }

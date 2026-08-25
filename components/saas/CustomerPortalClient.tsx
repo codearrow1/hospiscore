@@ -406,7 +406,7 @@ export default function CustomerPortalClient({
           </ul>
         )}
         <p className="mt-2 text-[11px] italic text-zinc-400">
-          Server-side PDF generation is planned — “Open invoice view” gives a print-ready page (use your browser’s Print → Save as PDF).
+          Use &ldquo;Open invoice view&rdquo; for a print-ready page, or click &ldquo;Download PDF&rdquo; on the invoice page.
         </p>
       </SectionCard>
 

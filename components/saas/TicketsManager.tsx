@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useMemo, useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import { btnGhost, btnPrimary, Field, inputCls, Modal, Badge } from "@/components/marketing-admin/ui";
 import { useToast } from "@/components/ui/Toast";
@@ -18,6 +18,10 @@ type Ticket = {
   requesterEmail?: string | null;
   firstResponseAt?: Date | null; resolvedAt?: Date | null;
   organization?: { legalName: string };
+};
+type Comment = {
+  id: string; ticketId: string; authorEmail: string; authorName?: string | null;
+  body: string; isInternal: boolean; createdAt: string;
 };
 type Opt = { id: string; label: string };
 
@@ -60,8 +64,20 @@ export default function TicketsManager({ initialTickets, canManage, orgs = [] }:
   const [fPriority, setFPriority] = useState("");
   const [fCategory, setFCategory] = useState("");
   const [breachedOnly, setBreachedOnly] = useState(false);
+  // Ticket comments
+  const [comments, setComments] = useState<Comment[]>([]);
+  const [commentBody, setCommentBody] = useState("");
+  const [commentInternal, setCommentInternal] = useState(false);
+  const [loadingComments, setLoadingComments] = useState(false);
+  const [sendingComment, setSendingComment] = useState(false);
 
   const set = (k: string) => (e: { target: { value: string } }) => setForm((f) => ({ ...f, [k]: e.target.value }));
+
+  // Load comments when detail drawer opens
+  useEffect(() => {
+    if (detail) { loadComments(detail.id); setComments([]); }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [detail?.id]);
 
   const refresh = async () => {
     const res = await fetch("/api/saas/support");
@@ -93,6 +109,32 @@ export default function TicketsManager({ initialTickets, canManage, orgs = [] }:
 
   const saveAssignee = async (t: Ticket) => {
     await patch(t.id, { assigneeEmail: detail?.assigneeEmail ?? "" });
+  };
+
+  const loadComments = async (ticketId: string) => {
+    setLoadingComments(true);
+    try {
+      const res = await fetch(`/api/saas/support/${ticketId}/comments`);
+      if (res.ok) { const d = await res.json(); setComments(d.comments); }
+    } finally { setLoadingComments(false); }
+  };
+
+  const addComment = async () => {
+    if (!detail || !commentBody.trim()) return;
+    setSendingComment(true);
+    try {
+      const res = await fetch(`/api/saas/support/${detail.id}/comments`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ body: commentBody, isInternal: commentInternal }),
+      });
+      const d = await res.json().catch(() => ({}));
+      if (!res.ok) { toast.error(d.error ?? "Failed to add comment"); return; }
+      setCommentBody("");
+      setCommentInternal(false);
+      toast.success("Comment added");
+      await loadComments(detail.id);
+    } finally { setSendingComment(false); }
   };
 
   /** SLA state: open work items past their due time are breached. */
@@ -281,9 +323,46 @@ export default function TicketsManager({ initialTickets, canManage, orgs = [] }:
                 </div>
               </DrawerSection>
             )}
-            <p className="rounded-lg bg-zinc-50 px-2.5 py-1.5 text-[11px] leading-relaxed text-zinc-400 dark:bg-zinc-800/50">
-              BACKEND GAP: threaded replies/comments are not yet modeled (no TicketComment table). Status history lives in the audit log.
-            </p>
+            {/* Threaded comments */}
+            <DrawerSection title={`Conversation${comments.length ? ` (${comments.length})` : ""}`}>
+              {loadingComments ? (
+                <p className="text-xs text-zinc-400">Loading replies…</p>
+              ) : comments.length === 0 ? (
+                <p className="text-xs text-zinc-400">No replies yet.</p>
+              ) : (
+                <div className="space-y-3">
+                  {comments.map((c) => (
+                    <div key={c.id} className={`rounded-lg border px-3 py-2 text-sm ${c.isInternal ? "border-amber-200 bg-amber-50/60 dark:border-amber-800 dark:bg-amber-950/20" : "border-zinc-200 bg-zinc-50 dark:border-zinc-700 dark:bg-zinc-800/50"}`}>
+                      <div className="flex items-center justify-between gap-2">
+                        <span className="text-xs font-semibold text-zinc-700 dark:text-zinc-300">{c.authorName ?? c.authorEmail}</span>
+                        <span className="text-[10px] text-zinc-400">{formatDate(c.createdAt)}</span>
+                      </div>
+                      {c.isInternal && <span className="text-[10px] font-medium text-amber-600 dark:text-amber-400">Internal note</span>}
+                      <p className="mt-1 whitespace-pre-wrap text-xs text-zinc-600 dark:text-zinc-400">{c.body}</p>
+                    </div>
+                  ))}
+                </div>
+              )}
+              {!["closed"].includes(detail.status) && (
+                <div className="mt-3 space-y-2">
+                  <textarea
+                    className={`${inputCls} min-h-[60px]`}
+                    placeholder="Type a reply…"
+                    value={commentBody}
+                    onChange={(e) => setCommentBody(e.target.value)}
+                  />
+                  <div className="flex items-center gap-2">
+                    <label className="flex items-center gap-1.5 text-xs text-zinc-500">
+                      <input type="checkbox" checked={commentInternal} onChange={(e) => setCommentInternal(e.target.checked)} />
+                      Internal note
+                    </label>
+                    <button className={btnPrimary} disabled={sendingComment || !commentBody.trim()} onClick={addComment}>
+                      {sendingComment ? "Sending…" : "Reply"}
+                    </button>
+                  </div>
+                </div>
+              )}
+            </DrawerSection>
           </div>
         )}
       </DetailDrawer>
