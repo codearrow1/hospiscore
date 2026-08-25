@@ -3,7 +3,7 @@ import { getCurrentUser } from "@/lib/sessionCookie";
 import { prisma } from "@/lib/prisma";
 import { initSaasDb } from "@/lib/saas/init";
 import { resolveOrgForUser } from "@/lib/saas/portalAccess";
-import { formatMoney } from "@/lib/format";
+import { formatMoney, formatDate } from "@/lib/format";
 import { StatusBadge } from "@/components/ui/Badge";
 import PrintButton from "@/components/saas/PrintButton";
 
@@ -49,11 +49,11 @@ export default async function CustomerInvoicePage({ params }: { params: Promise<
           <div>
             <p className="text-xs font-bold uppercase tracking-widest text-zinc-400">HospiOS</p>
             <h1 className="mt-1 text-xl font-bold">Invoice {invoice.id.slice(-8).toUpperCase()}</h1>
-            <p className="mt-1 text-xs text-zinc-500">Issued {new Date(invoice.createdAt).toLocaleDateString()}</p>
+            <p className="mt-1 text-xs text-zinc-500">Issued {formatDate(invoice.createdAt)}</p>
           </div>
           <div className="text-right text-sm">
             <StatusBadge domain="invoice" status={invoice.status} />
-            <p className="mt-1 text-xs text-zinc-500">Due {invoice.dueAt ? new Date(invoice.dueAt).toLocaleDateString() : "—"}</p>
+            <p className="mt-1 text-xs text-zinc-500">Due {invoice.dueAt ? formatDate(invoice.dueAt) : "—"}</p>
           </div>
         </header>
 
@@ -95,7 +95,7 @@ export default async function CustomerInvoicePage({ params }: { params: Promise<
             <ul className="mt-1 space-y-1 text-xs">
               {invoice.payments.map((p) => (
                 <li key={p.id} className="flex justify-between">
-                  <span>{new Date(p.createdAt).toLocaleDateString()} · {p.gateway}</span>
+                  <span>{formatDate(p.createdAt)} · {p.gateway}</span>
                   <span>
                     <span className="tabular-nums">{formatMoney(p.amount, p.currency)}</span>{" "}
                     <span className={p.status === "succeeded" ? "text-emerald-600 dark:text-emerald-400" : "text-zinc-500"}>({p.status})</span>

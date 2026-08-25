@@ -7,6 +7,8 @@ import { useToast } from "@/components/ui/Toast";
 import { ConfirmDialog } from "@/components/ui/ConfirmDialog";
 import { FilterSheet } from "@/components/ui/FilterSheet";
 import { DetailDrawer, DrawerSection, KeyValue } from "@/components/ui/DetailDrawer";
+import { SortHeader, sortRows, type SortAccessors, type SortState } from "@/components/ui/tableSort";
+import { formatDate } from "@/lib/format";
 import Link from "next/link";
 
 type Ticket = {
@@ -106,6 +108,18 @@ export default function TicketsManager({ initialTickets, canManage, orgs = [] }:
     return true;
   }), [tickets, fStatus, fPriority, fCategory, breachedOnly]);
 
+  const [sort, setSort] = useState<SortState>(null);
+  const PRIORITY_RANK: Record<string, number> = { low: 0, medium: 1, high: 2, urgent: 3 };
+  const TICKET_SORT: SortAccessors<Ticket> = {
+    subject: (t) => t.subject,
+    customer: (t) => t.organization?.legalName ?? "",
+    category: (t) => t.category,
+    priority: (t) => PRIORITY_RANK[t.priority] ?? -1,
+    status: (t) => t.status,
+    created: (t) => new Date(t.createdAt).getTime(),
+  };
+  const sortedTickets = sortRows(filtered, TICKET_SORT, sort);
+
   const counts = useMemo(() => ({
     active: tickets.filter((t) => ["open", "pending", "in_progress"].includes(t.status)).length,
     breached: tickets.filter((t) => isBreached(t)).length,
@@ -152,7 +166,7 @@ export default function TicketsManager({ initialTickets, canManage, orgs = [] }:
 
       {/* Mobile cards */}
       <ul className="space-y-2 md:hidden">
-        {filtered.map((t) => (
+        {sortedTickets.map((t) => (
           <li key={t.id}>
             <button
               onClick={() => setDetail(t)}
@@ -163,8 +177,8 @@ export default function TicketsManager({ initialTickets, canManage, orgs = [] }:
                 <Badge>{t.status.replace("_", " ")}</Badge>
               </div>
               <p className="mt-0.5 truncate text-xs text-zinc-500">
-                <Link href={`/saas/organizations/${t.organizationId}`} onClick={(e) => e.stopPropagation()} className="hover:underline">{t.organization?.legalName ?? t.organizationId.slice(0, 8)}</Link>
-                {" · "}{t.category} · {new Date(t.createdAt).toLocaleDateString()}
+                <Link href={`/saas/organizations/${t.organizationId}`} onClick={(e) => e.stopPropagation()} className="hover:underline">{t.organization?.legalName ?? "Unknown customer"}</Link>
+                {" · "}{t.category.replace(/_/g, " ")} · {formatDate(t.createdAt)}
               </p>
               <div className="mt-1.5 flex flex-wrap items-center gap-1.5">
                 <span className={`text-xs font-semibold ${t.priority === "urgent" ? "text-red-600" : t.priority === "high" ? "text-orange-500" : "text-zinc-500"}`}>{t.priority}</span>
@@ -175,24 +189,28 @@ export default function TicketsManager({ initialTickets, canManage, orgs = [] }:
             </button>
           </li>
         ))}
-        {filtered.length === 0 && (
+        {sortedTickets.length === 0 && (
           <li className="rounded-xl border border-zinc-200 p-6 text-center text-sm text-zinc-400 dark:border-zinc-800">No tickets match these filters.</li>
         )}
       </ul>
 
       {/* Desktop table */}
       <div className="hidden overflow-x-auto rounded-2xl border bg-white md:block dark:bg-zinc-900 dark:border-zinc-800">
-        <table className="w-full text-left text-sm">
+        <table className="w-full text-start text-sm">
           <thead><tr className="text-xs uppercase text-zinc-400">
-            <th className="px-3 py-2">Ticket</th><th className="px-3 py-2">Customer</th><th className="px-3 py-2">Category</th>
-            <th className="px-3 py-2">Priority</th><th className="px-3 py-2">Status</th><th className="px-3 py-2">Assignee</th>
+            <SortHeader label="Ticket" sortKey="subject" sort={sort} onSort={setSort} />
+            <SortHeader label="Customer" sortKey="customer" sort={sort} onSort={setSort} />
+            <SortHeader label="Category" sortKey="category" sort={sort} onSort={setSort} />
+            <SortHeader label="Priority" sortKey="priority" sort={sort} onSort={setSort} />
+            <SortHeader label="Status" sortKey="status" sort={sort} onSort={setSort} />
+            <th scope="col" className="px-3 py-2">Assignee</th>
           </tr></thead>
           <tbody>
-            {filtered.map((t) => (
+            {sortedTickets.map((t) => (
               <tr key={t.id} onClick={() => setDetail(t)} className={`cursor-pointer border-t hover:bg-zinc-50 dark:hover:bg-zinc-800/40 ${isBreached(t) ? "bg-red-50/60 dark:bg-red-950/20" : ""}`}>
-                <td className="px-3 py-2"><span className="font-medium">{t.subject}</span><span className="block text-xs text-zinc-500">{new Date(t.createdAt).toLocaleDateString()}</span></td>
-                <td className="px-3 py-2 text-xs"><Link href={`/saas/organizations/${t.organizationId}`} className="hover:underline" onClick={(e) => e.stopPropagation()}>{t.organization?.legalName ?? t.organizationId.slice(0, 8)}</Link></td>
-                <td className="px-3 py-2 text-xs">{t.category}</td>
+                <td className="px-3 py-2"><span className="font-medium">{t.subject}</span><span className="block text-xs text-zinc-500">{formatDate(t.createdAt)}</span></td>
+                <td className="px-3 py-2 text-xs"><Link href={`/saas/organizations/${t.organizationId}`} className="hover:underline" onClick={(e) => e.stopPropagation()}>{t.organization?.legalName ?? "Unknown customer"}</Link></td>
+                <td className="px-3 py-2 text-xs">{t.category.replace(/_/g, " ")}</td>
                 <td className="px-3 py-2"><span className={`text-xs font-semibold ${t.priority === "urgent" ? "text-red-600" : t.priority === "high" ? "text-orange-500" : ""}`}>{t.priority}</span></td>
                 <td className="px-3 py-2 space-y-0.5">
                   <Badge>{t.status.replace("_", " ")}</Badge>
@@ -202,7 +220,7 @@ export default function TicketsManager({ initialTickets, canManage, orgs = [] }:
                 <td className="px-3 py-2 text-xs">{t.assigneeEmail ?? <span className="text-zinc-400">unassigned</span>}</td>
               </tr>
             ))}
-            {filtered.length === 0 && <tr><td colSpan={6} className="px-3 py-6 text-center text-sm text-zinc-400">No tickets match these filters.</td></tr>}
+            {sortedTickets.length === 0 && <tr><td colSpan={6} className="px-3 py-6 text-center text-sm text-zinc-400">No tickets match these filters.</td></tr>}
           </tbody>
         </table>
       </div>      {/* Ticket detail drawer */}

@@ -93,8 +93,8 @@ export default async function AnalyticsPage({
       </div>
 
       <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-6">
-        <KpiCard label={`Page views (${range}d)`} value={views.length.toLocaleString()} />
-        <KpiCard label="Sessions" value={sessions.toLocaleString()} />
+        <KpiCard label={`Page views (${range}d)`} value={new Intl.NumberFormat("en-US").format(views.length)} />
+        <KpiCard label="Sessions" value={new Intl.NumberFormat("en-US").format(sessions)} />
         <KpiCard label="Leads captured" value={m.kpis.totalLeads} accent="text-indigo-600 dark:text-indigo-400" />
         <KpiCard label="Conversion rate" value={`${conversionRate}%`} />
         <KpiCard label="Demos" value={m.kpis.demoRequests} />

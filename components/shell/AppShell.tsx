@@ -79,6 +79,53 @@ function ShellFrame({
   const [menuOpen, setMenuOpen] = useState(false);
   const [signingOut, setSigningOut] = useState(false);
   const menuRef = useRef<HTMLDivElement>(null);
+  const hamburgerRef = useRef<HTMLButtonElement>(null);
+  const drawerRef = useRef<HTMLDivElement>(null);
+
+  // Mobile drawer: move focus in on open, trap Tab, ESC closes, focus returns
+  // to the hamburger so keyboard/SR users never lose their place.
+  useEffect(() => {
+    if (!mobileOpen) return;
+    const opener = document.activeElement as HTMLElement | null;
+    const hamburger = hamburgerRef.current;
+    hamburger?.setAttribute("aria-expanded", "true");
+    const drawer = drawerRef.current;
+    const first = drawer?.querySelector<HTMLElement>("a, button");
+    setTimeout(() => first?.focus(), 10);
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === "Escape") {
+        e.preventDefault();
+        setMobileOpen(false);
+        return;
+      }
+      if (e.key !== "Tab" || !drawer) return;
+      const nodes = Array.from(drawer.querySelectorAll<HTMLElement>("a[href], button:not([disabled])")).filter(
+        (n) => n.offsetParent !== null,
+      );
+      if (nodes.length === 0) return;
+      if (e.shiftKey && document.activeElement === nodes[0]) {
+        e.preventDefault();
+        nodes[nodes.length - 1].focus();
+      } else if (!e.shiftKey && document.activeElement === nodes[nodes.length - 1]) {
+        e.preventDefault();
+        nodes[0].focus();
+      }
+    };
+    document.addEventListener("keydown", onKey);
+    return () => {
+      document.removeEventListener("keydown", onKey);
+      hamburger?.setAttribute("aria-expanded", "false");
+      opener?.focus?.();
+    };
+  }, [mobileOpen]);
+
+  // User menu closes on Escape.
+  useEffect(() => {
+    if (!menuOpen) return;
+    const onKey = (e: KeyboardEvent) => e.key === "Escape" && setMenuOpen(false);
+    document.addEventListener("keydown", onKey);
+    return () => document.removeEventListener("keydown", onKey);
+  }, [menuOpen]);
 
   // Restore per-plane rail preference.
   useEffect(() => {
@@ -192,6 +239,13 @@ function ShellFrame({
 
   return (
     <div className="flex min-h-dvh bg-canvas text-zinc-900 dark:text-zinc-100">
+      {/* Keyboard users can jump straight past the chrome. */}
+      <a
+        href="#main"
+        className="sr-only focus:not-sr-only focus:absolute focus:left-4 focus:top-2 focus:z-[80] focus:rounded-lg focus:bg-indigo-600 focus:px-3 focus:py-2 focus:text-sm focus:font-semibold focus:text-white"
+      >
+        Skip to content
+      </a>
       {/* Desktop rail */}
       <aside
         className={`sticky top-0 hidden h-dvh shrink-0 flex-col border-r border-line bg-surface transition-[width] md:flex ${
@@ -219,7 +273,7 @@ function ShellFrame({
       {mobileOpen && (
         <div className="fixed inset-0 z-[58] md:hidden">
           <div className="absolute inset-0 bg-black/50" onClick={() => setMobileOpen(false)} aria-hidden="true" />
-          <aside className="relative flex h-full w-72 max-w-[80vw] flex-col border-r border-line bg-surface shadow-2xl">
+          <aside ref={drawerRef} id="mobile-nav-drawer" role="dialog" aria-modal="true" aria-label="Menu" className="relative flex h-full w-72 max-w-[80vw] flex-col border-e border-line bg-surface shadow-2xl">
             <div className="flex items-center justify-between border-b border-line pr-2">
               {brand}
               <button type="button" onClick={() => setMobileOpen(false)} aria-label="Close menu" className="rounded-lg p-2 text-zinc-400">
@@ -238,7 +292,7 @@ function ShellFrame({
                     key={qa.href}
                     href={qa.href}
                     onClick={() => setMobileOpen(false)}
-                    className="flex min-h-9 items-center rounded-xl border border-line px-2.5 text-sm font-semibold text-zinc-600 transition hover:bg-surface-subtle dark:text-zinc-300"
+                    className="flex min-h-11 items-center rounded-xl border border-line px-2.5 text-sm font-semibold text-zinc-600 transition hover:bg-surface-subtle dark:text-zinc-300"
                   >
                     {qa.label}
                   </Link>
@@ -253,10 +307,13 @@ function ShellFrame({
       <div className="flex min-w-0 flex-1 flex-col">
         <header className="sticky top-0 z-40 flex h-14 items-center gap-2 border-b border-line bg-surface/90 px-3 backdrop-blur sm:px-4">
           <button
+            ref={hamburgerRef}
             type="button"
             onClick={() => setMobileOpen(true)}
             aria-label="Open menu"
-            className="rounded-lg p-2 text-zinc-500 hover:bg-surface-subtle md:hidden"
+            aria-expanded={mobileOpen}
+            aria-controls="mobile-nav-drawer"
+            className="-m-1 rounded-lg p-3 text-zinc-500 hover:bg-surface-subtle md:hidden"
           >
             <svg className="h-5 w-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2}>
               <path d="M4 6h16M4 12h16M4 18h16" />
@@ -292,7 +349,7 @@ function ShellFrame({
               aria-label="Notifications (not available yet)"
               title="Notifications coming soon"
               onClick={() => toast.info("Notifications are coming soon.")}
-              className="relative rounded-lg p-2 text-zinc-400 transition hover:bg-surface-subtle hover:text-zinc-600"
+              className="-m-1.5 relative rounded-lg p-3.5 text-zinc-400 transition hover:bg-surface-subtle hover:text-zinc-600"
             >
               <svg className="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2}>
                 <path d="M6 8a6 6 0 0 1 12 0c0 7 3 9 3 9H3s3-2 3-9" />

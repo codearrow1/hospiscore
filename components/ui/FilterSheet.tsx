@@ -31,7 +31,7 @@ export function FilterSheet({
         onClick={() => setOpen(true)}
         aria-haspopup="dialog"
         aria-expanded={open}
-        className="relative inline-flex min-h-9 shrink-0 items-center gap-1.5 rounded-xl border border-line bg-surface px-3 py-2 text-sm font-semibold text-zinc-600 shadow-sm transition hover:bg-surface-subtle dark:text-zinc-300"
+        className="relative inline-flex min-h-11 shrink-0 items-center gap-1.5 rounded-xl border border-line bg-surface px-3 py-2 text-sm font-semibold text-zinc-600 shadow-sm transition hover:bg-surface-subtle md:min-h-9 dark:text-zinc-300"
       >
         <svg className="h-3.5 w-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} aria-hidden="true">
           <path d="M3 5h18l-7 8v5l-4 2v-7L3 5Z" />
@@ -55,7 +55,7 @@ export function FilterSheet({
                 onClearAll();
                 setOpen(false);
               }}
-              className="min-h-9 rounded-xl px-3 text-sm font-semibold text-indigo-600 hover:underline dark:text-indigo-400"
+              className="min-h-11 rounded-xl px-3 text-sm font-semibold text-indigo-600 hover:underline md:min-h-9 dark:text-indigo-400"
             >
               Clear all ({activeCount})
             </button>
@@ -67,7 +67,7 @@ export function FilterSheet({
             <button
               type="button"
               onClick={() => setOpen(false)}
-              className="inline-flex min-h-9 items-center rounded-xl bg-indigo-600 px-4 py-2 text-sm font-semibold text-white transition hover:bg-indigo-700"
+              className="inline-flex min-h-11 items-center rounded-xl bg-indigo-600 px-4 py-2 text-sm font-semibold text-white transition hover:bg-indigo-700 md:min-h-9"
             >
               Done
             </button>

@@ -43,7 +43,7 @@ export default function AuditFilterBar({ action, targetType }: { action: string;
       </FilterSheet>
       {activeCount > 0 && (
         <span className="text-xs text-zinc-500">
-          {action && <span className="mr-1 rounded-full bg-zinc-100 px-2 py-0.5 font-mono text-[11px] dark:bg-zinc-800">{action}</span>}
+          {action && <span className="me-1 rounded-full bg-zinc-100 px-2 py-0.5 font-mono text-[11px] dark:bg-zinc-800">{action}</span>}
           {targetType && <span className="rounded-full bg-zinc-100 px-2 py-0.5 text-[11px] dark:bg-zinc-800">{targetType}</span>}
         </span>
       )}

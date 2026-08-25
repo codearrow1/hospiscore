@@ -62,12 +62,14 @@ export function ToastProvider({ children }: { children: ReactNode }) {
       {children}
       <div
         aria-live="polite"
-        className="pointer-events-none fixed bottom-4 right-4 z-[70] flex w-full max-w-sm flex-col gap-2"
+        aria-atomic="false"
+        className="pointer-events-none fixed bottom-4 end-4 z-[70] flex w-full max-w-sm flex-col gap-2"
       >
         {toasts.map((t) => (
           <div
             key={t.id}
-            role="status"
+            role={t.kind === "error" ? "alert" : "status"}
+            aria-live={t.kind === "error" ? "assertive" : undefined}
             className={`pointer-events-auto flex items-start gap-2 rounded-xl border px-3.5 py-2.5 text-sm font-medium shadow-lg ${KIND_STYLE[t.kind]}`}
           >
             <svg className="mt-0.5 h-4 w-4 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
@@ -77,7 +79,7 @@ export function ToastProvider({ children }: { children: ReactNode }) {
             <button
               onClick={() => setToasts((list) => list.filter((x) => x.id !== t.id))}
               aria-label="Dismiss notification"
-              className="shrink-0 rounded p-0.5 opacity-60 transition hover:opacity-100"
+              className="-m-1 shrink-0 rounded p-2 opacity-60 transition hover:opacity-100"
             >
               <svg className="h-3.5 w-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
                 <path d="M6 6l12 12M18 6L6 18" />

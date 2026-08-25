@@ -7,12 +7,14 @@ import { StatusBadge } from "@/components/ui/Badge";
 import { ConfirmDialog } from "@/components/ui/ConfirmDialog";
 import { DetailDrawer, DrawerSection, KeyValue } from "@/components/ui/DetailDrawer";
 import { Pagination, FilterChip } from "@/components/ui/Pagination";
+import { SortHeader, sortRows, type SortAccessors, type SortState } from "@/components/ui/tableSort";
 import { useToast } from "@/components/ui/Toast";
 import { Modal } from "@/components/marketing-admin/ui";
 import { btnGhost, btnPrimary, Field, inputCls } from "@/components/marketing-admin/ui";
 import { FilterSheet } from "@/components/ui/FilterSheet";
 import { modalFooterCls } from "@/components/ui/AccessibleModal";
 import { formatMoney, formatDate, formatDateTime } from "@/lib/format";
+import { statusMeta } from "@/lib/statusMap";
 
 const PAGE_SIZE = 25;
 
@@ -126,6 +128,24 @@ export default function BillingClient({
   };
 
   const filterActiveCount = (currentOrg ? 1 : 0) + (currentQuery ? 1 : 0) + (currentStatus ? 1 : 0);
+
+  // Column sorting (client-side, aria-sort driven). Server order until a header is clicked.
+  const [invSort, setInvSort] = useState<SortState>(null);
+  const [paySort, setPaySort] = useState<SortState>(null);
+  const INV_SORT: SortAccessors<InvoiceView> = {
+    customer: (r) => r.orgName,
+    amount: (r) => r.amountCents,
+    status: (r) => statusMeta("invoice", r.status).label,
+    due: (r) => (r.dueAt ? new Date(r.dueAt).getTime() : null),
+  };
+  const PAY_SORT: SortAccessors<PaymentView> = {
+    customer: (r) => r.orgName,
+    amount: (r) => r.amountCents,
+    status: (r) => statusMeta("payment", r.status).label,
+    date: (r) => new Date(r.createdAt).getTime(),
+  };
+  const sortedInvoices = sortRows(invoices, INV_SORT, invSort);
+  const sortedPayments = sortRows(payments, PAY_SORT, paySort);
   const filterBase = tab === "invoices" ? invoices : payments;
   const rowsHaveCurrencySpread = new Set(filterBase.map((r) => r.currency)).size;
 
@@ -167,7 +187,7 @@ export default function BillingClient({
         <>
           {/* Mobile cards */}
           <ul className="space-y-2 md:hidden">
-            {invoices.map((inv) => {
+            {sortedInvoices.map((inv) => {
               const paidCents = inv.payments.filter((p) => p.status === "succeeded").reduce((a, p) => a + p.amountCents, 0);
               const overdue = inv.dueAt && !["paid", "void", "refunded"].includes(inv.status) && new Date(inv.dueAt).getTime() < Date.now();
               return (
@@ -193,21 +213,25 @@ export default function BillingClient({
                 </li>
               );
             })}
-            {invoices.length === 0 && (
+            {sortedInvoices.length === 0 && (
               <li className="rounded-xl border border-zinc-200 p-6 text-center text-sm text-zinc-400 dark:border-zinc-800">No invoices match these filters.</li>
             )}
           </ul>
 
           {/* Desktop table */}
           <div className="hidden overflow-x-auto rounded-2xl border border-zinc-200 bg-white md:block dark:border-zinc-800 dark:bg-zinc-900">
-          <table className="w-full text-left text-sm">
+          <table className="w-full text-start text-sm">
             <thead><tr className="text-xs uppercase tracking-wide text-zinc-400">
-              <th className="px-3 py-2">Customer</th><th className="px-3 py-2">Type</th>
-              <th className="px-3 py-2">Amount</th><th className="px-3 py-2">Paid</th><th className="px-3 py-2">Status</th>
-              <th className="px-3 py-2">Due</th><th className="px-3 py-2">Payments</th>
+              <SortHeader label="Customer" sortKey="customer" sort={invSort} onSort={setInvSort} />
+              <th scope="col" className="px-3 py-2">Type</th>
+              <SortHeader label="Amount" sortKey="amount" sort={invSort} onSort={setInvSort} />
+              <th scope="col" className="px-3 py-2">Paid</th>
+              <SortHeader label="Status" sortKey="status" sort={invSort} onSort={setInvSort} />
+              <SortHeader label="Due" sortKey="due" sort={invSort} onSort={setInvSort} />
+              <th scope="col" className="px-3 py-2">Payments</th>
             </tr></thead>
             <tbody>
-              {invoices.map((inv) => {
+              {sortedInvoices.map((inv) => {
                 const paidCents = inv.payments.filter((p) => p.status === "succeeded").reduce((a, p) => a + p.amountCents, 0);
                 const overdue = inv.dueAt && !["paid", "void", "refunded"].includes(inv.status) && new Date(inv.dueAt).getTime() < Date.now();
                 return (
@@ -225,7 +249,7 @@ export default function BillingClient({
                   </tr>
                 );
               })}
-              {invoices.length === 0 && <tr><td colSpan={7} className="px-3 py-6 text-center text-sm text-zinc-400">No invoices match these filters.</td></tr>}
+              {sortedInvoices.length === 0 && <tr><td colSpan={7} className="px-3 py-6 text-center text-sm text-zinc-400">No invoices match these filters.</td></tr>}
             </tbody>
           </table>
           </div>
@@ -237,7 +261,7 @@ export default function BillingClient({
         <>
           {/* Mobile cards */}
           <ul className="space-y-2 md:hidden">
-            {payments.map((p) => (
+            {sortedPayments.map((p) => (
               <li key={p.id} className={`rounded-xl border border-zinc-200 bg-white p-3 text-sm dark:border-zinc-800 dark:bg-zinc-900 ${p.status === "failed" ? "border-red-200 bg-red-50/40 dark:border-red-900/60 dark:bg-red-950/10" : ""}`}>
                 <div className="flex items-start justify-between gap-2">
                   <div className="min-w-0">
@@ -255,27 +279,32 @@ export default function BillingClient({
                   <span className="truncate text-xs text-zinc-500">{p.invoiceLabel ?? "unallocated"}</span>
                   {canRefund && p.status === "succeeded" && (
                     <button onClick={() => setRefunding(p)} disabled={busy}
-                      className="rounded-lg border border-red-200 px-2.5 py-1 text-xs font-semibold text-red-600 disabled:opacity-50 dark:border-red-900 dark:hover:bg-red-950/40">
+                      className="min-h-11 rounded-lg border border-red-200 px-3 py-1.5 text-xs font-semibold text-red-600 disabled:opacity-50 dark:border-red-900 dark:hover:bg-red-950/40">
                       Refund
                     </button>
                   )}
                 </div>
               </li>
             ))}
-            {payments.length === 0 && (
+            {sortedPayments.length === 0 && (
               <li className="rounded-xl border border-zinc-200 p-6 text-center text-sm text-zinc-400 dark:border-zinc-800">No payments match these filters.</li>
             )}
           </ul>
 
           {/* Desktop table */}
           <div className="hidden overflow-x-auto rounded-2xl border border-zinc-200 bg-white md:block dark:border-zinc-800 dark:bg-zinc-900">
-          <table className="w-full text-left text-sm">
+          <table className="w-full text-start text-sm">
             <thead><tr className="text-xs uppercase tracking-wide text-zinc-400">
-              <th className="px-3 py-2">Customer</th><th className="px-3 py-2">Amount</th><th className="px-3 py-2">Gateway</th>
-              <th className="px-3 py-2">Status</th><th className="px-3 py-2">Invoice</th><th className="px-3 py-2">Date</th>{canRefund && <th className="px-3 py-2"></th>}
+              <SortHeader label="Customer" sortKey="customer" sort={paySort} onSort={setPaySort} />
+              <SortHeader label="Amount" sortKey="amount" sort={paySort} onSort={setPaySort} />
+              <th scope="col" className="px-3 py-2">Gateway</th>
+              <SortHeader label="Status" sortKey="status" sort={paySort} onSort={setPaySort} />
+              <th scope="col" className="px-3 py-2">Invoice</th>
+              <SortHeader label="Date" sortKey="date" sort={paySort} onSort={setPaySort} />
+              {canRefund && <th scope="col" className="px-3 py-2"><span className="sr-only">Actions</span></th>}
             </tr></thead>
             <tbody>
-              {payments.map((p) => (
+              {sortedPayments.map((p) => (
                 <tr key={p.id} className={`border-b border-zinc-100 last:border-0 ${p.status === "failed" ? "bg-red-50/40 dark:bg-red-950/10" : ""} dark:border-zinc-800/60`}>
                   <td className="px-3 py-2 font-medium">{p.orgName}{p.failureReason && <span className="block text-xs text-red-500">{p.failureReason}</span>}</td>
                   <td className="px-3 py-2 font-semibold tabular-nums">{formatMoney(p.amountCents, p.currency)}</td>

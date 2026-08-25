@@ -85,9 +85,9 @@ export default async function PipelinePage({
             <> · {currencyEntries.map(([cur, v], i) => (
               <span key={cur}>
                 {i > 0 && " + "}
-                <span className="font-semibold tabular-nums text-emerald-700 dark:text-emerald-400">
-                  {(v / 100).toLocaleString(undefined, { maximumFractionDigits: 0 })} {cur}
-                </span>
+                  <span className="font-semibold tabular-nums text-emerald-700 dark:text-emerald-400">
+                    {new Intl.NumberFormat("en-US", { maximumFractionDigits: 0 }).format(v / 100)} {cur}
+                  </span>
               </span>
             ))} estimated</>
           )}

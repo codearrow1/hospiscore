@@ -96,7 +96,7 @@ export function AccessibleModal({
             type="button"
             onClick={onClose}
             aria-label="Close"
-            className="rounded-lg p-1.5 text-zinc-400 hover:bg-surface-subtle hover:text-zinc-700 dark:hover:text-zinc-200"
+            className="-m-2 rounded-lg p-3.5 text-zinc-400 hover:bg-surface-subtle hover:text-zinc-700 dark:hover:text-zinc-200"
           >
             <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
               <path d="M6 6l12 12M18 6L6 18" />

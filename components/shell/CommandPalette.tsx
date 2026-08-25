@@ -101,16 +101,28 @@ export function CommandPalette({
     return () => clearTimeout(t);
   }, [query, open, entitySearch, leadSearch]);
 
-  // Reset + focus on open.
+  // Reset + focus on open; restore focus to the opener on close.
+  const restoreRef = useRef<HTMLElement | null>(null);
   useEffect(() => {
     if (open) {
+      restoreRef.current = document.activeElement as HTMLElement | null;
       setQuery("");
       setEntities([]);
       setLeads([]);
       setActive(0);
       setTimeout(() => inputRef.current?.focus(), 10);
+    } else {
+      restoreRef.current?.focus?.();
+      restoreRef.current = null;
     }
   }, [open]);
+
+  // Keep keyboard focus inside the palette while it is open.
+  function onTab(e: React.KeyboardEvent) {
+    if (e.key !== "Tab") return;
+    e.preventDefault();
+    inputRef.current?.focus();
+  }
 
   const flat = useMemo<(NavItem | EntityHit | LeadHit)[]>(
     () => [...navMatches, ...entities, ...leads],
@@ -184,12 +196,17 @@ export function CommandPalette({
               setQuery(e.target.value);
               setActive(0);
             }}
+            role="combobox"
+            aria-expanded="true"
+            aria-controls="cmdk-list"
+            aria-autocomplete="list"
+            aria-activedescendant={flat.length > 0 ? `cmdk-opt-${active}` : undefined}
             placeholder="Search pages, organizations, subscriptions…"
             aria-label="Search command palette"
             className="w-full rounded-xl border border-zinc-200 bg-surface-subtle px-3.5 py-2.5 text-sm outline-none focus:border-indigo-400 dark:border-zinc-700"
           />
         </div>
-        <div ref={listRef} className="max-h-[50vh] overflow-y-auto p-2">
+        <div ref={listRef} id="cmdk-list" role="listbox" aria-label="Results" onKeyDown={onTab} className="max-h-[50vh] overflow-y-auto p-2">
           {flat.length === 0 && !searching && (
             <p className="px-3 py-8 text-center text-sm text-zinc-400">
               {query.trim() ? "No matches found." : "Type to search…"}
@@ -203,10 +220,20 @@ export function CommandPalette({
                 index += 1;
                 const i = index;
                 return (
-                  <button key={`nav-${n.href}`} data-index={i} type="button" onClick={() => go(n)} onMouseEnter={() => setActive(i)} className={`${rowCls} ${active === i ? activeCls : ""}`}>
+                  <div
+                    key={`nav-${n.href}`}
+                    id={`cmdk-opt-${i}`}
+                    data-index={i}
+                    role="option"
+                    aria-selected={active === i}
+                    tabIndex={-1}
+                    onClick={() => go(n)}
+                    onMouseEnter={() => setActive(i)}
+                    className={`${rowCls} ${active === i ? activeCls : ""}`}
+                  >
                     <span className="text-zinc-400">{n.icon ?? <NavBullet />}</span>
                     <span className="truncate">{n.label}</span>
-                  </button>
+                  </div>
                 );
               })}
             </>
@@ -219,15 +246,25 @@ export function CommandPalette({
                 index += 1;
                 const i = index;
                 return (
-                  <button key={`${hit.type}-${hit.id}`} data-index={i} type="button" onClick={() => go(hit)} onMouseEnter={() => setActive(i)} className={`${rowCls} ${active === i ? activeCls : ""}`}>
+                  <div
+                    key={`${hit.type}-${hit.id}`}
+                    id={`cmdk-opt-${i}`}
+                    data-index={i}
+                    role="option"
+                    aria-selected={active === i}
+                    tabIndex={-1}
+                    onClick={() => go(hit)}
+                    onMouseEnter={() => setActive(i)}
+                    className={`${rowCls} ${active === i ? activeCls : ""}`}
+                  >
                     <span className="shrink-0 rounded-md border border-line bg-surface-subtle px-1.5 py-0.5 text-[10px] font-bold uppercase tracking-wide text-zinc-500">
                       {TYPE_LABEL[hit.type] ?? hit.type}
                     </span>
                     <span className="min-w-0 flex-1 truncate">
                       {hit.title}
-                      {hit.subtitle ? <span className="ml-1.5 text-xs text-zinc-400">{hit.subtitle}</span> : null}
+                      {hit.subtitle ? <span className="ms-1.5 text-xs text-zinc-400">{hit.subtitle}</span> : null}
                     </span>
-                  </button>
+                  </div>
                 );
               })}
             </>
@@ -240,13 +277,23 @@ export function CommandPalette({
                 index += 1;
                 const i = index;
                 return (
-                  <button key={`lead-${l.id}`} data-index={i} type="button" onClick={() => go(l)} onMouseEnter={() => setActive(i)} className={`${rowCls} ${active === i ? activeCls : ""}`}>
+                  <div
+                    key={`lead-${l.id}`}
+                    id={`cmdk-opt-${i}`}
+                    data-index={i}
+                    role="option"
+                    aria-selected={active === i}
+                    tabIndex={-1}
+                    onClick={() => go(l)}
+                    onMouseEnter={() => setActive(i)}
+                    className={`${rowCls} ${active === i ? activeCls : ""}`}
+                  >
                     <span className="shrink-0 rounded-md border border-line bg-surface-subtle px-1.5 py-0.5 text-[10px] font-bold uppercase tracking-wide text-zinc-500">Lead</span>
                     <span className="min-w-0 flex-1 truncate">
                       {l.name || l.email || l.id}
-                      {l.company ? <span className="ml-1.5 text-xs text-zinc-400">{l.company}</span> : null}
+                      {l.company ? <span className="ms-1.5 text-xs text-zinc-400">{l.company}</span> : null}
                     </span>
-                  </button>
+                  </div>
                 );
               })}
             </>

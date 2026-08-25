@@ -6,7 +6,7 @@ import { findAffiliateForUser } from "@/lib/saas/portalLinks";
 import { prisma } from "@/lib/prisma";
 import { SectionCard, Badge, EmptyState } from "@/components/marketing-admin/ui";
 import { StatusBadge } from "@/components/ui/Badge";
-import { formatMoney } from "@/lib/format";
+import { formatMoney, formatDate } from "@/lib/format";
 import PortalShareCard from "@/components/saas/PortalShareCard";
 import OnboardingChecklist from "@/components/saas/OnboardingChecklist";
 import { initSaasDb } from "@/lib/saas/init";
@@ -155,7 +155,7 @@ export default async function AffiliatePortal() {
                 <li key={c.id} className="flex items-center justify-between gap-2 rounded-xl border border-zinc-200 px-3 py-2 text-sm dark:border-zinc-800">
                   <div className="min-w-0">
                     <p className="font-medium tabular-nums">{formatMoney(c.amount, c.currency)}</p>
-                    <p className="truncate text-xs text-zinc-500">{new Date(c.createdAt).toLocaleDateString()} · {c.model.replace(/_/g, " ")}</p>
+                    <p className="truncate text-xs text-zinc-500">{formatDate(c.createdAt)} · {c.model.replace(/_/g, " ")}</p>
                   </div>
                   <StatusBadge domain="commission" status={c.status} />
                 </li>
@@ -167,7 +167,7 @@ export default async function AffiliatePortal() {
               <tbody>
                 {commissions.map((c) => (
                   <tr key={c.id} className="border-t border-zinc-100 dark:border-zinc-800">
-                    <td className="py-1 pr-2">{new Date(c.createdAt).toLocaleDateString()}</td>
+                    <td className="py-1 pr-2">{formatDate(c.createdAt)}</td>
                     <td className="py-1 text-right tabular-nums">{formatMoney(c.amount, c.currency)}</td>
                     <td className="py-1 pr-2 text-xs">{c.model.replace(/_/g, " ")}</td>
                     <td className="py-1"><StatusBadge domain="commission" status={c.status} /></td>
@@ -199,7 +199,7 @@ export default async function AffiliatePortal() {
                 <li key={p.id} className="flex items-center justify-between gap-2 rounded-xl border border-zinc-200 px-3 py-2 text-sm dark:border-zinc-800">
                   <div className="min-w-0">
                     <p className="font-medium tabular-nums">{formatMoney(p.amount, p.currency)}</p>
-                    <p className="truncate text-xs text-zinc-500">{new Date(p.createdAt).toLocaleDateString()} · {p.method.toUpperCase()}</p>
+                    <p className="truncate text-xs text-zinc-500">{formatDate(p.createdAt)} · {p.method.toUpperCase()}</p>
                   </div>
                   <StatusBadge domain="payout" status={p.status} />
                 </li>
@@ -211,7 +211,7 @@ export default async function AffiliatePortal() {
               <tbody>
                 {payouts.map((p) => (
                   <tr key={p.id} className="border-t border-zinc-100 dark:border-zinc-800">
-                    <td className="py-1 pr-2">{new Date(p.createdAt).toLocaleDateString()}</td>
+                    <td className="py-1 pr-2">{formatDate(p.createdAt)}</td>
                     <td className="py-1 text-right tabular-nums">{formatMoney(p.amount, p.currency)}</td>
                     <td className="py-1 pr-2 uppercase text-xs">{p.method}</td>
                     <td className="py-1"><StatusBadge domain="payout" status={p.status} /></td>

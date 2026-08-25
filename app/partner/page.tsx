@@ -3,7 +3,7 @@ import { getCurrentUser } from "@/lib/sessionCookie";
 import { prisma } from "@/lib/prisma";
 import { SectionCard, EmptyState } from "@/components/marketing-admin/ui";
 import { StatusBadge } from "@/components/ui/Badge";
-import { formatMoney } from "@/lib/format";
+import { formatMoney, formatDate } from "@/lib/format";
 import { resolveAppRole } from "@/lib/rbac";
 import { findPartnerForUser } from "@/lib/saas/portalLinks";
 import OnboardingChecklist from "@/components/saas/OnboardingChecklist";
@@ -139,7 +139,7 @@ export default async function PartnerPortal() {
           <ul className="divide-y divide-zinc-100 text-sm dark:divide-zinc-800">
             {commissions.map((c) => (
               <li key={c.id} className="flex items-center justify-between py-2">
-                <span className="text-zinc-600">{new Date(c.createdAt).toLocaleDateString()}</span>
+                <span className="text-zinc-600">{formatDate(c.createdAt)}</span>
                 <span className="flex items-center gap-2">
                   <span className="font-medium tabular-nums">{formatMoney(c.amount, c.currency)}</span>
                   <StatusBadge domain="commission" status={c.status} />
@@ -158,7 +158,7 @@ export default async function PartnerPortal() {
           <ul className="divide-y divide-zinc-100 text-sm dark:divide-zinc-800">
             {payouts.map((p) => (
               <li key={p.id} className="flex items-center justify-between py-2">
-                <span className="text-zinc-600">{new Date(p.createdAt).toLocaleDateString()} · {p.method}</span>
+                <span className="text-zinc-600">{formatDate(p.createdAt)} · {p.method}</span>
                 <span className="flex items-center gap-2">
                   <span className="font-medium tabular-nums">{formatMoney(p.amount, p.currency)}</span>
                   <StatusBadge domain="payout" status={p.status} />

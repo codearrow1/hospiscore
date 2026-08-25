@@ -168,7 +168,7 @@ export default function StaffQueueClient({ staffEmail, tickets }: { staffEmail: 
                       <span className="truncate font-medium">{t.subject}</span>
                     </span>
                     <span className="block truncate text-xs text-zinc-500">
-                      {t.orgName} · {t.category} · {t.assigneeEmail ?? "unassigned"}
+                      {t.orgName} · {t.category.replace(/_/g, " ")} · {t.assigneeEmail ?? "unassigned"}
                     </span>
                   </span>
                   <span className="flex shrink-0 items-center gap-2">

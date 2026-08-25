@@ -7,7 +7,9 @@ import { FilterSheet } from "@/components/ui/FilterSheet";
 import { useToast } from "@/components/ui/Toast";
 import { ConfirmDialog } from "@/components/ui/ConfirmDialog";
 import { StatusBadge } from "@/components/ui/Badge";
-import { formatMoney } from "@/lib/format";
+import { statusMeta } from "@/lib/statusMap";
+import { SortHeader, sortRows, type SortAccessors, type SortState } from "@/components/ui/tableSort";
+import { formatDate, formatMoney } from "@/lib/format";
 
 type Sub = {
   id: string;
@@ -122,6 +124,11 @@ function amountLabel(s: Sub): string {
   return formatMoney(s.mrr, s.currency);
 }
 
+/** Raw lifecycle keys are never shown to users — always a business phrase. */
+function statusPhrase(status: string): string {
+  return statusMeta("subscription", status).label;
+}
+
 export default function SubscriptionsManager({ initialSubs, orgs, plans, countries, filters }: {
   initialSubs: Sub[];
   orgs: OrgOpt[];
@@ -138,8 +145,23 @@ export default function SubscriptionsManager({ initialSubs, orgs, plans, countri
   const [menuFor, setMenuFor] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
+  const [sort, setSort] = useState<SortState>(null);
 
   const COUNTRY_NAMES = useMemo(() => new Map(countries.map((c) => [c.code, c.name])), [countries]);
+
+  const SUB_SORT: SortAccessors<Sub> = useMemo(
+    () => ({
+      org: (s) => s.organization.legalName,
+      plan: (s) => s.plan.name,
+      market: (s) => s.country,
+      charged: (s) => (s.unitAmount ?? s.mrr),
+      cycle: (s) => s.billingCycle,
+      status: (s) => statusPhrase(s.status),
+      period: (s) => new Date(s.currentPeriodEnd).getTime(),
+    }),
+    [],
+  );
+  const sortedSubs = sortRows(subs, SUB_SORT, sort);
 
   /** URL-synced filter updates keep shareable views + browser back working. */
   const setFilter = (key: keyof Filters, value: string) => {
@@ -237,7 +259,7 @@ export default function SubscriptionsManager({ initialSubs, orgs, plans, countri
         <>
           {/* Mobile cards */}
           <ul className="space-y-2 md:hidden">
-            {subs.map((s) => (
+            {sortedSubs.map((s) => (
               <li key={s.id} className="rounded-xl border border-zinc-200 bg-white p-3 text-sm dark:border-zinc-800 dark:bg-zinc-900">
                 <div className="flex items-start justify-between gap-2">
                   <div className="min-w-0">
@@ -248,7 +270,7 @@ export default function SubscriptionsManager({ initialSubs, orgs, plans, countri
                 </div>
                 <dl className="mt-2 grid grid-cols-[auto_1fr] gap-x-3 gap-y-0.5 text-xs">
                   <dt className="text-zinc-400">Charged</dt><dd className="tabular-nums">{amountLabel(s)} / {s.billingCycle}</dd>
-                  <dt className="text-zinc-400">Period</dt><dd>{new Date(s.currentPeriodStart).toLocaleDateString()} → {new Date(s.currentPeriodEnd).toLocaleDateString()}</dd>
+                  <dt className="text-zinc-400">Period</dt><dd>{formatDate(s.currentPeriodStart)} → {formatDate(s.currentPeriodEnd)}</dd>
                 </dl>
                 <div className="mt-2 flex flex-wrap items-center gap-1.5 border-t border-zinc-100 pt-2 dark:border-zinc-800">
                   {canRenew(s) && (
@@ -259,13 +281,13 @@ export default function SubscriptionsManager({ initialSubs, orgs, plans, countri
                       key={target}
                       onClick={() => setPending({ sub: s, status: target })}
                       title={STATUS_EXPLANATIONS[target]}
-                      className="rounded-lg border border-zinc-200 px-2 py-1 text-xs font-semibold hover:bg-zinc-50 dark:border-zinc-700 dark:hover:bg-zinc-800"
+                      className="min-h-11 rounded-lg border border-zinc-200 px-3 py-1.5 text-xs font-semibold hover:bg-zinc-50 dark:border-zinc-700 dark:hover:bg-zinc-800"
                     >
-                      → {target}
+                      {statusPhrase(target)}
                     </button>
                   ))}
                   {(ALLOWED_TRANSITIONS[s.status] ?? []).length === 0 && canRenew(s) === false && (
-                    <span className="text-xs text-zinc-400">Terminal state — no transitions available.</span>
+                    <span className="text-xs text-zinc-400">No further actions available.</span>
                   )}
                 </div>
               </li>
@@ -274,10 +296,19 @@ export default function SubscriptionsManager({ initialSubs, orgs, plans, countri
 
           {/* Desktop table */}
           <div className="hidden overflow-x-auto rounded-2xl border border-zinc-200 bg-white md:block dark:border-zinc-800 dark:bg-zinc-900">
-          <table className="w-full min-w-[900px] text-left text-sm">
-            <thead><tr className="border-b border-zinc-200 text-xs uppercase tracking-wide text-zinc-400 dark:border-zinc-800"><th className="px-3 py-2">Org</th><th className="px-3 py-2">Plan</th><th className="px-3 py-2">Market</th><th className="px-3 py-2">Charged</th><th className="px-3 py-2">Cycle</th><th className="px-3 py-2">Status</th><th className="px-3 py-2">Period</th><th className="px-3 py-2">Lifecycle</th></tr></thead>
+          <table className="w-full min-w-[900px] text-start text-sm">
+            <thead><tr className="border-b border-zinc-200 text-xs uppercase tracking-wide text-zinc-400 dark:border-zinc-800">
+              <SortHeader label="Org" sortKey="org" sort={sort} onSort={setSort} />
+              <SortHeader label="Plan" sortKey="plan" sort={sort} onSort={setSort} />
+              <SortHeader label="Market" sortKey="market" sort={sort} onSort={setSort} />
+              <SortHeader label="Charged" sortKey="charged" sort={sort} onSort={setSort} />
+              <SortHeader label="Cycle" sortKey="cycle" sort={sort} onSort={setSort} />
+              <SortHeader label="Status" sortKey="status" sort={sort} onSort={setSort} />
+              <SortHeader label="Period" sortKey="period" sort={sort} onSort={setSort} />
+              <th scope="col" className="px-3 py-2">Lifecycle</th>
+            </tr></thead>
             <tbody>
-              {subs.map((s) => (
+              {sortedSubs.map((s) => (
                 <tr key={s.id} className="border-b border-zinc-100 last:border-0 dark:border-zinc-800/60">
                   <td className="px-3 py-2 font-medium">{s.organization.legalName}</td>
                   <td className="px-3 py-2">{s.plan.name}</td>
@@ -285,7 +316,7 @@ export default function SubscriptionsManager({ initialSubs, orgs, plans, countri
                   <td className="px-3 py-2 tabular-nums">{amountLabel(s)}</td>
                   <td className="px-3 py-2">{s.billingCycle}</td>
                   <td className="px-3 py-2"><StatusBadge domain="subscription" status={s.status} /></td>
-                  <td className="px-3 py-2 text-xs">{new Date(s.currentPeriodStart).toLocaleDateString()} → {new Date(s.currentPeriodEnd).toLocaleDateString()}</td>
+                  <td className="px-3 py-2 text-xs">{formatDate(s.currentPeriodStart)} → {formatDate(s.currentPeriodEnd)}</td>
                   <td className="relative px-3 py-2">
                     <div className="flex items-center gap-1">
                       {canRenew(s) && (
@@ -304,18 +335,18 @@ export default function SubscriptionsManager({ initialSubs, orgs, plans, countri
                     {menuFor === s.id && (
                       <div className="absolute right-3 z-20 mt-1 w-72 rounded-xl border border-zinc-200 bg-white p-2 shadow-xl dark:border-zinc-700 dark:bg-zinc-900">
                         <p className="px-2 pb-1.5 pt-0.5 text-[11px] leading-snug text-zinc-500 dark:text-zinc-400">
-                          <strong className="text-zinc-700 dark:text-zinc-200">{s.status}:</strong> {STATUS_EXPLANATIONS[s.status]}
+                          <strong className="text-zinc-700 dark:text-zinc-200">{statusPhrase(s.status)}:</strong> {STATUS_EXPLANATIONS[s.status]}
                         </p>
                         {(ALLOWED_TRANSITIONS[s.status] ?? []).length === 0 && (
-                          <p className="px-2 pb-1 text-xs text-zinc-400">Terminal state — no transitions available.</p>
+                          <p className="px-2 pb-1 text-xs text-zinc-400">No further actions available.</p>
                         )}
                         {(ALLOWED_TRANSITIONS[s.status] ?? []).map((target) => (
                           <button
                             key={target}
                             onClick={() => { setMenuFor(null); setPending({ sub: s, status: target }); }}
-                            className="block w-full rounded-lg px-2 py-1.5 text-left text-sm font-medium hover:bg-zinc-100 dark:hover:bg-zinc-800"
+                            className="block w-full rounded-lg px-2 py-2 text-start text-sm font-medium hover:bg-zinc-100 dark:hover:bg-zinc-800"
                           >
-                            → {target}
+                            {statusPhrase(target)}
                             <span className="block truncate text-[10px] font-normal text-zinc-400">{STATUS_EXPLANATIONS[target]}</span>
                           </button>
                         ))}
@@ -338,9 +369,9 @@ export default function SubscriptionsManager({ initialSubs, orgs, plans, countri
       <ConfirmDialog
         action={
           pending
-            ? {
-                ...(TRANSITION_COPY[pending.status] ?? { title: `Move to ${pending.status}`, consequences: ["Recorded on the audit log."], tone: "primary" as const }),
-                message: `${pending.sub.organization.legalName} — ${pending.sub.plan.name}: ${pending.sub.status} → ${pending.status}.`,
+          ? {
+              ...(TRANSITION_COPY[pending.status] ?? { title: `Move to ${statusPhrase(pending.status)}`, consequences: ["Recorded on the audit log."], tone: "primary" as const }),
+                message: `${pending.sub.organization.legalName} — ${pending.sub.plan.name}: ${statusPhrase(pending.sub.status)} → ${statusPhrase(pending.status)}.`,
                 confirmLabel: TRANSITION_COPY[pending.status]?.title.split(" ")[0] ?? "Apply",
               }
             : null

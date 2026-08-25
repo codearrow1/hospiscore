@@ -104,7 +104,7 @@ export default function BillingManager({ orgs, pickerInvoices = [] }: {
             <Field label="Type"><select className={inputCls} value={form.type ?? "subscription"} onChange={set("type")}><option value="subscription">subscription</option><option value="addon">addon</option><option value="usage">usage</option><option value="onetime">onetime</option><option value="credit">credit</option></select></Field>
             <Field label="Due At"><input className={inputCls} type="date" value={form.dueAt ?? ""} onChange={set("dueAt")} /></Field>
           </div>
-          <Field label="Idempotency Key (duplicate webhook protection)"><input className={inputCls} value={form.idempotencyKey ?? ""} onChange={set("idempotencyKey")} placeholder="optional, prevents double invoice" /></Field>
+          <Field label="Reference (optional)"><input className={inputCls} value={form.idempotencyKey ?? ""} onChange={set("idempotencyKey")} placeholder="e.g. PO number — prevents duplicate invoices" /></Field>
           {error && <p className="text-sm text-red-500">{error}</p>}
           <div className={modalFooterCls}><button className={btnGhost} onClick={() => setInvOpen(false)}>Cancel</button><button className={btnPrimary} disabled={busy || !form.organizationId || !form.amount} onClick={createInvoice}>{busy ? "Creating…" : "Create Invoice"}</button></div>
         </div>
@@ -133,7 +133,7 @@ export default function BillingManager({ orgs, pickerInvoices = [] }: {
           )}
           <Field label={`Amount (${pickedInvoice?.currency ?? "invoice currency"})`} required><input className={inputCls} type="number" inputMode="decimal" step="0.01" min="0" value={form.amount ?? ""} onChange={set("amount")} /></Field>
           <Field label="Gateway"><select className={inputCls} value={form.gateway ?? "manual"} onChange={set("gateway")}><option value="manual">manual</option><option value="stripe">stripe</option><option value="razorpay">razorpay</option></select></Field>
-          <Field label="Idempotency Key"><input className={inputCls} value={form.idempotencyKey ?? ""} onChange={set("idempotencyKey")} placeholder="prevents double payment" /></Field>
+          <Field label="Reference (optional)"><input className={inputCls} value={form.idempotencyKey ?? ""} onChange={set("idempotencyKey")} placeholder="e.g. bank reference — prevents duplicate payments" /></Field>
           {error && <p className="text-sm text-red-500">{error}</p>}
           <div className={modalFooterCls}><button className={btnGhost} onClick={() => setPayOpen(false)}>Cancel</button><button className={btnPrimary} disabled={busy || !pickedInvoice || !form.amount} onClick={recordPayment}>{busy ? "Recording…" : "Record Payment"}</button></div>
         </div>
