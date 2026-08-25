@@ -3,6 +3,7 @@
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { btnGhost, btnPrimary, Field, inputCls, Modal } from "@/components/marketing-admin/ui";
+import { modalFooterCls } from "@/components/ui/AccessibleModal";
 import { useToast } from "@/components/ui/Toast";
 import { formatMoney } from "@/lib/format";
 
@@ -95,17 +96,17 @@ export default function BillingManager({ orgs, pickerInvoices = [] }: {
               {orgs.map((o) => <option key={o.id} value={o.id}>{o.legalName}</option>)}
             </select>
           </Field>
-          <div className="grid grid-cols-2 gap-3">
-            <Field label={`Amount (${form.currency || "USD"})`}><input className={inputCls} type="number" step="0.01" value={form.amount ?? ""} onChange={set("amount")} /></Field>
-            <Field label="Currency"><input className={inputCls} value={form.currency ?? "USD"} onChange={set("currency")} maxLength={3} /></Field>
+          <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+            <Field label={`Amount (${form.currency || "USD"})`}><input className={inputCls} type="number" inputMode="decimal" step="0.01" min="0" value={form.amount ?? ""} onChange={set("amount")} /></Field>
+            <Field label="Currency"><input className={inputCls} value={form.currency ?? "USD"} onChange={set("currency")} maxLength={3} autoCapitalize="characters" /></Field>
           </div>
-          <div className="grid grid-cols-2 gap-3">
+          <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
             <Field label="Type"><select className={inputCls} value={form.type ?? "subscription"} onChange={set("type")}><option value="subscription">subscription</option><option value="addon">addon</option><option value="usage">usage</option><option value="onetime">onetime</option><option value="credit">credit</option></select></Field>
             <Field label="Due At"><input className={inputCls} type="date" value={form.dueAt ?? ""} onChange={set("dueAt")} /></Field>
           </div>
           <Field label="Idempotency Key (duplicate webhook protection)"><input className={inputCls} value={form.idempotencyKey ?? ""} onChange={set("idempotencyKey")} placeholder="optional, prevents double invoice" /></Field>
           {error && <p className="text-sm text-red-500">{error}</p>}
-          <div className="flex justify-end gap-2"><button className={btnGhost} onClick={() => setInvOpen(false)}>Cancel</button><button className={btnPrimary} disabled={busy || !form.organizationId || !form.amount} onClick={createInvoice}>{busy ? "Creating…" : "Create Invoice"}</button></div>
+          <div className={modalFooterCls}><button className={btnGhost} onClick={() => setInvOpen(false)}>Cancel</button><button className={btnPrimary} disabled={busy || !form.organizationId || !form.amount} onClick={createInvoice}>{busy ? "Creating…" : "Create Invoice"}</button></div>
         </div>
       </Modal>
 
@@ -130,11 +131,11 @@ export default function BillingManager({ orgs, pickerInvoices = [] }: {
               <span className="block text-zinc-400">Payment currency follows the invoice ({pickedInvoice.currency}); overpayments are rejected by the ledger.</span>
             </div>
           )}
-          <Field label={`Amount (${pickedInvoice?.currency ?? "invoice currency"})`} required><input className={inputCls} type="number" step="0.01" min="0" value={form.amount ?? ""} onChange={set("amount")} /></Field>
+          <Field label={`Amount (${pickedInvoice?.currency ?? "invoice currency"})`} required><input className={inputCls} type="number" inputMode="decimal" step="0.01" min="0" value={form.amount ?? ""} onChange={set("amount")} /></Field>
           <Field label="Gateway"><select className={inputCls} value={form.gateway ?? "manual"} onChange={set("gateway")}><option value="manual">manual</option><option value="stripe">stripe</option><option value="razorpay">razorpay</option></select></Field>
           <Field label="Idempotency Key"><input className={inputCls} value={form.idempotencyKey ?? ""} onChange={set("idempotencyKey")} placeholder="prevents double payment" /></Field>
           {error && <p className="text-sm text-red-500">{error}</p>}
-          <div className="flex justify-end gap-2"><button className={btnGhost} onClick={() => setPayOpen(false)}>Cancel</button><button className={btnPrimary} disabled={busy || !pickedInvoice || !form.amount} onClick={recordPayment}>{busy ? "Recording…" : "Record Payment"}</button></div>
+          <div className={modalFooterCls}><button className={btnGhost} onClick={() => setPayOpen(false)}>Cancel</button><button className={btnPrimary} disabled={busy || !pickedInvoice || !form.amount} onClick={recordPayment}>{busy ? "Recording…" : "Record Payment"}</button></div>
         </div>
       </Modal>
     </div>

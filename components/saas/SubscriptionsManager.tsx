@@ -3,6 +3,7 @@
 import { useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 import { btnGhost, btnPrimary, Field, inputCls, Modal } from "@/components/marketing-admin/ui";
+import { FilterSheet } from "@/components/ui/FilterSheet";
 import { useToast } from "@/components/ui/Toast";
 import { ConfirmDialog } from "@/components/ui/ConfirmDialog";
 import { StatusBadge } from "@/components/ui/Badge";
@@ -177,56 +178,54 @@ export default function SubscriptionsManager({ initialSubs, orgs, plans, countri
     refresh();
   };
 
-  const selectCls = `${inputCls} py-1.5 text-xs`;
   const canRenew = (s: Sub) => ["active", "past_due", "grace"].includes(s.status);
 
   return (
     <div className="space-y-4">
-      <div className="flex flex-wrap items-end justify-between gap-2">
-        <div className="flex flex-wrap items-end gap-2">
-          <div>
-            <label className="mb-1 block text-[10px] font-semibold uppercase tracking-wide text-zinc-400">Status</label>
-            <select className={selectCls} value={filters.status} onChange={(e) => setFilter("status", e.target.value)}>
+      <div className="flex flex-wrap items-center justify-between gap-2">
+        <FilterSheet
+          label="Filters"
+          activeCount={Object.values(filters).filter(Boolean).length}
+          onClearAll={() => router.replace("/saas/subscriptions")}
+        >
+          <Field label="Status">
+            <select className={inputCls} value={filters.status} onChange={(e) => setFilter("status", e.target.value)}>
               <option value="">All statuses</option>
               {STATUSES.map((s) => <option key={s} value={s}>{s}</option>)}
             </select>
-          </div>
-          <div>
-            <label className="mb-1 block text-[10px] font-semibold uppercase tracking-wide text-zinc-400">Plan</label>
-            <select className={selectCls} value={filters.plan} onChange={(e) => setFilter("plan", e.target.value)}>
+          </Field>
+          <Field label="Plan">
+            <select className={inputCls} value={filters.plan} onChange={(e) => setFilter("plan", e.target.value)}>
               <option value="">All plans</option>
               {plans.map((p) => <option key={p.id} value={p.id}>{p.name}</option>)}
             </select>
-          </div>
-          <div>
-            <label className="mb-1 block text-[10px] font-semibold uppercase tracking-wide text-zinc-400">Country</label>
-            <select className={selectCls} value={filters.country} onChange={(e) => setFilter("country", e.target.value)}>
+          </Field>
+          <Field label="Country">
+            <select className={inputCls} value={filters.country} onChange={(e) => setFilter("country", e.target.value)}>
               <option value="">All countries</option>
               {countries.map((c) => <option key={c.code} value={c.code}>{c.name}</option>)}
             </select>
-          </div>
-          <div>
-            <label className="mb-1 block text-[10px] font-semibold uppercase tracking-wide text-zinc-400">Currency</label>
-            <select className={selectCls} value={filters.currency} onChange={(e) => setFilter("currency", e.target.value)}>
+          </Field>
+          <Field label="Currency">
+            <select className={inputCls} value={filters.currency} onChange={(e) => setFilter("currency", e.target.value)}>
               <option value="">All currencies</option>
               {[...new Set(countries.map((c) => c.currency))].sort().map((cur) => <option key={cur} value={cur}>{cur}</option>)}
             </select>
-          </div>
-          <div>
-            <label className="mb-1 block text-[10px] font-semibold uppercase tracking-wide text-zinc-400">Interval</label>
-            <select className={selectCls} value={filters.cycle} onChange={(e) => setFilter("cycle", e.target.value)}>
+          </Field>
+          <Field label="Interval">
+            <select className={inputCls} value={filters.cycle} onChange={(e) => setFilter("cycle", e.target.value)}>
               <option value="">Both</option>
               <option value="monthly">monthly</option>
               <option value="yearly">yearly</option>
             </select>
-          </div>
-          {hasFilters && (
-            <button onClick={() => router.replace("/saas/subscriptions")} className="pb-1.5 text-xs font-semibold text-indigo-600 hover:underline dark:text-indigo-400">
-              Clear all
-            </button>
-          )}
-        </div>
-        <button onClick={() => setCreating(true)} className={btnPrimary}>+ New Subscription</button>
+          </Field>
+        </FilterSheet>
+        {hasFilters && (
+          <button onClick={() => router.replace("/saas/subscriptions")} className="text-xs font-semibold text-indigo-600 hover:underline dark:text-indigo-400">
+            Clear all
+          </button>
+        )}
+        <button onClick={() => setCreating(true)} className={`${btnPrimary} ml-auto`}>+ New Subscription</button>
       </div>
 
       {subs.length === 0 ? (
@@ -235,7 +234,46 @@ export default function SubscriptionsManager({ initialSubs, orgs, plans, countri
           <p className="mt-1 text-xs text-zinc-500">{hasFilters ? "Clear the filters to see the full book." : "Create one with the button above."}</p>
         </div>
       ) : (
-        <div className="overflow-x-auto rounded-2xl border border-zinc-200 bg-white dark:border-zinc-800 dark:bg-zinc-900">
+        <>
+          {/* Mobile cards */}
+          <ul className="space-y-2 md:hidden">
+            {subs.map((s) => (
+              <li key={s.id} className="rounded-xl border border-zinc-200 bg-white p-3 text-sm dark:border-zinc-800 dark:bg-zinc-900">
+                <div className="flex items-start justify-between gap-2">
+                  <div className="min-w-0">
+                    <p className="truncate font-semibold">{s.organization.legalName}</p>
+                    <p className="truncate text-xs text-zinc-500">{s.plan.name} · {COUNTRY_NAMES.get(s.country) ?? s.country}</p>
+                  </div>
+                  <StatusBadge domain="subscription" status={s.status} />
+                </div>
+                <dl className="mt-2 grid grid-cols-[auto_1fr] gap-x-3 gap-y-0.5 text-xs">
+                  <dt className="text-zinc-400">Charged</dt><dd className="tabular-nums">{amountLabel(s)} / {s.billingCycle}</dd>
+                  <dt className="text-zinc-400">Period</dt><dd>{new Date(s.currentPeriodStart).toLocaleDateString()} → {new Date(s.currentPeriodEnd).toLocaleDateString()}</dd>
+                </dl>
+                <div className="mt-2 flex flex-wrap items-center gap-1.5 border-t border-zinc-100 pt-2 dark:border-zinc-800">
+                  {canRenew(s) && (
+                    <button onClick={() => setRenewing(s)} className={`${btnGhost} px-2 py-1 text-xs`}>Renew</button>
+                  )}
+                  {(ALLOWED_TRANSITIONS[s.status] ?? []).map((target) => (
+                    <button
+                      key={target}
+                      onClick={() => setPending({ sub: s, status: target })}
+                      title={STATUS_EXPLANATIONS[target]}
+                      className="rounded-lg border border-zinc-200 px-2 py-1 text-xs font-semibold hover:bg-zinc-50 dark:border-zinc-700 dark:hover:bg-zinc-800"
+                    >
+                      → {target}
+                    </button>
+                  ))}
+                  {(ALLOWED_TRANSITIONS[s.status] ?? []).length === 0 && canRenew(s) === false && (
+                    <span className="text-xs text-zinc-400">Terminal state — no transitions available.</span>
+                  )}
+                </div>
+              </li>
+            ))}
+          </ul>
+
+          {/* Desktop table */}
+          <div className="hidden overflow-x-auto rounded-2xl border border-zinc-200 bg-white md:block dark:border-zinc-800 dark:bg-zinc-900">
           <table className="w-full min-w-[900px] text-left text-sm">
             <thead><tr className="border-b border-zinc-200 text-xs uppercase tracking-wide text-zinc-400 dark:border-zinc-800"><th className="px-3 py-2">Org</th><th className="px-3 py-2">Plan</th><th className="px-3 py-2">Market</th><th className="px-3 py-2">Charged</th><th className="px-3 py-2">Cycle</th><th className="px-3 py-2">Status</th><th className="px-3 py-2">Period</th><th className="px-3 py-2">Lifecycle</th></tr></thead>
             <tbody>
@@ -288,7 +326,8 @@ export default function SubscriptionsManager({ initialSubs, orgs, plans, countri
               ))}
             </tbody>
           </table>
-        </div>
+          </div>
+        </>
       )}
 
       {creating && (

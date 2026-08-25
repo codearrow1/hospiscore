@@ -214,7 +214,8 @@ export default async function SaasDashboardPage({
             {country.length === 0 ? (
               <EmptyState title="No active customers" />
             ) : (
-              <table className="w-full text-left text-sm">
+              <div className="overflow-x-auto">
+                <table className="w-full min-w-[420px] text-left text-sm">
                 <thead>
                   <tr className="border-b border-zinc-200 text-xs uppercase tracking-wide text-zinc-400 dark:border-zinc-800">
                     <th className="pb-1">Country</th>
@@ -232,6 +233,7 @@ export default async function SaasDashboardPage({
                   ))}
                 </tbody>
               </table>
+              </div>
             )}
           </SectionCard>
           <SectionCard title="Customer funnel">

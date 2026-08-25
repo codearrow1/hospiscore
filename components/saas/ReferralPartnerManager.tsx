@@ -470,7 +470,8 @@ export default function ReferralPartnerManager({
               <div>
                 <p className="mb-1.5 text-xs font-bold uppercase tracking-wider text-zinc-400">Commissions ({pc.length})</p>
                 {pc.length === 0 ? <p className="text-xs text-zinc-400">Nothing attributed yet.</p> : (
-                  <table className="w-full text-left text-xs">
+                  <div className="overflow-x-auto">
+                    <table className="w-full text-left text-xs">
                     <thead><tr className="uppercase text-zinc-400"><th className="py-1">When</th>{variant === "partner" && <th className="py-1">Account</th>}<th className="py-1">Model</th><th className="py-1 text-right">Amount</th><th className="py-1">State</th></tr></thead>
                     <tbody>
                       {pc.slice(0, 12).map((c) => (
@@ -484,6 +485,7 @@ export default function ReferralPartnerManager({
                       ))}
                     </tbody>
                   </table>
+                  </div>
                 )}
                 <details className="mt-2">
                   <summary className="cursor-pointer text-[11px] font-semibold text-zinc-400 hover:text-zinc-600">What each state means</summary>
@@ -499,7 +501,8 @@ export default function ReferralPartnerManager({
               <div>
                 <p className="mb-1.5 text-xs font-bold uppercase tracking-wider text-zinc-400">Payout history ({pp.length})</p>
                 {pp.length === 0 ? <p className="text-xs text-zinc-400">No payouts yet.</p> : (
-                  <table className="w-full text-left text-xs">
+                  <div className="overflow-x-auto">
+                    <table className="w-full text-left text-xs">
                     <thead><tr className="uppercase text-zinc-400"><th className="py-1">When</th><th className="py-1">Method</th><th className="py-1 text-right">Amount</th><th className="py-1">State</th></tr></thead>
                     <tbody>
                       {pp.slice(0, 12).map((p) => (
@@ -512,6 +515,7 @@ export default function ReferralPartnerManager({
                       ))}
                     </tbody>
                   </table>
+                  </div>
                 )}
                 {canPayout && (
                   <div className="mt-2 flex items-end gap-2">

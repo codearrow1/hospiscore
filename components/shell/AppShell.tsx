@@ -21,6 +21,7 @@ export function AppShell({
   quickActions = [],
   entitySearch = false,
   leadSearch = false,
+  bottomNav,
   children,
 }: {
   plane: PlaneInfo;
@@ -29,6 +30,8 @@ export function AppShell({
   quickActions?: QuickAction[];
   entitySearch?: boolean;
   leadSearch?: boolean;
+  /** Fixed mobile navigation rendered under the content (portal bottom bars). */
+  bottomNav?: ReactNode;
   children: ReactNode;
 }) {
   return (
@@ -40,6 +43,7 @@ export function AppShell({
         quickActions={quickActions}
         entitySearch={entitySearch}
         leadSearch={leadSearch}
+        bottomNav={bottomNav}
       >
         {children}
       </ShellFrame>
@@ -54,6 +58,7 @@ function ShellFrame({
   quickActions = [],
   entitySearch,
   leadSearch,
+  bottomNav,
   children,
 }: {
   plane: PlaneInfo;
@@ -62,6 +67,7 @@ function ShellFrame({
   quickActions?: QuickAction[] | undefined;
   entitySearch: boolean;
   leadSearch: boolean;
+  bottomNav?: ReactNode;
   children: ReactNode;
 }) {
   const pathname = usePathname();
@@ -223,6 +229,22 @@ function ShellFrame({
               </button>
             </div>
             {navList}
+            {/* Quick actions stay reachable on phones via the drawer. */}
+            {quickActions.length > 0 && (
+              <div className="space-y-1 border-t border-line p-3">
+                <p className="px-1 pb-1 text-[10px] font-bold uppercase tracking-widest text-zinc-400">Quick actions</p>
+                {quickActions.map((qa) => (
+                  <Link
+                    key={qa.href}
+                    href={qa.href}
+                    onClick={() => setMobileOpen(false)}
+                    className="flex min-h-9 items-center rounded-xl border border-line px-2.5 text-sm font-semibold text-zinc-600 transition hover:bg-surface-subtle dark:text-zinc-300"
+                  >
+                    {qa.label}
+                  </Link>
+                ))}
+              </div>
+            )}
           </aside>
         </div>
       )}
@@ -337,9 +359,14 @@ function ShellFrame({
           </div>
         </header>
 
-        <main id="main" className="mx-auto w-full max-w-7xl flex-1 px-3 py-5 sm:px-6 sm:py-6" tabIndex={-1}>
+        <main
+          id="main"
+          className={`mx-auto w-full max-w-7xl flex-1 px-3 py-5 sm:px-6 sm:py-6 ${bottomNav ? "pb-24 md:pb-6" : ""}`}
+          tabIndex={-1}
+        >
           {children}
         </main>
+        {bottomNav}
       </div>
 
       <CommandPalette

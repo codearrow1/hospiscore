@@ -3,6 +3,7 @@
 import { useRouter } from "next/navigation";
 import { useState } from "react";
 import { btnGhost, btnPrimary, Field, inputCls, Modal } from "@/components/marketing-admin/ui";
+import { modalFooterCls } from "@/components/ui/AccessibleModal";
 
 export default function NewOrgModal() {
   const router = useRouter();
@@ -47,13 +48,13 @@ export default function NewOrgModal() {
         <div className="space-y-3">
           <Field label="Legal Name" required><input className={inputCls} value={form.legalName ?? ""} onChange={set("legalName")} /></Field>
           <Field label="Business Name"><input className={inputCls} value={form.businessName ?? ""} onChange={set("businessName")} /></Field>
-          <Field label="Country (ISO2)"><input className={inputCls} maxLength={2} value={form.country ?? ""} onChange={set("country")} /></Field>
-          <Field label="Website"><input className={inputCls} value={form.website ?? ""} onChange={set("website")} /></Field>
+          <Field label="Country (ISO2)"><input className={inputCls} maxLength={2} value={form.country ?? ""} onChange={set("country")} autoCapitalize="characters" /></Field>
+          <Field label="Website"><input className={inputCls} type="url" inputMode="url" value={form.website ?? ""} onChange={set("website")} /></Field>
           <Field label="Primary Contact Name"><input className={inputCls} value={form.contactName ?? ""} onChange={set("contactName")} /></Field>
-          <Field label="Contact Email"><input className={inputCls} type="email" value={form.contactEmail ?? ""} onChange={set("contactEmail")} /></Field>
-          <Field label="Phone"><input className={inputCls} value={form.phone ?? ""} onChange={set("phone")} /></Field>
+          <Field label="Contact Email"><input className={inputCls} type="email" inputMode="email" autoComplete="email" value={form.contactEmail ?? ""} onChange={set("contactEmail")} /></Field>
+          <Field label="Phone"><input className={inputCls} type="tel" inputMode="tel" autoComplete="tel" value={form.phone ?? ""} onChange={set("phone")} /></Field>
           {error && <p className="text-sm text-red-500">{error}</p>}
-          <div className="flex justify-end gap-2">
+          <div className={modalFooterCls}>
             <button className={btnGhost} onClick={() => setOpen(false)}>Cancel</button>
             <button className={btnPrimary} disabled={busy || !form.legalName} onClick={submit}>{busy ? "Creating…" : "Create"}</button>
           </div>

@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import { btnGhost, btnPrimary, Field, inputCls, Modal, Badge } from "@/components/marketing-admin/ui";
 import { useToast } from "@/components/ui/Toast";
 import { ConfirmDialog } from "@/components/ui/ConfirmDialog";
+import { FilterSheet } from "@/components/ui/FilterSheet";
 import { DetailDrawer, DrawerSection, KeyValue } from "@/components/ui/DetailDrawer";
 import Link from "next/link";
 
@@ -124,23 +125,63 @@ export default function TicketsManager({ initialTickets, canManage, orgs = [] }:
                 : "border border-zinc-200 text-zinc-500 hover:bg-zinc-50 dark:border-zinc-700 dark:hover:bg-zinc-800"
             }`}>{label}</button>
         ))}
-        <span className="mx-1 hidden h-5 w-px bg-zinc-200 sm:block dark:bg-zinc-700" />
-        <select aria-label="Priority filter" className="rounded-lg border border-zinc-200 bg-transparent px-2 py-1 text-xs dark:border-zinc-700" value={fPriority} onChange={(e) => setFPriority(e.target.value)}>
-          <option value="">Any priority</option>
-          {["low", "medium", "high", "urgent"].map((p) => <option key={p} value={p}>{p}</option>)}
-        </select>
-        <select aria-label="Category filter" className="rounded-lg border border-zinc-200 bg-transparent px-2 py-1 text-xs dark:border-zinc-700" value={fCategory} onChange={(e) => setFCategory(e.target.value)}>
-          <option value="">Any category</option>
-          {CATEGORIES.map((c) => <option key={c} value={c}>{c}</option>)}
-        </select>
-        <button onClick={() => setBreachedOnly((v) => !v)}
-          className={`rounded-full px-3 py-1 text-xs font-semibold transition ${
-            breachedOnly ? "bg-red-600 text-white" : "border border-red-300 text-red-600 hover:bg-red-50 dark:border-red-800 dark:hover:bg-red-950/40"
-          }`}>SLA breached{breachedOnly ? "" : ` (${counts.breached})`}</button>
+        <FilterSheet
+          label="More filters"
+          activeCount={(fPriority ? 1 : 0) + (fCategory ? 1 : 0) + (breachedOnly ? 1 : 0)}
+          onClearAll={() => { setFPriority(""); setFCategory(""); setBreachedOnly(false); }}
+        >
+          <Field label="Priority">
+            <select aria-label="Priority filter" className={inputCls} value={fPriority} onChange={(e) => setFPriority(e.target.value)}>
+              <option value="">Any priority</option>
+              {["low", "medium", "high", "urgent"].map((p) => <option key={p} value={p}>{p}</option>)}
+            </select>
+          </Field>
+          <Field label="Category">
+            <select aria-label="Category filter" className={inputCls} value={fCategory} onChange={(e) => setFCategory(e.target.value)}>
+              <option value="">Any category</option>
+              {CATEGORIES.map((c) => <option key={c} value={c}>{c}</option>)}
+            </select>
+          </Field>
+          <label className="flex items-center gap-2 rounded-xl border border-line px-3 py-2.5 text-sm font-medium">
+            <input type="checkbox" checked={breachedOnly} onChange={() => setBreachedOnly((v) => !v)} />
+            SLA breached only ({counts.breached})
+          </label>
+        </FilterSheet>
         <div className="ml-auto"><button onClick={() => setCreating(true)} disabled={!canManage} className={btnPrimary}>+ New Ticket</button></div>
       </div>
 
-      <div className="overflow-x-auto rounded-2xl border bg-white dark:bg-zinc-900 dark:border-zinc-800">
+      {/* Mobile cards */}
+      <ul className="space-y-2 md:hidden">
+        {filtered.map((t) => (
+          <li key={t.id}>
+            <button
+              onClick={() => setDetail(t)}
+              className={`w-full rounded-xl border border-zinc-200 bg-white p-3 text-left text-sm dark:border-zinc-800 dark:bg-zinc-900 ${isBreached(t) ? "border-red-200 bg-red-50/60 dark:border-red-900/60 dark:bg-red-950/20" : ""}`}
+            >
+              <div className="flex items-start justify-between gap-2">
+                <p className="min-w-0 truncate font-semibold">{t.subject}</p>
+                <Badge>{t.status.replace("_", " ")}</Badge>
+              </div>
+              <p className="mt-0.5 truncate text-xs text-zinc-500">
+                <Link href={`/saas/organizations/${t.organizationId}`} onClick={(e) => e.stopPropagation()} className="hover:underline">{t.organization?.legalName ?? t.organizationId.slice(0, 8)}</Link>
+                {" · "}{t.category} · {new Date(t.createdAt).toLocaleDateString()}
+              </p>
+              <div className="mt-1.5 flex flex-wrap items-center gap-1.5">
+                <span className={`text-xs font-semibold ${t.priority === "urgent" ? "text-red-600" : t.priority === "high" ? "text-orange-500" : "text-zinc-500"}`}>{t.priority}</span>
+                {isBreached(t) && <Badge><span className="text-red-600 dark:text-red-400">{fmtDue(t.slaDueAt!)}</span></Badge>}
+                {!isBreached(t) && t.slaDueAt && !["resolved", "closed"].includes(t.status) && <Badge><span className="text-zinc-500">{fmtDue(t.slaDueAt)}</span></Badge>}
+                <span className="ml-auto truncate text-xs text-zinc-400">{t.assigneeEmail ?? "unassigned"}</span>
+              </div>
+            </button>
+          </li>
+        ))}
+        {filtered.length === 0 && (
+          <li className="rounded-xl border border-zinc-200 p-6 text-center text-sm text-zinc-400 dark:border-zinc-800">No tickets match these filters.</li>
+        )}
+      </ul>
+
+      {/* Desktop table */}
+      <div className="hidden overflow-x-auto rounded-2xl border bg-white md:block dark:bg-zinc-900 dark:border-zinc-800">
         <table className="w-full text-left text-sm">
           <thead><tr className="text-xs uppercase text-zinc-400">
             <th className="px-3 py-2">Ticket</th><th className="px-3 py-2">Customer</th><th className="px-3 py-2">Category</th>
@@ -164,9 +205,7 @@ export default function TicketsManager({ initialTickets, canManage, orgs = [] }:
             {filtered.length === 0 && <tr><td colSpan={6} className="px-3 py-6 text-center text-sm text-zinc-400">No tickets match these filters.</td></tr>}
           </tbody>
         </table>
-      </div>
-
-      {/* Ticket detail drawer */}
+      </div>      {/* Ticket detail drawer */}
       <DetailDrawer open={detail !== null} onClose={() => setDetail(null)} title={detail?.subject ?? ""} subtitle={detail ? `${detail.category} · ${detail.priority}` : undefined}>
         {detail && (
           <div className="space-y-4">

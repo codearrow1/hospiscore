@@ -325,6 +325,7 @@ export default function CustomerPortalClient({
 
       {/* Subscription overview + renewal countdown */}
       <SectionCard title="Subscription overview">
+        <div id="subscription" />
         {!subscription ? (
           <EmptyState title="No subscription yet." body="Your account team will activate your plan shortly." />
         ) : (
@@ -349,6 +350,7 @@ export default function CustomerPortalClient({
 
       {/* Usage */}
       <SectionCard title="Usage (last 30 days)">
+        <div id="usage" />
         {usage30d.length === 0 ? (
           <EmptyState title="No usage recorded." />
         ) : (

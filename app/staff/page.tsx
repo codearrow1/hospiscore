@@ -68,7 +68,7 @@ export default async function StaffDashboard() {
         <Badge>Operational scope</Badge>
       </div>
 
-      <div className="grid grid-cols-3 gap-3">
+      <div className="grid grid-cols-2 gap-3 sm:grid-cols-3">
         <SectionCard>
           <p className="text-xs uppercase tracking-wide text-zinc-500">Open tickets</p>
           <p className="mt-1 text-2xl font-semibold">{queue.length}</p>

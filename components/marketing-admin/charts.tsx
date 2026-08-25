@@ -56,7 +56,7 @@ export function Donut({
   let offset = 0;
   return (
     <div className="flex items-center gap-4">
-      <svg width={size} height={size} viewBox={`0 0 ${size} ${size}`} className="shrink-0" role="img" aria-label="Distribution">
+      <svg viewBox={`0 0 ${size} ${size}`} className="h-auto w-full max-w-[160px] shrink-0" role="img" aria-label="Distribution">
         {data.map((d, i) => {
           const frac = total ? d.count / total : 0;
           const dash = frac * circ;

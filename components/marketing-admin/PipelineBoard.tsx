@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { useState, type ReactNode } from "react";
+import { useRef, useState, type ReactNode } from "react";
 import { STAGE_LABELS, STAGE_STYLES, STAGE_ORDER } from "@/lib/marketing/stages";
 import { canMove } from "@/lib/marketing/stages";
 import { formatMoney } from "@/lib/format";
@@ -42,6 +42,7 @@ export default function PipelineBoard({ leads, filterBar }: { leads: PipelineLea
   const toast = useToast();
   const [busyId, setBusyId] = useState<string | null>(null);
   const [losing, setLosing] = useState<{ lead: PipelineLead; to: LeadStage } | null>(null);
+  const railRef = useRef<HTMLDivElement>(null);
 
   const groups = STAGE_ORDER.reduce<Record<string, PipelineLead[]>>((acc, s) => {
     acc[s] = [];
@@ -77,12 +78,29 @@ export default function PipelineBoard({ leads, filterBar }: { leads: PipelineLea
   return (
     <div className="space-y-4">
       {filterBar && <div className="flex flex-wrap items-center gap-3">{filterBar}</div>}
+      {/* Mobile-only column jump chips: tap to snap the rail to a stage. */}
+      <div className="-mx-1 flex gap-1.5 overflow-x-auto px-1 pb-1 lg:hidden" role="tablist" aria-label="Jump to stage">
+        {STAGE_ORDER.map((stage, i) => (
+          <button
+            key={stage}
+            type="button"
+            onClick={() => {
+              const rail = railRef.current;
+              const col = rail?.querySelector<HTMLElement>(`[data-col-idx="${i}"]`);
+              if (rail && col) rail.scrollTo({ left: col.offsetLeft - rail.offsetLeft, behavior: "smooth" });
+            }}
+            className={`shrink-0 rounded-full px-2.5 py-1 text-[11px] font-bold ${STAGE_STYLES[stage]} opacity-90`}
+          >
+            {STAGE_LABELS[stage]}
+          </button>
+        ))}
+      </div>
       {/* Mobile: horizontally snapping rail. lg+: full-width grid. */}
-      <div className="-mx-1 flex snap-x snap-mandatory gap-3 overflow-x-auto px-1 pb-4 lg:grid lg:snap-none lg:grid-cols-5 lg:overflow-visible 2xl:grid-cols-10">
-        {STAGE_ORDER.map((stage) => {
+      <div ref={railRef} className="-mx-1 flex snap-x snap-mandatory gap-3 overflow-x-auto px-1 pb-4 lg:grid lg:snap-none lg:grid-cols-5 lg:overflow-visible 2xl:grid-cols-10">
+        {STAGE_ORDER.map((stage, colIdx) => {
           const items = groups[stage] ?? [];
           return (
-            <div key={stage} className="w-[264px] shrink-0 snap-start rounded-2xl border border-zinc-200 bg-zinc-50/70 p-2.5 lg:w-auto dark:border-zinc-800 dark:bg-zinc-900/50">
+            <div data-col-idx={colIdx} key={stage} className="w-[264px] shrink-0 snap-start rounded-2xl border border-zinc-200 bg-zinc-50/70 p-2.5 lg:w-auto dark:border-zinc-800 dark:bg-zinc-900/50">
               <div className="mb-2 flex items-center justify-between gap-2 px-1">
                 <span className={`rounded-full px-2 py-0.5 text-[11px] font-bold ${STAGE_STYLES[stage]}`}>
                   {STAGE_LABELS[stage]}

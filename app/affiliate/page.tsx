@@ -148,19 +148,34 @@ export default async function AffiliatePortal() {
       <SectionCard title="Commissions">
         <div id="commissions" />
         {commissions.length === 0 ? <EmptyState title="No commissions yet" body="When your referrals subscribe, commissions appear here." /> : (
-          <table className="w-full text-left text-sm">
-            <thead><tr className="text-xs uppercase text-zinc-400"><th className="py-1">Date</th><th className="py-1 text-right">Amount</th><th className="py-1">Model</th><th className="py-1">State</th></tr></thead>
-            <tbody>
+          <>
+            {/* Mobile cards */}
+            <ul className="space-y-1.5 md:hidden">
               {commissions.map((c) => (
-                <tr key={c.id} className="border-t border-zinc-100 dark:border-zinc-800">
-                  <td className="py-1 pr-2">{new Date(c.createdAt).toLocaleDateString()}</td>
-                  <td className="py-1 text-right tabular-nums">{formatMoney(c.amount, c.currency)}</td>
-                  <td className="py-1 pr-2 text-xs">{c.model.replace(/_/g, " ")}</td>
-                  <td className="py-1"><StatusBadge domain="commission" status={c.status} /></td>
-                </tr>
+                <li key={c.id} className="flex items-center justify-between gap-2 rounded-xl border border-zinc-200 px-3 py-2 text-sm dark:border-zinc-800">
+                  <div className="min-w-0">
+                    <p className="font-medium tabular-nums">{formatMoney(c.amount, c.currency)}</p>
+                    <p className="truncate text-xs text-zinc-500">{new Date(c.createdAt).toLocaleDateString()} · {c.model.replace(/_/g, " ")}</p>
+                  </div>
+                  <StatusBadge domain="commission" status={c.status} />
+                </li>
               ))}
-            </tbody>
-          </table>
+            </ul>
+            {/* Desktop table */}
+            <table className="hidden w-full text-left text-sm md:table">
+              <thead><tr className="text-xs uppercase text-zinc-400"><th className="py-1">Date</th><th className="py-1 text-right">Amount</th><th className="py-1">Model</th><th className="py-1">State</th></tr></thead>
+              <tbody>
+                {commissions.map((c) => (
+                  <tr key={c.id} className="border-t border-zinc-100 dark:border-zinc-800">
+                    <td className="py-1 pr-2">{new Date(c.createdAt).toLocaleDateString()}</td>
+                    <td className="py-1 text-right tabular-nums">{formatMoney(c.amount, c.currency)}</td>
+                    <td className="py-1 pr-2 text-xs">{c.model.replace(/_/g, " ")}</td>
+                    <td className="py-1"><StatusBadge domain="commission" status={c.status} /></td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </>
         )}
         <details className="mt-2">
           <summary className="cursor-pointer text-[11px] font-semibold text-zinc-400 hover:text-zinc-600">What each state means</summary>
@@ -177,19 +192,34 @@ export default async function AffiliatePortal() {
       <SectionCard title="Payout history">
         <div id="payouts" />
         {payouts.length === 0 ? <EmptyState title="No payouts yet" body="Once your balance builds up, the program team settles it by bank/UPI/PayPal." /> : (
-          <table className="w-full text-left text-sm">
-            <thead><tr className="text-xs uppercase text-zinc-400"><th className="py-1">Date</th><th className="py-1 text-right">Amount</th><th className="py-1">Method</th><th className="py-1">State</th></tr></thead>
-            <tbody>
+          <>
+            {/* Mobile cards */}
+            <ul className="space-y-1.5 md:hidden">
               {payouts.map((p) => (
-                <tr key={p.id} className="border-t border-zinc-100 dark:border-zinc-800">
-                  <td className="py-1 pr-2">{new Date(p.createdAt).toLocaleDateString()}</td>
-                  <td className="py-1 text-right tabular-nums">{formatMoney(p.amount, p.currency)}</td>
-                  <td className="py-1 pr-2 uppercase text-xs">{p.method}</td>
-                  <td className="py-1"><StatusBadge domain="payout" status={p.status} /></td>
-                </tr>
+                <li key={p.id} className="flex items-center justify-between gap-2 rounded-xl border border-zinc-200 px-3 py-2 text-sm dark:border-zinc-800">
+                  <div className="min-w-0">
+                    <p className="font-medium tabular-nums">{formatMoney(p.amount, p.currency)}</p>
+                    <p className="truncate text-xs text-zinc-500">{new Date(p.createdAt).toLocaleDateString()} · {p.method.toUpperCase()}</p>
+                  </div>
+                  <StatusBadge domain="payout" status={p.status} />
+                </li>
               ))}
-            </tbody>
-          </table>
+            </ul>
+            {/* Desktop table */}
+            <table className="hidden w-full text-left text-sm md:table">
+              <thead><tr className="text-xs uppercase text-zinc-400"><th className="py-1">Date</th><th className="py-1 text-right">Amount</th><th className="py-1">Method</th><th className="py-1">State</th></tr></thead>
+              <tbody>
+                {payouts.map((p) => (
+                  <tr key={p.id} className="border-t border-zinc-100 dark:border-zinc-800">
+                    <td className="py-1 pr-2">{new Date(p.createdAt).toLocaleDateString()}</td>
+                    <td className="py-1 text-right tabular-nums">{formatMoney(p.amount, p.currency)}</td>
+                    <td className="py-1 pr-2 uppercase text-xs">{p.method}</td>
+                    <td className="py-1"><StatusBadge domain="payout" status={p.status} /></td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </>
         )}
       </SectionCard>
 

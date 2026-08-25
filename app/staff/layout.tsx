@@ -4,6 +4,7 @@ import { getCurrentUser } from "@/lib/sessionCookie";
 import { hasSaasPerm } from "@/lib/saas/roles";
 import { AppShell } from "@/components/shell/AppShell";
 import { PORTAL_NAV, portalPlane } from "@/components/shell/portalNav";
+import PortalBottomNav from "@/components/shell/PortalBottomNav";
 
 export const dynamic = "force-dynamic";
 export const runtime = "nodejs";
@@ -19,6 +20,7 @@ export default async function StaffLayout({ children }: { children: ReactNode })
       plane={portalPlane("staff")}
       user={{ name: user.name, email: user.email, roleLabel: "support staff" }}
       nav={PORTAL_NAV.staff}
+      bottomNav={<PortalBottomNav items={PORTAL_NAV.staff} />}
     >
       {children}
     </AppShell>
