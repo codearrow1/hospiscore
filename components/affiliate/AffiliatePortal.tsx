@@ -16,6 +16,12 @@ export default function AffiliatePortal({ affiliate }: AffiliatePortalProps) {
   const [loading, setLoading] = useState(true);
   const [recruitCode, setRecruitCode] = useState("");
   const [payoutMethod, setPayoutMethod] = useState(affiliate.payoutMethod || "bank");
+  const [feedback, setFeedback] = useState<{ type: "success" | "error"; text: string } | null>(null);
+
+  const showFeedback = useCallback((type: "success" | "error", text: string) => {
+    setFeedback({ type, text });
+    setTimeout(() => setFeedback(null), 4000);
+  }, []);
 
   const fetchDashboard = useCallback(async () => {
     try {
@@ -39,49 +45,35 @@ export default function AffiliatePortal({ affiliate }: AffiliatePortalProps) {
   const copyLink = () => {
     const link = `${window.location.origin}/ref/${affiliate.referralCode}`;
     navigator.clipboard.writeText(link).then(() => {
-      alert("Referral link copied!");
+      showFeedback("success", "Referral link copied!");
     });
   };
 
   const handleRecruit = async () => {
     if (!recruitCode.trim()) {
-      alert("Enter a referral code to recruit.");
+      showFeedback("error", "Enter a referral code to recruit.");
       return;
     }
     try {
-      const res = await fetch(`/api/saas/affiliates/${affiliate.id}/recruit`, {
+      const res = await fetch("/api/affiliate/recruit", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ childReferralCode: recruitCode.trim() }),
       });
       if (res.ok) {
-        alert("Affiliate recruited successfully!");
+        showFeedback("success", "Affiliate recruited successfully!");
         setRecruitCode("");
       } else {
         const data = await res.json();
-        alert(data.error || "Failed to recruit.");
+        showFeedback("error", data.error || "Failed to recruit.");
       }
-    } catch (e) {
-      alert("Network error.");
+    } catch {
+      showFeedback("error", "Network error.");
     }
   };
 
   const handleUpdatePayout = async () => {
-    try {
-      const res = await fetch(`/api/saas/payouts/${affiliate.id}`, {
-        method: "PUT",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ payoutMethod }),
-      });
-      if (res.ok) {
-        alert("Payout method updated!");
-      } else {
-        const data = await res.json();
-        alert(data.error || "Failed to update.");
-      }
-    } catch (e) {
-      alert("Network error.");
-    }
+    showFeedback("error", "Payout method updates require admin approval. Please contact your affiliate manager.");
   };
 
   const formatCents = (cents: number) => `$${(cents / 100).toFixed(2)}`;
@@ -128,6 +120,14 @@ export default function AffiliatePortal({ affiliate }: AffiliatePortalProps) {
             </button>
           ))}
         </div>
+
+        {feedback && (
+          <div className={`mb-4 px-4 py-3 rounded-lg text-sm font-medium ${
+            feedback.type === "success" ? "bg-green-50 text-green-800 border border-green-200" : "bg-red-50 text-red-800 border border-red-200"
+          }`}>
+            {feedback.text}
+          </div>
+        )}
 
         {activeTab === "dashboard" && (
           <div className="space-y-6">

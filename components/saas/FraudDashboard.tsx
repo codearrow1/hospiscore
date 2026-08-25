@@ -67,6 +67,12 @@ export default function FraudDashboard() {
   const [resolution, setResolution] = useState("");
   const [resolutionNote, setResolutionNote] = useState("");
   const [checkingId, setCheckingId] = useState<string | null>(null);
+  const [feedback, setFeedback] = useState<{ type: "success" | "error"; text: string } | null>(null);
+
+  const showFeedback = (type: "success" | "error", text: string) => {
+    setFeedback({ type, text });
+    setTimeout(() => setFeedback(null), 4000);
+  };
 
   const fetchCases = async () => {
     setLoading(true);
@@ -93,7 +99,7 @@ export default function FraudDashboard() {
       body: JSON.stringify({ status: to }),
     });
     if (!res.ok) {
-      alert("Failed to update status");
+      showFeedback("error", "Failed to update status");
       return;
     }
     fetchCases();
@@ -110,7 +116,7 @@ export default function FraudDashboard() {
       }),
     });
     if (!res.ok) {
-      alert("Failed to resolve case");
+      showFeedback("error", "Failed to resolve case");
       return;
     }
     setResolvingId(null);
@@ -127,10 +133,10 @@ export default function FraudDashboard() {
       });
       if (!res.ok) {
         const d = await res.json().catch(() => ({}));
-        alert(d.error ?? "Risk check failed");
+        showFeedback("error", d.error ?? "Risk check failed");
         return;
       }
-      alert("Risk check completed");
+      showFeedback("success", "Risk check completed");
       fetchCases();
     } finally {
       setCheckingId(null);
@@ -150,6 +156,14 @@ export default function FraudDashboard() {
   return (
     <div className="space-y-4">
       <h2 className="text-lg font-bold">Fraud Dashboard</h2>
+
+      {feedback && (
+        <div className={`px-4 py-3 rounded-lg text-sm font-medium ${
+          feedback.type === "success" ? "bg-green-50 text-green-800 border border-green-200" : "bg-red-50 text-red-800 border border-red-200"
+        }`}>
+          {feedback.text}
+        </div>
+      )}
 
       {/* Filter tabs */}
       <div className="flex flex-wrap gap-1">

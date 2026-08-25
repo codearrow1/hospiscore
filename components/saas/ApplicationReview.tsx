@@ -47,6 +47,12 @@ export default function ApplicationReview() {
   const [loading, setLoading] = useState(true);
   const [filter, setFilter] = useState<Filter>("all");
   const [reviewNotes, setReviewNotes] = useState<Record<string, string>>({});
+  const [feedback, setFeedback] = useState<{ type: "success" | "error"; text: string } | null>(null);
+
+  const showFeedback = (type: "success" | "error", text: string) => {
+    setFeedback({ type, text });
+    setTimeout(() => setFeedback(null), 4000);
+  };
 
   const fetchApplications = async () => {
     setLoading(true);
@@ -75,7 +81,7 @@ export default function ApplicationReview() {
       });
       if (!res.ok) {
         const d = await res.json().catch(() => ({}));
-        alert(d.error ?? "Failed to update application");
+        showFeedback("error", d.error ?? "Failed to update application");
         return;
       }
       setReviewNotes(prev => {
@@ -83,7 +89,6 @@ export default function ApplicationReview() {
         delete next[id];
         return next;
       });
-      fetchApplications();
     } finally {
       fetchApplications();
     }
@@ -109,6 +114,14 @@ export default function ApplicationReview() {
   return (
     <div className="space-y-4">
       <h2 className="text-lg font-bold">Affiliate Applications</h2>
+
+      {feedback && (
+        <div className={`px-4 py-3 rounded-lg text-sm font-medium ${
+          feedback.type === "success" ? "bg-green-50 text-green-800 border border-green-200" : "bg-red-50 text-red-800 border border-red-200"
+        }`}>
+          {feedback.text}
+        </div>
+      )}
 
       {/* Filter tabs */}
       <div className="flex flex-wrap gap-1">

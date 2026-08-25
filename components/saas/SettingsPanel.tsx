@@ -22,7 +22,7 @@ const RECOMMENDED = [
   { key: "cookie_duration_days", value: "30", description: "Attribution cookie window" },
   { key: "fraud_threshold", value: "60", description: "Auto-flag risk scores above this" },
   { key: "max_tier_depth", value: "3", description: "Maximum multi-tier levels" },
-  { key: "commission_model", value: "percent_mrr", description: "Default commission model for new affiliates" },
+  { key: "commission_model", value: "percent_mrr_12", description: "Default commission model for new affiliates" },
 ];
 
 export default function SettingsPanel() {
@@ -33,6 +33,12 @@ export default function SettingsPanel() {
   const [formValue, setFormValue] = useState("");
   const [editingId, setEditingId] = useState<string | null>(null);
   const [editValue, setEditValue] = useState("");
+  const [feedback, setFeedback] = useState<{ type: "success" | "error"; text: string } | null>(null);
+
+  const showFeedback = (type: "success" | "error", text: string) => {
+    setFeedback({ type, text });
+    setTimeout(() => setFeedback(null), 4000);
+  };
 
   const fetchSettings = async () => {
     setLoading(true);
@@ -59,7 +65,7 @@ export default function SettingsPanel() {
     });
     if (!res.ok) {
       const d = await res.json().catch(() => ({}));
-      alert(d.error ?? "Failed to save setting");
+      showFeedback("error", d.error ?? "Failed to save setting");
       return;
     }
     setShowForm(false);
@@ -75,7 +81,7 @@ export default function SettingsPanel() {
       body: JSON.stringify({ key, value: editValue }),
     });
     if (!res.ok) {
-      alert("Failed to update setting");
+      showFeedback("error", "Failed to update setting");
       return;
     }
     setEditingId(null);
@@ -103,6 +109,14 @@ export default function SettingsPanel() {
           + Add Setting
         </button>
       </div>
+
+      {feedback && (
+        <div className={`px-4 py-3 rounded-lg text-sm font-medium ${
+          feedback.type === "success" ? "bg-green-50 text-green-800 border border-green-200" : "bg-red-50 text-red-800 border border-red-200"
+        }`}>
+          {feedback.text}
+        </div>
+      )}
 
       {/* Recommended settings quick-add */}
       <div className="rounded-2xl border border-dashed border-zinc-300 bg-zinc-50 p-4 dark:border-zinc-700 dark:bg-zinc-900/50">

@@ -176,6 +176,35 @@ export async function recordPayment(input: {
     // nor reactivate service.
     if (fullySettled) {
       await recoverCase(input.invoiceId);
+      // Recurring commission: if this is a renewal (not the first payment for this subscription),
+      // generate a recurring commission for the affiliate.
+      try {
+        if (input.invoiceId) {
+          const inv = await prisma.invoice.findUnique({ where: { id: input.invoiceId }, select: { subscriptionId: true } });
+          if (inv?.subscriptionId) {
+            const existingDirect = await prisma.affiliateCommission.findFirst({
+              where: { subscriptionId: inv.subscriptionId, commissionType: { notIn: ["recurring"] }, status: { notIn: ["reversed", "rejected"] } },
+              select: { id: true },
+            });
+            if (existingDirect) {
+              // This is a renewal — find the subscription for MRR
+              const sub = await prisma.subscription.findUnique({ where: { id: inv.subscriptionId }, select: { mrr: true, organizationId: true } });
+              if (sub) {
+                const { createRecurringCommission } = await import("./recurringCommissions");
+                await createRecurringCommission({
+                  organizationId: sub.organizationId,
+                  subscriptionId: inv.subscriptionId,
+                  paymentId: pay.id,
+                  mrr: sub.mrr,
+                  invoiceId: input.invoiceId,
+                });
+              }
+            }
+          }
+        }
+      } catch {
+        // Recurring commission failure must never fail the payment lifecycle
+      }
     }
   }
   return pay;

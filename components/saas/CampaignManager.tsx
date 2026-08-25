@@ -32,9 +32,13 @@ interface CampaignMember {
 
 interface CampaignTier {
   id: string;
-  threshold: number;
-  rate: number;
-  label: string;
+  tierName: string;
+  minCustomers?: number | null;
+  minMrr?: number | null;
+  commissionValue?: number | null;
+  threshold?: number | null;
+  rate?: number | null;
+  label?: string;
   bonus?: number | null;
 }
 
@@ -81,6 +85,12 @@ export default function CampaignManager() {
   const [tiers, setTiers] = useState<CampaignTier[]>([]);
   const [detailId, setDetailId] = useState<string | null>(null);
   const [newMemberId, setNewMemberId] = useState("");
+  const [feedback, setFeedback] = useState<{ type: "success" | "error"; text: string } | null>(null);
+
+  const showFeedback = (type: "success" | "error", text: string) => {
+    setFeedback({ type, text });
+    setTimeout(() => setFeedback(null), 4000);
+  };
 
   const [form, setForm] = useState({
     name: "",
@@ -99,7 +109,7 @@ export default function CampaignManager() {
     maxTierDepth: "3",
   });
 
-  const [tierForm, setTierForm] = useState({ threshold: "", rate: "", label: "", bonus: "" });
+  const [tierForm, setTierForm] = useState({ tierName: "", minCustomers: "", minMrr: "", commissionValue: "" });
 
   const set = (k: string) => (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement>) =>
     setForm((f) => ({ ...f, [k]: e.target.value }));
@@ -145,7 +155,7 @@ export default function CampaignManager() {
     });
     if (!res.ok) {
       const d = await res.json().catch(() => ({}));
-      alert(d.error ?? "Failed to create campaign");
+      showFeedback("error", d.error ?? "Failed to create campaign");
       return;
     }
     setShowCreate(false);
@@ -166,7 +176,7 @@ export default function CampaignManager() {
       body: JSON.stringify({ status: next }),
     });
     if (!res.ok) {
-      alert("Failed to update status");
+      showFeedback("error", "Failed to update status");
       return;
     }
     fetchCampaigns();
@@ -179,7 +189,7 @@ export default function CampaignManager() {
       body: JSON.stringify(fields),
     });
     if (!res.ok) {
-      alert("Failed to update campaign");
+      showFeedback("error", "Failed to update campaign");
       return;
     }
     setEditingId(null);
@@ -193,7 +203,7 @@ export default function CampaignManager() {
       body: JSON.stringify({ mrr: Number(simMrr), country: simCountry }),
     });
     if (!res.ok) {
-      alert("Simulation failed");
+      showFeedback("error", "Simulation failed");
       return;
     }
     const data = await res.json();
@@ -216,7 +226,7 @@ export default function CampaignManager() {
     });
     if (!res.ok) {
       const d = await res.json().catch(() => ({}));
-      alert(d.error ?? "Failed to add member");
+      showFeedback("error", d.error ?? "Failed to add member");
       return;
     }
     setNewMemberId("");
@@ -236,18 +246,18 @@ export default function CampaignManager() {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
-        threshold: Number(tierForm.threshold),
-        rate: Number(tierForm.rate),
-        label: tierForm.label,
-        bonus: tierForm.bonus ? Number(tierForm.bonus) : null,
+        tierName: tierForm.tierName,
+        minCustomers: tierForm.minCustomers ? Number(tierForm.minCustomers) : undefined,
+        minMrr: tierForm.minMrr ? Number(tierForm.minMrr) : undefined,
+        commissionValue: tierForm.commissionValue ? Number(tierForm.commissionValue) : undefined,
       }),
     });
     if (!res.ok) {
       const d = await res.json().catch(() => ({}));
-      alert(d.error ?? "Failed to add tier");
+      showFeedback("error", d.error ?? "Failed to add tier");
       return;
     }
-    setTierForm({ threshold: "", rate: "", label: "", bonus: "" });
+    setTierForm({ tierName: "", minCustomers: "", minMrr: "", commissionValue: "" });
     fetchTiers(campaignId);
   };
 
@@ -276,6 +286,14 @@ export default function CampaignManager() {
           + New Campaign
         </button>
       </div>
+
+      {feedback && (
+        <div className={`px-4 py-3 rounded-lg text-sm font-medium ${
+          feedback.type === "success" ? "bg-green-50 text-green-800 border border-green-200" : "bg-red-50 text-red-800 border border-red-200"
+        }`}>
+          {feedback.text}
+        </div>
+      )}
 
       {/* Campaign list */}
       <div className="overflow-x-auto rounded-2xl border bg-white dark:bg-zinc-900 dark:border-zinc-800">
@@ -506,19 +524,19 @@ export default function CampaignManager() {
                     <table className="w-full text-left text-xs">
                       <thead>
                         <tr className="uppercase text-zinc-400">
-                          <th className="py-1 pr-3">Label</th>
-                          <th className="py-1 pr-3">Threshold</th>
-                          <th className="py-1 pr-3">Rate</th>
-                          <th className="py-1">Bonus</th>
+                          <th className="py-1 pr-3">Tier</th>
+                          <th className="py-1 pr-3">Min Customers</th>
+                          <th className="py-1 pr-3">Min MRR</th>
+                          <th className="py-1">Commission</th>
                         </tr>
                       </thead>
                       <tbody>
                         {tiers.map((t) => (
                           <tr key={t.id} className="border-t border-zinc-100 dark:border-zinc-800">
-                            <td className="py-1 pr-3 font-medium">{t.label}</td>
-                            <td className="py-1 pr-3">{t.threshold}</td>
-                            <td className="py-1 pr-3">{t.rate}%</td>
-                            <td className="py-1">{t.bonus ?? "—"}</td>
+                            <td className="py-1 pr-3 font-medium">{t.tierName ?? t.label}</td>
+                            <td className="py-1 pr-3">{t.minCustomers ?? "—"}</td>
+                            <td className="py-1 pr-3">{t.minMrr ? `$${(t.minMrr / 100).toFixed(0)}` : "—"}</td>
+                            <td className="py-1">{t.commissionValue ?? "—"}</td>
                           </tr>
                         ))}
                       </tbody>
@@ -526,12 +544,12 @@ export default function CampaignManager() {
                   </div>
                 )}
                 <div className="mt-2 grid grid-cols-4 gap-2">
-                  <input className={inputCls} placeholder="Label" value={tierForm.label} onChange={(e) => setTierForm((f) => ({ ...f, label: e.target.value }))} />
-                  <input className={inputCls} type="number" placeholder="Threshold" value={tierForm.threshold} onChange={(e) => setTierForm((f) => ({ ...f, threshold: e.target.value }))} />
-                  <input className={inputCls} type="number" placeholder="Rate %" value={tierForm.rate} onChange={(e) => setTierForm((f) => ({ ...f, rate: e.target.value }))} />
-                  <input className={inputCls} type="number" placeholder="Bonus" value={tierForm.bonus} onChange={(e) => setTierForm((f) => ({ ...f, bonus: e.target.value }))} />
+                  <input className={inputCls} placeholder="Tier Name" value={tierForm.tierName} onChange={(e) => setTierForm((f) => ({ ...f, tierName: e.target.value }))} />
+                  <input className={inputCls} type="number" placeholder="Min Customers" value={tierForm.minCustomers} onChange={(e) => setTierForm((f) => ({ ...f, minCustomers: e.target.value }))} />
+                  <input className={inputCls} type="number" placeholder="Min MRR (cents)" value={tierForm.minMrr} onChange={(e) => setTierForm((f) => ({ ...f, minMrr: e.target.value }))} />
+                  <input className={inputCls} type="number" placeholder="Commission Value" value={tierForm.commissionValue} onChange={(e) => setTierForm((f) => ({ ...f, commissionValue: e.target.value }))} />
                 </div>
-                <button className={btnPrimary + " mt-2"} disabled={!tierForm.label || !tierForm.threshold} onClick={() => addTier(c.id)}>
+                <button className={btnPrimary + " mt-2"} disabled={!tierForm.tierName} onClick={() => addTier(c.id)}>
                   Add Tier
                 </button>
               </div>

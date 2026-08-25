@@ -7,6 +7,7 @@
 
 import { prisma } from "@/lib/prisma";
 import { isSelfReferral, lockAttribution, type AttributionModel } from "./attribution";
+import { calculateOverrideCommissions } from "./multiTier";
 
 export type CommissionStatus = "pending" | "eligible" | "approved" | "payable" | "paid" | "rejected" | "reversed" | "fraud_hold";
 export const COMMISSION_STATUSES = ["pending","eligible","approved","payable","paid","rejected","reversed","fraud_hold"] as const;
@@ -39,11 +40,16 @@ export function calcCommissionAmount(model: string, value: number, mrr: number):
 }
 
 /**
- * Resolve the effective commission model and value for an affiliate,
- * considering campaign overrides and affiliate-level custom overrides.
+ * Resolve the effective commission parameters for an affiliate using the unified priority chain:
+ * affiliate custom > plan override > country override > campaign default.
+ * Shared by both commission creation and simulator.
  */
-async function resolveCommissionParams(affiliateId: string) {
-  const aff = await prisma.affiliate.findUnique({ where: { id: affiliateId } });
+async function resolveCommissionParams(params: {
+  affiliateId: string;
+  planSlug?: string;
+  country?: string;
+}) {
+  const aff = await prisma.affiliate.findUnique({ where: { id: params.affiliateId } });
   if (!aff) throw new Error("Affiliate not found");
   if (aff.status !== "active" && aff.status !== "approved") throw new Error("Affiliate not active");
 
@@ -54,7 +60,7 @@ async function resolveCommissionParams(affiliateId: string) {
   let maxCommission = aff.customMaxCommission ?? null;
   const campaignId = aff.campaignId || null;
 
-  // If affiliate has a campaign, resolve campaign-level overrides
+  // If affiliate has a campaign, resolve campaign-level overrides with full priority chain
   if (campaignId) {
     const campaign = await prisma.affiliateCampaign.findUnique({
       where: { id: campaignId },
@@ -65,9 +71,32 @@ async function resolveCommissionParams(affiliateId: string) {
       },
     });
     if (campaign && campaign.status === "active") {
-      // Campaign defaults (affiliate custom overrides take precedence over campaign defaults)
-      model = aff.customCommissionModel || campaign.commissionModel;
-      value = aff.customCommissionValue ?? campaign.commissionValue;
+      let campaignModel = campaign.commissionModel;
+      let campaignValue = campaign.commissionValue;
+
+      // Country override (lowest precedence after campaign defaults)
+      if (campaign.countryOverrides && params.country) {
+        const overrides = campaign.countryOverrides as Record<string, { model?: string; value?: number }>;
+        const countryOverride = overrides[params.country.toUpperCase()];
+        if (countryOverride) {
+          if (countryOverride.model) campaignModel = countryOverride.model;
+          if (countryOverride.value !== undefined) campaignValue = countryOverride.value;
+        }
+      }
+
+      // Plan override (takes precedence over country)
+      if (campaign.planOverrides && params.planSlug) {
+        const overrides = campaign.planOverrides as Record<string, { model?: string; value?: number }>;
+        const planOverride = overrides[params.planSlug];
+        if (planOverride) {
+          if (planOverride.model) campaignModel = planOverride.model;
+          if (planOverride.value !== undefined) campaignValue = planOverride.value;
+        }
+      }
+
+      // Affiliate custom overrides take highest precedence over all campaign-level rules
+      model = aff.customCommissionModel || campaignModel;
+      value = aff.customCommissionValue ?? campaignValue;
       recurringDuration = aff.customRecurringDuration ?? campaign.recurringDuration;
       holdingPeriodDays = aff.customHoldingPeriodDays ?? campaign.holdingPeriodDays;
       maxCommission = aff.customMaxCommission ?? campaign.maxCommission;
@@ -109,7 +138,7 @@ export async function createCommissionForSubscription(params: {
   });
   if (dupe) return prisma.affiliateCommission.findUnique({ where: { id: dupe.id } });
 
-  const { model, value, recurringDuration, holdingPeriodDays, maxCommission, campaignId } = await resolveCommissionParams(params.affiliateId);
+  const { model, value, recurringDuration, holdingPeriodDays, maxCommission, campaignId } = await resolveCommissionParams({ affiliateId: params.affiliateId });
 
   let amount = calcCommissionAmount(model, value, params.mrr);
 
@@ -139,37 +168,83 @@ export async function createCommissionForSubscription(params: {
     ? new Date(now.getTime() + holdingPeriodDays * 86400000)
     : null;
 
-  const commission = await prisma.affiliateCommission.create({
-    data: {
-      affiliateId: params.affiliateId,
+  return prisma.$transaction(async (tx) => {
+    // Idempotent: inside a transaction, a second concurrent request will block
+    // on the same row lock and see the commission created by the first.
+    const existing = await tx.affiliateCommission.findFirst({
+      where: { affiliateId: params.affiliateId, organizationId: params.organizationId, status: { notIn: ["reversed", "rejected"] } },
+      select: { id: true },
+    });
+    if (existing) return tx.affiliateCommission.findUnique({ where: { id: existing.id } });
+
+    const commission = await tx.affiliateCommission.create({
+      data: {
+        affiliateId: params.affiliateId,
+        organizationId: params.organizationId,
+        subscriptionId: params.subscriptionId,
+        amount,
+        currency: "USD",
+        status: holdUntil ? "pending" : "eligible",
+        model,
+        campaignId,
+        commissionType,
+        ruleSnapshot,
+        rate: value,
+        base: params.mrr,
+        holdUntil,
+        eligibleAt: holdUntil ? null : now,
+      },
+    });
+
+    // Multi-tier override commissions (company-funded or parent-funded)
+    try {
+      const overrides = await calculateOverrideCommissions({
+        childAffiliateId: params.affiliateId,
+        directCommissionAmount: amount,
+        subscriptionId: params.subscriptionId,
+        organizationId: params.organizationId,
+        mrr: params.mrr,
+      });
+      for (const o of overrides) {
+        await tx.affiliateCommission.create({
+          data: {
+            affiliateId: o.affiliateId,
+            organizationId: params.organizationId,
+            subscriptionId: params.subscriptionId,
+            amount: o.amount,
+            currency: "USD",
+            status: holdUntil ? "pending" : "eligible",
+            model,
+            campaignId,
+            commissionType: "override",
+            overrideType: o.overrideType,
+            depth: o.depth,
+            parentCommissionId: commission.id,
+            ruleSnapshot: { ...ruleSnapshot, overrideDepth: o.depth, overrideType: o.overrideType },
+            rate: value,
+            base: params.mrr,
+            holdUntil,
+            eligibleAt: holdUntil ? null : now,
+          },
+        });
+      }
+    } catch {
+      // Override commission failure must not block direct commission
+    }
+
+    // Lock attribution for this organization (idempotent, outside tx — best effort)
+    await lockAttribution({
       organizationId: params.organizationId,
       subscriptionId: params.subscriptionId,
-      amount,
-      currency: "USD",
-      status: holdUntil ? "pending" : "eligible",
-      model,
+      affiliateId: params.affiliateId,
       campaignId,
-      commissionType,
-      ruleSnapshot,
-      rate: value,
-      base: params.mrr,
-      holdUntil,
-      eligibleAt: holdUntil ? null : now,
-    },
-  });
+      clickId: params.clickId,
+      touchpoint: params.couponCode ? "coupon" : "click",
+      source: params.referralCode || params.couponCode || undefined,
+    }).catch(() => {});
 
-  // Lock attribution for this organization (idempotent)
-  await lockAttribution({
-    organizationId: params.organizationId,
-    subscriptionId: params.subscriptionId,
-    affiliateId: params.affiliateId,
-    campaignId,
-    clickId: params.clickId,
-    touchpoint: params.couponCode ? "coupon" : "click",
-    source: params.referralCode || params.couponCode || undefined,
-  }).catch(() => {}); // Best effort — don't fail commission creation if attribution lock fails
-
-  return commission;
+    return commission;
+  }, { maxWait: 20_000, timeout: 60_000 });
 }
 
 export async function listCommissions(opts?: { affiliateId?: string; status?: string; organizationId?: string; campaignId?: string }) {
