@@ -349,6 +349,10 @@ function ShellFrame({
               aria-label="Notifications (not available yet)"
               title="Notifications coming soon"
               onClick={() => toast.info("Notifications are coming soon.")}
+              /* BACKEND GAP: no notification store exists yet. Until a
+                 Notification model (+ per-user preferences and delivery) ships,
+                 actionable items surface through the passive Attention Rails on
+                 each command center instead of a notification center. */
               className="-m-1.5 relative rounded-lg p-3.5 text-zinc-400 transition hover:bg-surface-subtle hover:text-zinc-600"
             >
               <svg className="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2}>
@@ -433,6 +437,7 @@ function ShellFrame({
         planeId={plane.id}
         entitySearch={entitySearch}
         leadSearch={leadSearch}
+        actions={quickActions.map((qa) => ({ label: qa.label, href: qa.href }))}
       />
     </div>
   );

@@ -2,7 +2,7 @@
 
 import { useRouter } from "next/navigation";
 import { useMemo, useState } from "react";
-import { Badge, btnGhost, btnPrimary, Field, inputCls, Modal } from "./ui";
+import { btnGhost, btnPrimary, Field, inputCls, Modal } from "./ui";
 import { ConfirmDialog } from "@/components/ui/ConfirmDialog";
 
 export interface CampaignRow {
@@ -23,13 +23,6 @@ export interface CampaignRow {
   conversions: number;
   pipelineValue: number;
 }
-
-const STATUS_TONE: Record<string, string> = {
-  draft: "bg-zinc-100 text-zinc-600 dark:bg-zinc-800 dark:text-zinc-300",
-  active: "bg-emerald-50 text-emerald-700 dark:bg-emerald-950 dark:text-emerald-300",
-  paused: "bg-amber-50 text-amber-700 dark:bg-amber-950 dark:text-amber-300",
-  ended: "bg-zinc-100 text-zinc-500 dark:bg-zinc-800 dark:text-zinc-400",
-};
 
 export default function CampaignsManager({
   campaigns,
@@ -259,5 +252,3 @@ function Metric({ label, value }: { label: string; value: number | string }) {
     </div>
   );
 }
-
-export { Badge, STATUS_TONE };

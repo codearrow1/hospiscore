@@ -25,7 +25,6 @@ export {
   ChipRow,
   FilterChip,
 } from "./Pagination";
-export { DataTable, type DataColumn } from "./DataTable";
 export { BulkActionBar } from "./BulkActionBar";
 export {
   DetailDrawer,

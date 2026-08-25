@@ -19,6 +19,53 @@ interface LeadHit {
   company?: string;
 }
 
+/** Quick action surfaced as a palette entry ("Actions" group). */
+export interface PaletteAction {
+  label: string;
+  href: string;
+}
+
+/** Stored recents keep their human label so entity deep links read cleanly. */
+type RecentEntry = { href: string; label: string };
+
+function readRecents(planeId: string): RecentEntry[] {
+  try {
+    const raw = window.localStorage.getItem(`hs-shell-recent-${planeId}`);
+    if (!raw) return [];
+    const parsed = JSON.parse(raw);
+    // Legacy entries were bare href strings.
+    return (Array.isArray(parsed) ? parsed : [])
+      .map((r: string | RecentEntry) => (typeof r === "string" ? { href: r, label: "" } : r))
+      .slice(0, 5);
+  } catch {
+    return [];
+  }
+}
+
+function labelForHref(href: string): string {
+  const seg = href.split("?")[0].split("#")[0].replace(/\/$/, "").split("/").pop() ?? href;
+  return seg.replace(/[-_]/g, " ").replace(/^\w/, (c) => c.toUpperCase()) || href;
+}
+
+type PaletteEntry =
+  | { kind: "recent" | "action"; href: string; label: string }
+  | NavItem
+  | EntityHit
+  | LeadHit;
+
+function entryHref(item: PaletteEntry): string | null {
+  if ("href" in item) return item.href;
+  if ("email" in item) return `/marketing-admin?lead=${encodeURIComponent(item.id)}`;
+  return null;
+}
+
+function entryLabel(item: PaletteEntry): string {
+  if ("label" in item && typeof item.label === "string") return item.label;
+  if ("title" in item) return item.title;
+  if ("name" in item || "email" in item) return (item as LeadHit).name || (item as LeadHit).email || "Lead";
+  return "";
+}
+
 const TYPE_LABEL: Record<string, string> = {
   organization: "Organization",
   property: "Property",
@@ -43,6 +90,7 @@ export function CommandPalette({
   planeId,
   entitySearch = false,
   leadSearch = false,
+  actions = [],
 }: {
   open: boolean;
   onClose: () => void;
@@ -50,6 +98,8 @@ export function CommandPalette({
   planeId: string;
   entitySearch?: boolean;
   leadSearch?: boolean;
+  /** Quick actions ("+ New Organization" etc.) shown in an Actions group. */
+  actions?: PaletteAction[];
 }) {
   const router = useRouter();
   const [query, setQuery] = useState("");
@@ -57,6 +107,7 @@ export function CommandPalette({
   const [leads, setLeads] = useState<LeadHit[]>([]);
   const [searching, setSearching] = useState(false);
   const [active, setActive] = useState(0);
+  const [recents, setRecents] = useState<RecentEntry[]>([]);
   const inputRef = useRef<HTMLInputElement>(null);
   const listRef = useRef<HTMLDivElement>(null);
   const seqRef = useRef(0);
@@ -66,6 +117,18 @@ export function CommandPalette({
     if (!q) return nav.slice(0, 8);
     return nav.filter((n) => n.label.toLowerCase().includes(q)).slice(0, 6);
   }, [nav, query]);
+
+  // Actions group: quick actions filtered by the current query.
+  const actionMatches = useMemo(() => {
+    const q = query.trim().toLowerCase();
+    return actions.filter((a) => !q || a.label.toLowerCase().includes(q));
+  }, [actions, query]);
+
+  // Recent group only makes sense on the empty-query landing view.
+  const recentItems = useMemo(() => {
+    const q = query.trim().toLowerCase();
+    return q ? [] : recents.slice(0, 4).filter((r) => !nav.some((n) => n.href === r.href));
+  }, [recents, query, nav]);
 
   const showEntityResults = Boolean(entitySearch) && query.trim().length >= 2;
   const showLeadResults = Boolean(leadSearch) && query.trim().length >= 2;
@@ -110,12 +173,13 @@ export function CommandPalette({
       setEntities([]);
       setLeads([]);
       setActive(0);
+      setRecents(readRecents(planeId));
       setTimeout(() => inputRef.current?.focus(), 10);
     } else {
       restoreRef.current?.focus?.();
       restoreRef.current = null;
     }
-  }, [open]);
+  }, [open, planeId]);
 
   // Keep keyboard focus inside the palette while it is open.
   function onTab(e: React.KeyboardEvent) {
@@ -124,25 +188,31 @@ export function CommandPalette({
     inputRef.current?.focus();
   }
 
-  const flat = useMemo<(NavItem | EntityHit | LeadHit)[]>(
-    () => [...navMatches, ...entities, ...leads],
-    [navMatches, entities, leads],
+  const flat = useMemo<PaletteEntry[]>(
+    () => [
+      ...recentItems.map((r) => ({ kind: "recent" as const, href: r.href, label: r.label || labelForHref(r.href) })),
+      ...actionMatches.map((a) => ({ kind: "action" as const, href: a.href, label: a.label })),
+      ...navMatches,
+      ...entities,
+      ...leads,
+    ],
+    [recentItems, actionMatches, navMatches, entities, leads],
   );
 
   const go = useCallback(
-    (item: NavItem | EntityHit | LeadHit) => {
-      let href: string | null = null;
-      if ("href" in item) href = item.href;
-      else if ("email" in item) href = `/marketing-admin?lead=${encodeURIComponent(item.id)}`;
+    (item: PaletteEntry) => {
+      const href = entryHref(item);
       if (!href) return;
-      try {
-        const key = `hs-shell-recent-${planeId}`;
-        const raw = window.localStorage.getItem(key);
-        const recents: string[] = raw ? JSON.parse(raw) : [];
-        const next = [href, ...recents.filter((r) => r !== href)].slice(0, 5);
-        window.localStorage.setItem(key, JSON.stringify(next));
-      } catch {
-        // storage unavailable — recents are best-effort only
+      // Actions are commands, not destinations — don't pollute recents.
+      if (!("kind" in item)) {
+        try {
+          const key = `hs-shell-recent-${planeId}`;
+          const entry: RecentEntry = { href, label: entryLabel(item) };
+          const next = [entry, ...readRecents(planeId).filter((r) => r.href !== href)].slice(0, 5);
+          window.localStorage.setItem(key, JSON.stringify(next));
+        } catch {
+          // storage unavailable — recents are best-effort only
+        }
       }
       onClose();
       router.push(href);
@@ -211,6 +281,59 @@ export function CommandPalette({
             <p className="px-3 py-8 text-center text-sm text-zinc-400">
               {query.trim() ? "No matches found." : "Type to search…"}
             </p>
+          )}
+
+          {recentItems.length > 0 && (
+            <>
+              <p className="px-3 pb-1 pt-2 text-[10px] font-bold uppercase tracking-widest text-zinc-400">Recent</p>
+              {recentItems.map((r) => {
+                index += 1;
+                const i = index;
+                const label = r.label || labelForHref(r.href);
+                return (
+                  <div
+                    key={`recent-${r.href}`}
+                    id={`cmdk-opt-${i}`}
+                    data-index={i}
+                    role="option"
+                    aria-selected={active === i}
+                    tabIndex={-1}
+                    onClick={() => go({ kind: "recent", href: r.href, label })}
+                    onMouseEnter={() => setActive(i)}
+                    className={`${rowCls} ${active === i ? activeCls : ""}`}
+                  >
+                    <span className="text-zinc-300 dark:text-zinc-600"><ClockIcon /></span>
+                    <span className="truncate">{label}</span>
+                  </div>
+                );
+              })}
+            </>
+          )}
+
+          {actionMatches.length > 0 && (
+            <>
+              <p className="px-3 pb-1 pt-2 text-[10px] font-bold uppercase tracking-widest text-zinc-400">Actions</p>
+              {actionMatches.map((a) => {
+                index += 1;
+                const i = index;
+                return (
+                  <div
+                    key={`action-${a.href}`}
+                    id={`cmdk-opt-${i}`}
+                    data-index={i}
+                    role="option"
+                    aria-selected={active === i}
+                    tabIndex={-1}
+                    onClick={() => go({ kind: "action", href: a.href, label: a.label })}
+                    onMouseEnter={() => setActive(i)}
+                    className={`${rowCls} ${active === i ? activeCls : ""}`}
+                  >
+                    <span className="grid h-4 w-4 shrink-0 place-items-center rounded bg-indigo-600 text-[11px] font-black leading-none text-white" aria-hidden="true">+</span>
+                    <span className="truncate">{a.label}</span>
+                  </div>
+                );
+              })}
+            </>
           )}
 
           {navMatches.length > 0 && (
@@ -317,6 +440,15 @@ function NavBullet() {
   return (
     <svg className="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2}>
       <path d="m9 18 6-6-6-6" />
+    </svg>
+  );
+}
+
+function ClockIcon() {
+  return (
+    <svg className="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} aria-hidden="true">
+      <circle cx="12" cy="12" r="9" />
+      <path d="M12 7v5l3 2" />
     </svg>
   );
 }
