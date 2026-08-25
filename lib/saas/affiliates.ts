@@ -15,8 +15,8 @@ function genCode(prefix = "AFF"): string {
 }
 
 export function referralLink(code: string, baseUrl?: string): string {
-  const base = baseUrl || process.env.SITE_URL || "https://thebuddharice.online";
-  return `${base.replace(/\/$/,"")}/?ref=${code}`;
+  const base = baseUrl || process.env.SITE_URL || process.env.NEXT_PUBLIC_SITE_URL || "";
+  return `${base.replace(/\/$/, "")}/?ref=${code}`;
 }
 
 export async function createAffiliate(input: {
@@ -107,21 +107,25 @@ export async function updateAffiliateStatus(id: string, status: AffiliateStatus)
   return prisma.affiliate.update({ where: { id }, data: { status } });
 }
 
-export async function trackClick(affiliateId: string, meta?: { ip?: string; userAgent?: string; referrer?: string; utmSource?: string; utmMedium?: string; utmCampaign?: string }) {
+export async function trackClick(affiliateId: string, meta?: { ip?: string; userAgent?: string; referrer?: string; utmSource?: string; utmMedium?: string; utmCampaign?: string; campaignId?: string; landingPage?: string; sessionId?: string; country?: string }) {
   return prisma.affiliateClick.create({
     data: {
       affiliateId,
+      campaignId: meta?.campaignId || null,
       ip: meta?.ip || null,
       userAgent: meta?.userAgent || null,
       referrer: meta?.referrer || null,
+      landingPage: meta?.landingPage || null,
+      sessionId: meta?.sessionId || null,
       utmSource: meta?.utmSource || null,
       utmMedium: meta?.utmMedium || null,
       utmCampaign: meta?.utmCampaign || null,
+      country: meta?.country || null,
     },
   });
 }
 
-export async function attributeLeadToAffiliate(leadId: string, referralCode: string): Promise<string | null> {
+export async function attributeLeadToAffiliate(leadId: string, referralCode: string, opts?: { campaignId?: string }): Promise<string | null> {
   const aff = await getAffiliateByCode(referralCode);
   if (!aff) return null;
   if (aff.status !== "active" && aff.status !== "approved") return null;
@@ -135,7 +139,8 @@ export async function attributeLeadToAffiliate(leadId: string, referralCode: str
       amount: 0,
       currency: "USD",
       status: "pending",
-      model: aff.commissionModel,
+      model: aff.customCommissionModel || aff.commissionModel,
+      campaignId: opts?.campaignId || aff.campaignId || null,
     },
   });
   return aff.id;
