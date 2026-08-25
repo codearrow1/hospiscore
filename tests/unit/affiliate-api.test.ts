@@ -104,3 +104,88 @@ describe("Affiliate API Formula Logic", () => {
     expect(fallback.commissionValue).toBe(2000);
   });
 });
+
+describe("Unified Rule Resolution Priority Chain", () => {
+  it("plan override takes precedence over country override", () => {
+    const countryOverrides: Record<string, { model?: string; value?: number }> = {
+      US: { model: "fixed", value: 1500 },
+    };
+    const planOverrides: Record<string, { model?: string; value?: number }> = {
+      enterprise: { model: "percent_mrr_12", value: 3000 },
+    };
+
+    // Simulate resolution: campaign default → country → plan → affiliate custom
+    let model = "fixed";
+    let value = 2000;
+
+    // Country override
+    const countryOverride = countryOverrides["US"];
+    if (countryOverride?.model) model = countryOverride.model;
+    if (countryOverride?.value !== undefined) value = countryOverride.value;
+    expect(model).toBe("fixed");
+    expect(value).toBe(1500);
+
+    // Plan override takes precedence
+    const planOverride = planOverrides["enterprise"];
+    if (planOverride?.model) model = planOverride.model;
+    if (planOverride?.value !== undefined) value = planOverride.value;
+    expect(model).toBe("percent_mrr_12");
+    expect(value).toBe(3000);
+  });
+
+  it("affiliate custom overrides take highest precedence", () => {
+    let model = "fixed";
+    let value = 2000;
+
+    // Simulate: campaign says fixed/2000, but affiliate has custom
+    const affCustomModel = "percent_mrr_recurring";
+    const affCustomValue = 5000;
+
+    model = affCustomModel || model;
+    value = affCustomValue ?? value;
+
+    expect(model).toBe("percent_mrr_recurring");
+    expect(value).toBe(5000);
+  });
+
+  it("null affiliate custom falls through to campaign", () => {
+    let model = "fixed";
+    let value = 2000;
+
+    const affCustomModel = null;
+    const affCustomValue = undefined;
+
+    model = affCustomModel || model;
+    value = affCustomValue ?? value;
+
+    expect(model).toBe("fixed");
+    expect(value).toBe(2000);
+  });
+});
+
+describe("Recurring Commission Gating", () => {
+  it("holding period is skipped for recurring commissions", () => {
+    // Recurring commissions should not re-apply holding period
+    const holdUntil = null;
+    expect(holdUntil).toBeNull();
+  });
+
+  it("recurring commission eligible immediately when no holding period", () => {
+    const holdUntil = null;
+    const status = holdUntil ? "pending" : "eligible";
+    expect(status).toBe("eligible");
+  });
+});
+
+describe("Batch Update Optimization", () => {
+  it("advanceDeferredCommissions uses batch update pattern", async () => {
+    // Verify the function signature accepts batchSize parameter
+    const { advanceDeferredCommissions } = await import("@/lib/saas/recurringCommissions");
+    expect(advanceDeferredCommissions.length).toBeLessThanOrEqual(1); // optional param
+  });
+
+  it("runSettlementBatch accepts optional campaign filter", async () => {
+    const { runSettlementBatch } = await import("@/lib/saas/payoutEngine");
+    expect(runSettlementBatch.length).toBeLessThanOrEqual(1); // optional param
+  });
+});

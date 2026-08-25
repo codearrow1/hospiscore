@@ -1,18 +1,50 @@
-/* eslint-disable @typescript-eslint/no-explicit-any */
 "use client";
 
 import { useState, useEffect, useCallback } from "react";
 
+interface AffiliateData {
+  id: string;
+  name: string;
+  email: string;
+  referralCode: string;
+  payoutMethod?: string;
+  campaign?: {
+    name?: string;
+    slug?: string;
+    commissionModel?: string;
+    commissionValue?: number;
+    cookieDays?: number;
+    recurringDuration?: number;
+    holdingPeriodDays?: number;
+    assets?: Array<{ name?: string; type?: string; url: string }>;
+  } | null;
+}
+
+interface Stats {
+  totalClicks: number;
+  totalConversions: number;
+  totalEarnings: number;
+  pendingBalance: number;
+}
+
+interface Commission {
+  id: string;
+  description?: string;
+  amount: number;
+  status: string;
+  createdAt: string;
+}
+
 interface AffiliatePortalProps {
-  affiliate: any;
+  affiliate: AffiliateData;
 }
 
 type Tab = "dashboard" | "links" | "network" | "settings" | "assets";
 
 export default function AffiliatePortal({ affiliate }: AffiliatePortalProps) {
   const [activeTab, setActiveTab] = useState<Tab>("dashboard");
-  const [stats, setStats] = useState<any>(null);
-  const [commissions, setCommissions] = useState<any[]>([]);
+  const [stats, setStats] = useState<Stats | null>(null);
+  const [commissions, setCommissions] = useState<Commission[]>([]);
   const [loading, setLoading] = useState(true);
   const [recruitCode, setRecruitCode] = useState("");
   const [payoutMethod, setPayoutMethod] = useState(affiliate.payoutMethod || "bank");
@@ -146,7 +178,7 @@ export default function AffiliatePortal({ affiliate }: AffiliatePortalProps) {
                 <div className="px-4 py-8 text-center text-gray-500">No commissions yet.</div>
               ) : (
                 <div className="divide-y divide-gray-100">
-                  {commissions.slice(0, 10).map((c: any) => (
+                  {commissions.slice(0, 10).map((c) => (
                     <div key={c.id} className="px-4 py-3 flex items-center justify-between">
                       <div>
                         <p className="text-sm font-medium text-gray-900">{c.description || "Commission"}</p>
@@ -268,9 +300,9 @@ export default function AffiliatePortal({ affiliate }: AffiliatePortalProps) {
               <h2 className="font-semibold text-gray-900">Creative Assets</h2>
             </div>
             <div className="px-4 py-8 text-center text-gray-500">
-              {affiliate.campaign?.assets?.length > 0 ? (
+              {affiliate.campaign?.assets && affiliate.campaign.assets.length > 0 ? (
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                  {affiliate.campaign.assets.map((asset: any, i: number) => (
+                  {affiliate.campaign?.assets?.map((asset, i) => (
                     <div key={i} className="border border-gray-200 rounded-lg p-4 text-left">
                       <p className="text-sm font-medium text-gray-900">{asset.name || `Asset ${i + 1}`}</p>
                       <p className="text-xs text-gray-500 mt-1">{asset.type || "Image"}</p>

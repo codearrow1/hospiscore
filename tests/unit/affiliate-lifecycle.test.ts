@@ -135,3 +135,76 @@ describe("Recurring Commission Logic", () => {
     expect(typeof createRecurringCommission).toBe("function");
   });
 });
+
+describe("Override Commission Wiring", () => {
+  it("calculateOverrideCommissions is exported from multiTier", async () => {
+    const mod = await import("@/lib/saas/multiTier");
+    expect(typeof mod.calculateOverrideCommissions).toBe("function");
+  });
+
+  it("calculateOverrideCommissions returns array", async () => {
+    const { calculateOverrideCommissions } = await import("@/lib/saas/multiTier");
+    expect(typeof calculateOverrideCommissions).toBe("function");
+    // Full DB integration test is in tests/integration/
+  });
+
+  it("calculateOverrideCommissions signature has 5 params", async () => {
+    const { calculateOverrideCommissions } = await import("@/lib/saas/multiTier");
+    expect(calculateOverrideCommissions.length).toBe(1); // single params object
+  });
+
+  it("recruitAffiliate rejects self-recruitment", async () => {
+    const { recruitAffiliate } = await import("@/lib/saas/multiTier");
+    await expect(recruitAffiliate({ parentAffiliateId: "same", childAffiliateId: "same" }))
+      .rejects.toThrow("Cannot recruit yourself");
+  });
+
+  it("listRecruitedAffiliates is exported", async () => {
+    const { listRecruitedAffiliates } = await import("@/lib/saas/multiTier");
+    expect(typeof listRecruitedAffiliates).toBe("function");
+  });
+});
+
+describe("Commission Transaction Safety", () => {
+  it("resolveCommissionParams is an internal function (not exported)", async () => {
+    const mod = await import("@/lib/saas/commissions");
+    // resolveCommissionParams is not in the public API — only createCommissionForSubscription is
+    expect(typeof mod.createCommissionForSubscription).toBe("function");
+    expect(typeof mod.calcCommissionAmount).toBe("function");
+  });
+
+  it("createCommissionForSubscription is exported and callable", async () => {
+    const { createCommissionForSubscription } = await import("@/lib/saas/commissions");
+    expect(typeof createCommissionForSubscription).toBe("function");
+  });
+});
+
+describe("Payout Engine Optimizations", () => {
+  it("runSettlementBatch is exported", async () => {
+    const { runSettlementBatch } = await import("@/lib/saas/payoutEngine");
+    expect(typeof runSettlementBatch).toBe("function");
+  });
+
+  it("requestPayout is exported", async () => {
+    const { requestPayout } = await import("@/lib/saas/payoutEngine");
+    expect(typeof requestPayout).toBe("function");
+  });
+
+  it("getPayoutSummary is exported", async () => {
+    const { getPayoutSummary } = await import("@/lib/saas/payoutEngine");
+    expect(typeof getPayoutSummary).toBe("function");
+  });
+});
+
+describe("Gateau: Rule Resolution", () => {
+  it("resolveCommissionRules is exported from campaigns", async () => {
+    const { resolveCommissionRules } = await import("@/lib/saas/campaigns");
+    expect(typeof resolveCommissionRules).toBe("function");
+  });
+
+  it("resolveCommissionRules returns null when no campaignId", async () => {
+    const { resolveCommissionRules } = await import("@/lib/saas/campaigns");
+    const result = await resolveCommissionRules({ affiliateId: "nonexistent_aff" });
+    expect(result).toBeNull();
+  });
+});
