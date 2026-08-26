@@ -12,10 +12,10 @@ export default function PricingApprovalToggle({ initialEnabled }: { initialEnabl
     setBusy(true);
     setError(null);
     try {
-      const res = await fetch("/api/saas/system-settings", {
+      const res = await fetch("/api/settings", {
         method: "PUT",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ requireMarketingPricingApproval: next }),
+        body: JSON.stringify({ updates: [{ key: "pricing_approval_required", value: next }] }),
       });
       const data = (await res.json()) as { error?: string };
       if (!res.ok) {

@@ -2,7 +2,7 @@
  * Pricing approval workflow service.
  *
  * Marketing Admin users propose commercial changes to the canonical SaaS Plan
- * catalog; with `require_marketing_pricing_approval` ON nothing applies until a
+ * catalog; with `pricing_approval_required` ON nothing applies until a
  * Super Admin approves. Supports structural actions:
  *   update | create | archive | activate | deactivate
  *

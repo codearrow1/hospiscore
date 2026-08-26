@@ -72,7 +72,7 @@ describe("settings coercion", () => {
     expect(coerceApprovalRequirement({ enabled: false })).toBe(true);
   });
   it("exposes a stable setting key", () => {
-    expect(SETTING_REQUIRE_MARKETING_PRICING_APPROVAL).toBe("require_marketing_pricing_approval");
+    expect(SETTING_REQUIRE_MARKETING_PRICING_APPROVAL).toBe("pricing_approval_required");
   });
 });
 
