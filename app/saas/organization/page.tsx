@@ -1,6 +1,7 @@
 import { getCurrentUser } from "@/lib/sessionCookie";
 import { redirect } from "next/navigation";
 import { prisma } from "@/lib/prisma";
+import { initSaasDb } from "@/lib/saas/init";
 import { hasSaasPerm } from "@/lib/saas/roles";
 import { SettingsLayout, SettingsSection } from "@/components/settings/SettingsUI";
 import OrgDefaultsForm from "@/components/saas/OrgDefaultsForm";
@@ -19,6 +20,8 @@ export default async function OrganizationSettingsPage() {
       </div>
     );
   }
+
+  await initSaasDb().catch((e) => console.error("[org-settings] db init failed:", e?.message ?? e));
 
   const orgCount = await prisma.organization.count();
   const countryCount = await prisma.organization.findMany({

@@ -27,7 +27,7 @@ export type GuardResult =
 
 /** Authenticate + require the marketing admin at all. */
 export async function requireMarketingUser(): Promise<GuardResult> {
-  await initSaasDb().catch(() => {});
+  await initSaasDb().catch((e) => console.error("[guard] db init failed:", e?.message ?? e));
   const user = await getCurrentUser();
   if (!user) {
     return {
@@ -54,7 +54,7 @@ export async function requireMarketingUser(): Promise<GuardResult> {
  * gate that locked SaaS-only roles out of APIs their permissions allow.
  */
 export async function requireSaasAccess(): Promise<GuardResult> {
-  await initSaasDb().catch(() => {});
+  await initSaasDb().catch((e) => console.error("[guard] db init failed:", e?.message ?? e));
   const user = await getCurrentUser();
   if (!user) {
     return {
