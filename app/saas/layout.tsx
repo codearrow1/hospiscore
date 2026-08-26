@@ -4,6 +4,7 @@ import { getCurrentUser } from "@/lib/sessionCookie";
 import { canAccess, roleFor, ROLE_LABELS } from "@/lib/marketing/roles";
 import { hasSaasPerm } from "@/lib/saas/roles";
 import type { SaasPermission } from "@/lib/saas/roles";
+import { initSaasDb } from "@/lib/saas/init";
 import { AppShell } from "@/components/shell/AppShell";
 import { NavIcon } from "@/components/shell/NavIcon";
 import type { NavItem, QuickAction } from "@/components/shell/types";
@@ -55,6 +56,7 @@ export const metadata = {
 export default async function SaasLayout({ children }: { children: ReactNode }) {
   const user = await getCurrentUser();
   if (!user) redirect("/account?next=/saas");
+  await initSaasDb();
   if (!canAccess(user)) {
     return restrictedPanel(
       "SaaS Command Center",
