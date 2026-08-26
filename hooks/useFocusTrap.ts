@@ -23,6 +23,8 @@ export function useFocusTrap(
   },
 ) {
   const restoreRef = useRef<HTMLElement | null>(null);
+  const onEscape = opts?.onEscape;
+  const initialFocusRef = opts?.initialFocusRef;
 
   useEffect(() => {
     if (!enabled) return;
@@ -31,14 +33,14 @@ export function useFocusTrap(
 
     restoreRef.current = document.activeElement as HTMLElement | null;
 
-    const target = opts?.initialFocusRef?.current ?? container;
+    const target = initialFocusRef?.current ?? container;
     const first = target?.querySelector<HTMLElement>(FOCUSABLE);
     setTimeout(() => (first ?? target)?.focus(), 10);
 
     const onKeyDown = (e: KeyboardEvent) => {
-      if (e.key === "Escape" && opts?.onEscape) {
+      if (e.key === "Escape" && onEscape) {
         e.preventDefault();
-        opts.onEscape();
+        onEscape();
         return;
       }
       if (e.key !== "Tab") return;
@@ -62,5 +64,5 @@ export function useFocusTrap(
       document.removeEventListener("keydown", onKeyDown);
       restoreRef.current?.focus?.();
     };
-  }, [enabled, containerRef, opts?.onEscape, opts?.initialFocusRef]);
+  }, [enabled, containerRef, onEscape, initialFocusRef]);
 }

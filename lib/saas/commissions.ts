@@ -302,17 +302,14 @@ export async function reverseCommission(id: string, reason?: string) {
 
 // Called on refund/chargeback/early cancellation per policy — auto reverse if configured
 export async function handleReversal(organizationId: string, subscriptionId: string) {
-  const commissions = await prisma.affiliateCommission.findMany({ where: { organizationId, subscriptionId, status: { in: ["pending","eligible","approved","payable"] } } });
-  for (const c of commissions) {
-    await prisma.affiliateCommission.update({
-      where: { id: c.id },
-      data: {
-        status: "reversed",
-        reversedAt: new Date(),
-        reversalAmount: c.amount - c.paidAmount,
-        reversalReason: "subscription refunded/chargeback",
-      },
-    });
-  }
-  return commissions.length;
+  const now = new Date();
+  const result = await prisma.affiliateCommission.updateMany({
+    where: { organizationId, subscriptionId, status: { in: ["pending","eligible","approved","payable"] } },
+    data: {
+      status: "reversed",
+      reversedAt: now,
+      reversalReason: "subscription refunded/chargeback",
+    },
+  });
+  return result.count;
 }

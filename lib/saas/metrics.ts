@@ -33,32 +33,43 @@ export async function saasMetrics(windowDays = 14): Promise<SaasMetrics> {
   const sevenDaysAgo = new Date(now.getTime() - 7 * 86400000);
   const thirtyDaysAgo = new Date(now.getTime() - 30 * 86400000);
 
-  const [orgs, subs, props] = await Promise.all([
-    prisma.organization.findMany({ select: { id: true, createdAt: true, status: true } }),
-    prisma.subscription.findMany({ include: { plan: true } }),
-    prisma.property.findMany({ select: { id: true, status: true } }),
+  const [orgCount, activeOrgCount, newOrg7dCount, newOrgWindowCount, activeSubCount, trialCount, cancelled30Count, mrrAgg, propCount, activePropCount] = await Promise.all([
+    prisma.organization.count(),
+    prisma.organization.count({ where: { status: "active" } }),
+    prisma.organization.count({ where: { createdAt: { gte: sevenDaysAgo } } }),
+    prisma.organization.count({ where: { createdAt: { gte: windowStart } } }),
+    prisma.subscription.count({ where: { status: { in: ["active", "past_due", "grace"] } } }),
+    prisma.subscription.count({ where: { status: "trial" } }),
+    prisma.subscription.count({ where: { status: "cancelled", updatedAt: { gte: thirtyDaysAgo } } }),
+    prisma.subscription.aggregate({ where: { status: { in: ["active", "past_due", "grace"] } }, _sum: { mrr: true } }),
+    prisma.property.count(),
+    prisma.property.count({ where: { status: "active" } }),
   ]);
 
-  const totalCustomers = orgs.length;
-  const activeCustomers = orgs.filter((o) => o.status === "active").length;
-  const newCustomers7d = orgs.filter((o) => o.createdAt >= sevenDaysAgo).length;
-  const newCustomersWindow = orgs.filter((o) => o.createdAt >= windowStart).length;
+  const totalCustomers = orgCount;
+  const activeCustomers = activeOrgCount;
+  const newCustomers7d = newOrg7dCount;
+  const newCustomersWindow = newOrgWindowCount;
 
-  const activeSubs = subs.filter((s) => ["active", "past_due", "grace"].includes(s.status));
-  const trials = subs.filter((s) => s.status === "trial").length;
-  const cancelled30 = subs.filter((s) => s.status === "cancelled" && s.updatedAt >= thirtyDaysAgo).length;
-  const mrr = activeSubs.reduce((sum, s) => sum + s.mrr, 0);
+  const activeSubsCount = activeSubCount;
+  const trials = trialCount;
+  const cancelled30 = cancelled30Count;
+  const mrr = mrrAgg._sum.mrr ?? 0;
   const arr = mrr * 12;
-  const churnRate = activeSubs.length + cancelled30 > 0 ? Math.round((cancelled30 / (activeSubs.length + cancelled30)) * 1000) / 10 : null;
+  const churnRate = activeSubsCount + cancelled30 > 0 ? Math.round((cancelled30 / (activeSubsCount + cancelled30)) * 1000) / 10 : null;
   const arpu = activeCustomers > 0 ? Math.round(mrr / activeCustomers) : null;
   const ltv = arpu != null && churnRate != null && churnRate > 0 ? Math.round((arpu / (churnRate / 100))) : null;
 
   // Trial conversion: trials that became active vs total trials created in last 30d
-  const trials30 = subs.filter((s) => s.createdAt >= thirtyDaysAgo && s.status === "trial").length;
-  const converted = subs.filter((s) => s.createdAt >= thirtyDaysAgo && s.status === "active").length;
-  const trialConversion = trials30 > 0 ? Math.round((converted / Math.max(trials30, 1)) * 1000) / 10 : null;
+  const trials30 = await prisma.subscription.count({ where: { createdAt: { gte: thirtyDaysAgo }, status: "trial" } });
+  const converted30 = await prisma.subscription.count({ where: { createdAt: { gte: thirtyDaysAgo }, status: "active" } });
+  const trialConversion = trials30 > 0 ? Math.round((converted30 / Math.max(trials30, 1)) * 1000) / 10 : null;
 
-  // MRR growth over the window (simplified: cumulative MRR of subs created each day)
+  // MRR growth over the window — load only active subs once, compute in-memory
+  const activeSubs = await prisma.subscription.findMany({
+    where: { status: { in: ["active", "trial", "past_due", "grace"] } },
+    select: { createdAt: true, mrr: true },
+  });
   const mrrGrowth: { day: string; mrr: number }[] = [];
   const span = Math.max(Math.round(windowDays), 2);
   const start = new Date(now);
@@ -67,29 +78,37 @@ export async function saasMetrics(windowDays = 14): Promise<SaasMetrics> {
   for (let i = 0; i < span; i++) {
     const day = new Date(start.getTime() + i * 86400000);
     const key = dayKey(day).slice(5);
-    const daySubs = subs.filter((s) => s.createdAt <= new Date(day.getTime() + 86400000) && ["active", "trial", "past_due", "grace"].includes(s.status));
-    const dayMrr = daySubs.reduce((sum, s) => sum + s.mrr, 0);
+    const dayMrr = activeSubs
+      .filter((s) => s.createdAt <= new Date(day.getTime() + 86400000))
+      .reduce((sum, s) => sum + s.mrr, 0);
     mrrGrowth.push({ day: key, mrr: dayMrr });
   }
 
-  const byPlan = new Map<string, { mrr: number; count: number }>();
-  for (const s of activeSubs) {
-    const key = s.plan.name;
-    const cur = byPlan.get(key) ?? { mrr: 0, count: 0 };
-    cur.mrr += s.mrr;
-    cur.count += 1;
-    byPlan.set(key, cur);
-  }
-  const revenueByPlan = [...byPlan.entries()].map(([plan, v]) => ({ plan, ...v })).sort((a, b) => b.mrr - a.mrr);
+  // Revenue by plan using groupBy
+  const planRows = await prisma.subscription.groupBy({
+    by: ["planId"],
+    where: { status: { in: ["active", "past_due", "grace"] } },
+    _count: { _all: true },
+    _sum: { mrr: true },
+  });
+  const planIds = planRows.map((r) => r.planId);
+  const plans = planIds.length
+    ? await prisma.plan.findMany({ where: { id: { in: planIds } }, select: { id: true, name: true } })
+    : [];
+  const planNameById = new Map(plans.map((p) => [p.id, p.name]));
+  const revenueByPlan = planRows
+    .map((r) => ({ plan: planNameById.get(r.planId) ?? "Unknown", mrr: r._sum.mrr ?? 0, count: r._count._all }))
+    .sort((a, b) => b.mrr - a.mrr);
 
-  // Funnel: Visitors (pageViews) → Leads → Trials → Active Customers
-  // Use orgs as proxy for customers, subs for trials/active. Visitors approximated from pageViews if available.
-  const totalTrials = subs.filter((s) => ["trial", "active", "past_due", "grace", "cancelled"].includes(s.status)).length;
+  // Funnel: use SQL counts
+  const totalTrials = await prisma.subscription.count({ where: { status: { in: ["trial", "active", "past_due", "grace", "cancelled"] } } });
+  const activePaid = await prisma.subscription.count({ where: { status: "active" } });
+  const paidOrgCount = await prisma.organization.count({ where: { subscriptions: { some: { status: "active" } } } });
   const funnelRaw = [
     { stage: "Organizations", count: totalCustomers },
     { stage: "Trials", count: totalTrials },
-    { stage: "Active", count: activeSubs.filter((s) => s.status === "active").length },
-    { stage: "Paid Customers", count: orgs.filter((o) => subs.some((s) => s.organizationId === o.id && s.status === "active")).length },
+    { stage: "Active", count: activePaid },
+    { stage: "Paid Customers", count: paidOrgCount },
   ];
   const funnel = funnelRaw.map((f, i) => ({
     ...f,
@@ -109,8 +128,8 @@ export async function saasMetrics(windowDays = 14): Promise<SaasMetrics> {
     churnRate,
     arpu,
     ltv,
-    activeProperties: props.filter((p) => p.status === "active").length,
-    totalProperties: props.length,
+    activeProperties: activePropCount,
+    totalProperties: propCount,
     mrrGrowth,
     revenueByPlan,
     funnel,

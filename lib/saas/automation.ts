@@ -82,10 +82,21 @@ export async function runAutomationSweep(): Promise<{ evaluated: number; sent: R
     take: 500,
   });
 
+  // Batch-load all contacts to avoid N+1 primaryEmail queries
+  const orgIds = [...new Set(subs.map((s) => s.organization.id))];
+  const allContacts = orgIds.length
+    ? await prisma.orgContact.findMany({ where: { organizationId: { in: orgIds } }, select: { organizationId: true, email: true, isPrimary: true } })
+    : [];
+  const emailByOrg = new Map<string, string>();
+  for (const c of allContacts) {
+    if (c.isPrimary) emailByOrg.set(c.organizationId, c.email);
+    else if (!emailByOrg.has(c.organizationId)) emailByOrg.set(c.organizationId, c.email);
+  }
+
   for (const sub of subs) {
     evaluated++;
     const org = sub.organization;
-    const to = await primaryEmail(org.id);
+    const to = emailByOrg.get(org.id) ?? null;
     const now = Date.now();
 
     if (sub.status === "trial" && sub.trialEndsAt) {
@@ -113,17 +124,33 @@ export async function runAutomationSweep(): Promise<{ evaluated: number; sent: R
     }
   }
 
-  // Usage thresholds across recent records
+  // Usage thresholds across recent records — batch-load to avoid N+1
   const orgs = await prisma.organization.findMany({ select: { id: true, legalName: true }, take: 500 });
+  const orgIds2 = orgs.map((o) => o.id);
+  const [activeSubs, usageAggs, lastUsages] = await Promise.all([
+    orgIds2.length ? prisma.subscription.findMany({ where: { organizationId: { in: orgIds2 }, status: { in: ["active", "past_due", "grace"] } }, include: { plan: true }, orderBy: { createdAt: "desc" } }) : [],
+    orgIds2.length ? prisma.usageRecord.groupBy({ by: ["organizationId", "metric"], where: { organizationId: { in: orgIds2 } }, _max: { quantity: true } }) : [],
+    orgIds2.length ? prisma.usageRecord.findMany({ where: { organizationId: { in: orgIds2 } }, orderBy: { recordedAt: "desc" }, select: { organizationId: true, recordedAt: true } }) : [],
+  ]);
+  // Build lookup maps
+  const subByOrg = new Map<string, typeof activeSubs[0]>();
+  for (const s of activeSubs) { if (!subByOrg.has(s.organizationId)) subByOrg.set(s.organizationId, s); }
+  const usageMap = new Map<string, Map<string, number | null>>();
+  for (const u of usageAggs) {
+    const orgMap = usageMap.get(u.organizationId) ?? new Map();
+    orgMap.set(u.metric, u._max.quantity);
+    usageMap.set(u.organizationId, orgMap);
+  }
+  const lastUsageByOrg = new Map<string, Date>();
+  for (const l of lastUsages) { if (!lastUsageByOrg.has(l.organizationId)) lastUsageByOrg.set(l.organizationId, l.recordedAt); }
+
   for (const org of orgs) {
     evaluated++;
-    const to = await primaryEmail(org.id);
-    // latest usage per metric vs plan limit
-    const sub = await prisma.subscription.findFirst({ where: { organizationId: org.id, status: { in: ["active", "past_due", "grace"] } }, include: { plan: true }, orderBy: { createdAt: "desc" } });
+    const to = emailByOrg.get(org.id) ?? null;
+    const sub = subByOrg.get(org.id);
     if (!sub) continue;
     for (const metric of ["properties", "users", "bookings"] as const) {
-      const agg = await prisma.usageRecord.aggregate({ where: { organizationId: org.id, metric }, _max: { quantity: true } });
-      const used = agg._max?.quantity;
+      const used = usageMap.get(org.id)?.get(metric) ?? null;
       if (used === null) continue;
       const limit = getLimit(sub.plan, metric);
       if (limit === null) continue;
@@ -138,8 +165,8 @@ export async function runAutomationSweep(): Promise<{ evaluated: number; sent: R
     }
 
     // inactive customer: no usage in 14+ days but has active sub
-    const lastUsage = await prisma.usageRecord.findFirst({ where: { organizationId: org.id }, orderBy: { recordedAt: "desc" }, select: { recordedAt: true } });
-    if (lastUsage && Date.now() - lastUsage.recordedAt.getTime() > 14 * DAY) {
+    const lastUsageAt = lastUsageByOrg.get(org.id);
+    if (lastUsageAt && Date.now() - lastUsageAt.getTime() > 14 * DAY) {
       const r = await emit(org.id, "customer_inactive_14d", to, "We miss you at HospiOS", `<p>Hi ${escHtml(org.legalName)}, it's been over two weeks since your last activity.</p>`);
       if (r === "sent") bump("customer_inactive_14d");
     }

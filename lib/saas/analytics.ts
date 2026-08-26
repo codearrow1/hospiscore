@@ -2,59 +2,66 @@
  * SaaS Platform Analytics — boundary (Phase K → P2 #23)
  * Drilldowns over SaaS subscriptions/orgs: revenue by country/plan,
  * acquisition by source, churn cohorts by month.
+ *
+ * All queries use SQL-level aggregation (groupBy/count) so the DB engine
+ * does the heavy lifting — no unbounded findMany + in-memory grouping.
  */
 import { prisma } from "@/lib/prisma";
 
 export type Bucket = { key: string; customers: number; mrr: number };
 
 const ACTIVE_ORG = "active";
-const REVENUE_SUB_STATUS = ["active", "trial", "past_due", "grace"];
 
 /** MRR + customer count grouped by org country (active orgs only). */
 export async function revenueByCountry(): Promise<Bucket[]> {
-  const orgs = await prisma.organization.findMany({
+  const rows = await prisma.organization.groupBy({
+    by: ["country"],
     where: { status: ACTIVE_ORG },
-    select: { country: true, mrr: true },
+    _count: { _all: true },
+    _sum: { mrr: true },
+    orderBy: { _sum: { mrr: "desc" } },
   });
-  const map = new Map<string, { customers: number; mrr: number }>();
-  for (const o of orgs) {
-    const key = o.country || "unknown";
-    const cur = map.get(key) ?? { customers: 0, mrr: 0 };
-    cur.customers += 1;
-    cur.mrr += o.mrr;
-    map.set(key, cur);
-  }
-  return [...map.entries()].map(([key, v]) => ({ key, ...v })).sort((a, b) => b.mrr - a.mrr);
+  return rows.map((r) => ({
+    key: r.country || "unknown",
+    customers: r._count._all,
+    mrr: r._sum.mrr ?? 0,
+  }));
 }
 
 /** MRR grouped by plan name across revenue-generating subscription statuses. */
 export async function mrrByPlan(): Promise<Bucket[]> {
-  const subs = await prisma.subscription.findMany({
-    where: { status: { in: REVENUE_SUB_STATUS } },
-    include: { plan: { select: { name: true } } },
+  const rows = await prisma.subscription.groupBy({
+    by: ["planId"],
+    where: { status: { in: ["active", "trial", "past_due", "grace"] } },
+    _count: { _all: true },
+    _sum: { mrr: true },
+    orderBy: { _sum: { mrr: "desc" } },
   });
-  const map = new Map<string, { customers: number; mrr: number }>();
-  for (const s of subs) {
-    const cur = map.get(s.plan.name) ?? { customers: 0, mrr: 0 };
-    cur.customers += 1;
-    cur.mrr += s.mrr;
-    map.set(s.plan.name, cur);
-  }
-  return [...map.entries()].map(([key, v]) => ({ key, ...v })).sort((a, b) => b.mrr - a.mrr);
+  const planIds = rows.map((r) => r.planId);
+  const plans = planIds.length
+    ? await prisma.plan.findMany({ where: { id: { in: planIds } }, select: { id: true, name: true } })
+    : [];
+  const nameById = new Map(plans.map((p) => [p.id, p.name]));
+  return rows.map((r) => ({
+    key: nameById.get(r.planId) ?? "Unknown",
+    customers: r._count._all,
+    mrr: r._sum.mrr ?? 0,
+  }));
 }
 
 /** New customers grouped by acquisitionSource with their current MRR. */
 export async function acquisitionBySource(): Promise<Bucket[]> {
-  const orgs = await prisma.organization.findMany({ select: { acquisitionSource: true, mrr: true, status: true } });
-  const map = new Map<string, { customers: number; mrr: number }>();
-  for (const o of orgs) {
-    const key = o.acquisitionSource || "unattributed";
-    const cur = map.get(key) ?? { customers: 0, mrr: 0 };
-    cur.customers += 1;
-    if (o.status === ACTIVE_ORG) cur.mrr += o.mrr;
-    map.set(key, cur);
-  }
-  return [...map.entries()].map(([key, v]) => ({ key, ...v })).sort((a, b) => b.customers - a.customers);
+  const rows = await prisma.organization.groupBy({
+    by: ["acquisitionSource"],
+    _count: { _all: true },
+    _sum: { mrr: true },
+    orderBy: { _count: { _all: "desc" } },
+  });
+  return rows.map((r) => ({
+    key: r.acquisitionSource || "unattributed",
+    customers: r._count._all,
+    mrr: r._sum.mrr ?? 0,
+  }));
 }
 
 /** Lost-MRR churn cohort by month (cancelled/expired subscriptions). */
