@@ -121,7 +121,7 @@ export async function recomputeAllHealth(): Promise<{ recomputed: number }> {
   for (const o of orgs) {
     try {
       await computeHealth(o.id);
-    } catch {}
+    } catch (e) { console.error("[health] recompute failed for org", o.id, e); }
   }
   return { recomputed: orgs.length };
 }

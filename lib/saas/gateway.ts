@@ -161,14 +161,14 @@ export async function recordPayment(input: {
         try {
           const { syncOrgMrr } = await import("./subscriptions");
           if (input.organizationId) await syncOrgMrr(input.organizationId);
-        } catch {}
+        } catch (e) { console.error("[gateway] syncOrgMrr failed after payment failure:", e); }
       }
     }
     await startDunning({ invoiceId: input.invoiceId, organizationId: input.organizationId, subscriptionId, reason: `payment ${pay.id} failed` });
     try {
       const { fireRule } = await import("./automation");
       await fireRule("payment_failed", input.organizationId, { amount: (pay.amount / 100).toFixed(2) });
-    } catch {}
+    } catch (e) { console.error("[gateway] fireRule payment_failed failed:", e); }
   } else if (pay.status === "succeeded" && input.invoiceId) {
     // Settlement math already ran inside the payment transaction; `fullySettled`
     // was computed there. Dunning recovery (M-01) fires only on FULL
@@ -202,8 +202,8 @@ export async function recordPayment(input: {
             }
           }
         }
-      } catch {
-        // Recurring commission failure must never fail the payment lifecycle
+      } catch (e) {
+        console.error("[gateway] recurring commission failed:", e);
       }
     }
   }
@@ -263,7 +263,7 @@ export async function refundPayment(paymentId: string, actorEmail: string, ip?: 
         const { handleReversal } = await import("./commissions");
         await handleReversal(pay.organizationId, inv.subscriptionId);
       }
-    } catch {}
+    } catch (e) { console.error("[gateway] commission reversal failed:", e); }
   }
   return updated;
 }

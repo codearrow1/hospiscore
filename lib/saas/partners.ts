@@ -103,25 +103,27 @@ export async function updatePartnerStatus(id: string, status: PartnerStatus) {
 
 /** Commission when a partner-sourced organization's subscription activates. Idempotent per (partner, org). */
 export async function createCommissionForPartnerSubscription(params: { partnerId: string; organizationId: string; subscriptionId: string; mrr: number }) {
-  const partner = await prisma.partner.findUnique({ where: { id: params.partnerId } });
-  if (!partner) throw new Error("Partner not found");
-  if (partner.status !== "active" && partner.status !== "approved") throw new Error("Partner not active");
-  const dupe = await prisma.affiliateCommission.findFirst({
-    where: { partnerId: params.partnerId, organizationId: params.organizationId, status: { notIn: ["reversed", "rejected"] } },
-    select: { id: true },
-  });
-  if (dupe) return prisma.affiliateCommission.findUnique({ where: { id: dupe.id } });
-  const amount = calcCommissionAmount(partner.commissionModel, partner.commissionValue, params.mrr);
-  return prisma.affiliateCommission.create({
-    data: {
-      partnerId: params.partnerId,
-      organizationId: params.organizationId,
-      subscriptionId: params.subscriptionId,
-      amount,
-      currency: "USD",
-      status: "pending",
-      model: partner.commissionModel,
-    },
+  return prisma.$transaction(async (tx) => {
+    const partner = await tx.partner.findUnique({ where: { id: params.partnerId } });
+    if (!partner) throw new Error("Partner not found");
+    if (partner.status !== "active" && partner.status !== "approved") throw new Error("Partner not active");
+    const dupe = await tx.affiliateCommission.findFirst({
+      where: { partnerId: params.partnerId, organizationId: params.organizationId, status: { notIn: ["reversed", "rejected"] } },
+      select: { id: true },
+    });
+    if (dupe) return tx.affiliateCommission.findUnique({ where: { id: dupe.id } });
+    const amount = calcCommissionAmount(partner.commissionModel, partner.commissionValue, params.mrr);
+    return tx.affiliateCommission.create({
+      data: {
+        partnerId: params.partnerId,
+        organizationId: params.organizationId,
+        subscriptionId: params.subscriptionId,
+        amount,
+        currency: "USD",
+        status: "pending",
+        model: partner.commissionModel,
+      },
+    });
   });
 }
 

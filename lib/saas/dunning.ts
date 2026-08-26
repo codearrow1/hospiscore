@@ -76,7 +76,7 @@ export async function recoverCase(invoiceId: string): Promise<boolean> {
       try {
         const { syncOrgMrr } = await import("./subscriptions");
         await syncOrgMrr(dc.organizationId);
-      } catch {}
+      } catch (e) { console.error("[dunning] syncOrgMrr failed after recovery:", e); }
     }
   }
   return true;
@@ -105,7 +105,7 @@ export async function processDueCases(now = new Date()): Promise<{ processed: nu
         try {
           const { syncOrgMrr } = await import("./subscriptions");
           await syncOrgMrr(dc.organizationId);
-        } catch {}
+        } catch (e) { console.error("[dunning] syncOrgMrr failed after suspension:", e); }
       }
       suspended++;
       continue;
@@ -161,9 +161,13 @@ async function notify(to: string | null, subject: string, html: string): Promise
   if (!to) return;
   try {
     await sendMail({ to, subject, html });
-  } catch {}
+  } catch (e) { console.error("[dunning] notify failed:", e); }
+}
+
+function escHtml(s: string): string {
+  return s.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;");
 }
 
 function dunningHtml(orgName: string, attempt: number): string {
-  return `<p>Hi ${orgName},</p><p>This is reminder ${attempt} regarding your failed payment. Please update your billing details to avoid service suspension.</p>`;
+  return `<p>Hi ${escHtml(orgName)},</p><p>This is reminder ${attempt} regarding your failed payment. Please update your billing details to avoid service suspension.</p>`;
 }

@@ -21,16 +21,17 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: "invalid JSON body" }, { status: 400 });
   }
 
-  const propertyName = (body.propertyName ?? "").toString().trim() || "our hotel";
+  const propertyName = (body.propertyName ?? "").toString().trim().slice(0, 200) || "our hotel";
   const raw = body.review;
   if (!raw || typeof raw.text !== "string" || !raw.text.trim()) {
     return NextResponse.json({ error: "review.text is required" }, { status: 400 });
   }
+  const reviewText = raw.text.trim().slice(0, 5000);
   const rating = Number(raw.rating ?? 3);
   const platform = (raw.platform as PlatformKey) ?? "booking";
-  const author = raw.author ? raw.author.toString() : undefined;
+  const author = raw.author ? raw.author.toString().slice(0, 200) : undefined;
 
-  const draft = await replyDraft({ text: raw.text, platform, rating, author }, propertyName);
+  const draft = await replyDraft({ text: reviewText, platform, rating, author }, propertyName);
 
   return NextResponse.json(draft);
 }

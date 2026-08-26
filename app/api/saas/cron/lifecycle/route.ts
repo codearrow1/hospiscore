@@ -53,11 +53,11 @@ async function sweep(now = new Date()) {
         entityId: s.id,
         detail: `${s.status} → ${target}`,
       });
-    } catch {}
+    } catch (e) { console.error("[lifecycle] audit write failed:", e); }
     try {
       const { syncOrgMrr } = await import("@/lib/saas/subscriptions");
       await syncOrgMrr(s.organizationId);
-    } catch {}
+    } catch (e) { console.error("[lifecycle] syncOrgMrr failed:", e); }
   }
   return { processed: subs.length, expired, pastDue, suspended };
 }

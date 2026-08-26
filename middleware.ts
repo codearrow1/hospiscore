@@ -31,5 +31,5 @@ export function middleware(request: NextRequest) {
 }
 
 export const config = {
-  matcher: ["/api/saas/:path*", "/api/auth/logout"],
+  matcher: ["/api/saas/:path*", "/api/auth/logout", "/api/account/:path*", "/api/saved/:path*", "/api/settings"],
 };

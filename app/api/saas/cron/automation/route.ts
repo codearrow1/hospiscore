@@ -1,10 +1,22 @@
 import { NextRequest, NextResponse } from "next/server";
 import { requireSaasAccess } from "@/lib/marketing/guard";
 import { hasSaasPerm } from "@/lib/saas/roles";
+import { timingSafeEqual } from "node:crypto";
 import { runAutomationSweep, listAutomationEvents } from "@/lib/saas/automation";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
+
+/** Constant-time string comparison — never leaks prefix matches via timing. */
+function secretsMatch(a: string, b: string): boolean {
+  const ha = Buffer.from(a, "utf8");
+  const hb = Buffer.from(b, "utf8");
+  if (ha.length !== hb.length) {
+    timingSafeEqual(ha, ha);
+    return false;
+  }
+  return timingSafeEqual(ha, hb);
+}
 
 /**
  * GET /api/saas/cron/automation — lists recent automation events.
@@ -14,7 +26,7 @@ export const dynamic = "force-dynamic";
 async function authorized(req: NextRequest): Promise<boolean> {
   const cronSecret = process.env.CRON_SECRET?.trim();
   const headerSecret = req.headers.get("x-cron-secret")?.trim();
-  if (cronSecret && headerSecret && cronSecret === headerSecret) return true;
+  if (cronSecret && headerSecret && secretsMatch(cronSecret, headerSecret)) return true;
   const guard = await requireSaasAccess();
   return guard.ok && hasSaasPerm(guard.user, "MARKETING_MANAGE");
 }

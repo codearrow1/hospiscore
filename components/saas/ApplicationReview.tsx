@@ -54,22 +54,22 @@ export default function ApplicationReview() {
     setTimeout(() => setFeedback(null), 4000);
   };
 
-  const fetchApplications = async () => {
-    setLoading(true);
-    try {
-      const params = filter !== "all" ? `?status=${filter}` : "";
-      const res = await fetch(`/api/saas/affiliate-applications${params}`);
-      if (res.ok) {
-        const data = await res.json();
-        setApplications(data.applications ?? data ?? []);
-      }
-    } finally {
-      setLoading(false);
-    }
-  };
-
   useEffect(() => {
-    fetchApplications();
+    let cancelled = false;
+    (async () => {
+      setLoading(true);
+      try {
+        const params = filter !== "all" ? `?status=${filter}` : "";
+        const res = await fetch(`/api/saas/affiliate-applications${params}`);
+        if (res.ok && !cancelled) {
+          const data = await res.json();
+          setApplications(data.applications ?? data ?? []);
+        }
+      } finally {
+        if (!cancelled) setLoading(false);
+      }
+    })();
+    return () => { cancelled = true; };
   }, [filter]);
 
   const reviewApplication = async (id: string, status: "approved" | "rejected") => {
@@ -90,7 +90,14 @@ export default function ApplicationReview() {
         return next;
       });
     } finally {
-      fetchApplications();
+      // Refresh the list after review action
+      const params = filter !== "all" ? `?status=${filter}` : "";
+      const refreshed = await fetch(`/api/saas/affiliate-applications${params}`);
+      if (refreshed.ok) {
+        const data = await refreshed.json();
+        setApplications(data.applications ?? data ?? []);
+      }
+      setLoading(false);
     }
   };
 

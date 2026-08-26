@@ -19,6 +19,10 @@ export const AUTOMATION_RULES = [
 ] as const;
 export type AutomationRule = (typeof AUTOMATION_RULES)[number];
 
+function escHtml(s: string): string {
+  return s.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;");
+}
+
 const COOLDOWN_DAYS: Record<AutomationRule, number> = {
   trial_expiring_3d: 3,
   trial_expired: 30,
@@ -87,10 +91,10 @@ export async function runAutomationSweep(): Promise<{ evaluated: number; sent: R
     if (sub.status === "trial" && sub.trialEndsAt) {
       const daysLeft = Math.ceil((sub.trialEndsAt.getTime() - now) / DAY);
       if (daysLeft === 3 || daysLeft === 2) {
-        const r = await emit(org.id, "trial_expiring_3d", to, "Your HospiOS trial ends soon", `<p>Hi ${org.legalName}, your trial ends in ${daysLeft} day(s).</p>`);
+        const r = await emit(org.id, "trial_expiring_3d", to, "Your HospiOS trial ends soon", `<p>Hi ${escHtml(org.legalName)}, your trial ends in ${daysLeft} day(s).</p>`);
         if (r === "sent") bump("trial_expiring_3d");
       } else if (daysLeft <= 0) {
-        const r = await emit(org.id, "trial_expired", to, "Your HospiOS trial has ended", `<p>Hi ${org.legalName}, your trial has ended. Choose a plan to continue.</p>`);
+        const r = await emit(org.id, "trial_expired", to, "Your HospiOS trial has ended", `<p>Hi ${escHtml(org.legalName)}, your trial has ended. Choose a plan to continue.</p>`);
         if (r === "sent") bump("trial_expired");
       }
     }
@@ -98,13 +102,13 @@ export async function runAutomationSweep(): Promise<{ evaluated: number; sent: R
     if (sub.status === "active") {
       const daysToRenew = Math.ceil((sub.currentPeriodEnd.getTime() - now) / DAY);
       if (daysToRenew >= 0 && daysToRenew <= 7) {
-        const r = await emit(org.id, "renewal_approaching_7d", to, "Your HospiOS subscription renews soon", `<p>Hi ${org.legalName}, your subscription renews in ${daysToRenew} day(s).</p>`);
+        const r = await emit(org.id, "renewal_approaching_7d", to, "Your HospiOS subscription renews soon", `<p>Hi ${escHtml(org.legalName)}, your subscription renews in ${daysToRenew} day(s).</p>`);
         if (r === "sent") bump("renewal_approaching_7d");
       }
     }
 
     if (org.healthStatus === "critical") {
-      const r = await emit(org.id, "churn_risk_critical", to, "We're here to help", `<p>Hi ${org.legalName}, we noticed you may be facing challenges. Our team is ready to help.</p>`);
+      const r = await emit(org.id, "churn_risk_critical", to, "We're here to help", `<p>Hi ${escHtml(org.legalName)}, we noticed you may be facing challenges. Our team is ready to help.</p>`);
       if (r === "sent") bump("churn_risk_critical");
     }
   }
@@ -125,10 +129,10 @@ export async function runAutomationSweep(): Promise<{ evaluated: number; sent: R
       if (limit === null) continue;
       const pct = Math.round((used / limit) * 100);
       if (pct >= 100) {
-        const r = await emit(org.id, "usage_100", to, `Usage limit reached: ${metric}`, `<p>Hi ${org.legalName}, you have reached 100% of your ${metric} limit (${used}/${limit}).</p>`);
+        const r = await emit(org.id, "usage_100", to, `Usage limit reached: ${metric}`, `<p>Hi ${escHtml(org.legalName)}, you have reached 100% of your ${metric} limit (${used}/${limit}).</p>`);
         if (r === "sent") bump("usage_100");
       } else if (pct >= 80) {
-        const r = await emit(org.id, "usage_80", to, `Usage warning: ${metric}`, `<p>Hi ${org.legalName}, you are at ${pct}% of your ${metric} limit (${used}/${limit}).</p>`);
+        const r = await emit(org.id, "usage_80", to, `Usage warning: ${metric}`, `<p>Hi ${escHtml(org.legalName)}, you are at ${pct}% of your ${metric} limit (${used}/${limit}).</p>`);
         if (r === "sent") bump("usage_80");
       }
     }
@@ -136,7 +140,7 @@ export async function runAutomationSweep(): Promise<{ evaluated: number; sent: R
     // inactive customer: no usage in 14+ days but has active sub
     const lastUsage = await prisma.usageRecord.findFirst({ where: { organizationId: org.id }, orderBy: { recordedAt: "desc" }, select: { recordedAt: true } });
     if (lastUsage && Date.now() - lastUsage.recordedAt.getTime() > 14 * DAY) {
-      const r = await emit(org.id, "customer_inactive_14d", to, "We miss you at HospiOS", `<p>Hi ${org.legalName}, it's been over two weeks since your last activity.</p>`);
+      const r = await emit(org.id, "customer_inactive_14d", to, "We miss you at HospiOS", `<p>Hi ${escHtml(org.legalName)}, it's been over two weeks since your last activity.</p>`);
       if (r === "sent") bump("customer_inactive_14d");
     }
   }

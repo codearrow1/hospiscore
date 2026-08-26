@@ -74,23 +74,32 @@ export default function FraudDashboard() {
     setTimeout(() => setFeedback(null), 4000);
   };
 
-  const fetchCases = async () => {
-    setLoading(true);
-    try {
-      const params = filter !== "all" ? `?status=${filter}` : "";
-      const res = await fetch(`/api/saas/affiliate-fraud${params}`);
-      if (res.ok) {
-        const data = await res.json();
-        setCases(data.cases ?? data ?? []);
+  useEffect(() => {
+    let cancelled = false;
+    (async () => {
+      setLoading(true);
+      try {
+        const params = filter !== "all" ? `?status=${filter}` : "";
+        const res = await fetch(`/api/saas/affiliate-fraud${params}`);
+        if (res.ok && !cancelled) {
+          const data = await res.json();
+          setCases(data.cases ?? data ?? []);
+        }
+      } finally {
+        if (!cancelled) setLoading(false);
       }
-    } finally {
-      setLoading(false);
+    })();
+    return () => { cancelled = true; };
+  }, [filter]);
+
+  const refreshCases = async () => {
+    const params = filter !== "all" ? `?status=${filter}` : "";
+    const res = await fetch(`/api/saas/affiliate-fraud${params}`);
+    if (res.ok) {
+      const data = await res.json();
+      setCases(data.cases ?? data ?? []);
     }
   };
-
-  useEffect(() => {
-    fetchCases();
-  }, [filter]);
 
   const transitionStatus = async (id: string, to: string) => {
     const res = await fetch(`/api/saas/affiliate-fraud/${id}`, {
@@ -102,7 +111,7 @@ export default function FraudDashboard() {
       showFeedback("error", "Failed to update status");
       return;
     }
-    fetchCases();
+    refreshCases();
   };
 
   const resolveCase = async (id: string) => {
@@ -122,7 +131,7 @@ export default function FraudDashboard() {
     setResolvingId(null);
     setResolution("");
     setResolutionNote("");
-    fetchCases();
+    refreshCases();
   };
 
   const runRiskCheck = async (affiliateId: string) => {
@@ -137,7 +146,7 @@ export default function FraudDashboard() {
         return;
       }
       showFeedback("success", "Risk check completed");
-      fetchCases();
+      refreshCases();
     } finally {
       setCheckingId(null);
     }
