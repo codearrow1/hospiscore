@@ -1,6 +1,5 @@
 import { NextResponse, NextRequest } from "next/server";
 import { getCurrentUser } from "@/lib/sessionCookie";
-import { getUserPreferences, updateUserPreferences } from "@/lib/userPreferences";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -8,8 +7,13 @@ export const dynamic = "force-dynamic";
 export async function GET() {
   const user = await getCurrentUser();
   if (!user) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-  const prefs = await getUserPreferences(user.email);
-  return NextResponse.json(prefs);
+  try {
+    const { getUserPreferences } = await import("@/lib/userPreferences");
+    const prefs = await getUserPreferences(user.email);
+    return NextResponse.json(prefs);
+  } catch {
+    return NextResponse.json({ email: user.email, timezone: "UTC", dateFormat: "YYYY-MM-DD" });
+  }
 }
 
 export async function PATCH(req: NextRequest) {
@@ -25,6 +29,7 @@ export async function PATCH(req: NextRequest) {
 
   if (body.timezone !== undefined || body.dateFormat !== undefined) {
     try {
+      const { updateUserPreferences } = await import("@/lib/userPreferences");
       const prefs = await updateUserPreferences(user.email, body);
       return NextResponse.json(prefs);
     } catch (e) {
