@@ -23,11 +23,11 @@ export default async function AffiliatePage() {
 
   if (!affiliate) {
     return (
-      <div className="min-h-screen bg-gray-50 flex items-center justify-center">
+      <div className="min-h-screen flex items-center justify-center bg-surface px-6">
         <div className="text-center">
-          <h1 className="text-2xl font-bold text-gray-900 mb-4">Affiliate Program</h1>
-          <p className="text-gray-600 mb-6">You are not yet enrolled as an affiliate.</p>
-          <a href="/affiliate/apply" className="bg-blue-600 text-white px-6 py-3 rounded-lg hover:bg-blue-700">
+          <h1 className="text-2xl font-bold text-zinc-900 dark:text-zinc-50 mb-4">Affiliate Program</h1>
+          <p className="text-zinc-600 dark:text-zinc-400 mb-6">You are not yet enrolled as an affiliate.</p>
+          <a href="/affiliate/apply" className="inline-flex min-h-11 items-center rounded-xl bg-indigo-600 px-6 py-3 text-sm font-semibold text-white shadow-sm transition hover:bg-indigo-500">
             Apply to Join
           </a>
         </div>
@@ -36,7 +36,7 @@ export default async function AffiliatePage() {
   }
 
   return (
-    <Suspense fallback={<div className="min-h-screen bg-gray-50 flex items-center justify-center">Loading...</div>}>
+    <Suspense fallback={<div className="min-h-screen flex items-center justify-center bg-surface"><div className="h-8 w-8 animate-spin rounded-full border-2 border-zinc-300 border-t-indigo-600 dark:border-zinc-700 dark:border-t-indigo-400" /></div>}>
       <AffiliatePortal affiliate={JSON.parse(JSON.stringify(affiliate))} />
     </Suspense>
   );

@@ -48,10 +48,11 @@ export default function ProfileForm({ user }: ProfileFormProps) {
     <form onSubmit={handleSubmit} className="space-y-6">
       {feedback && (
         <div
+          role="alert"
           className={`rounded-lg px-4 py-3 text-sm font-medium ${
             feedback.type === "success"
-              ? "bg-green-50 text-green-800 border border-green-200"
-              : "bg-red-50 text-red-800 border border-red-200"
+              ? "bg-green-50 text-green-800 border border-green-200 dark:bg-green-950/40 dark:text-green-400 dark:border-green-900"
+              : "bg-red-50 text-red-800 border border-red-200 dark:bg-red-950/40 dark:text-red-400 dark:border-red-900"
           }`}
         >
           {feedback.text}

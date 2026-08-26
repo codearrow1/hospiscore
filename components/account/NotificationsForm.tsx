@@ -98,10 +98,11 @@ export default function NotificationsForm({ userId: _userId }: NotificationsForm
     <form onSubmit={handleSubmit} className="space-y-6">
       {feedback && (
         <div
+          role="alert"
           className={`rounded-lg px-4 py-3 text-sm font-medium ${
             feedback.type === "success"
-              ? "bg-green-50 text-green-800 border border-green-200"
-              : "bg-red-50 text-red-800 border border-red-200"
+              ? "bg-green-50 text-green-800 border border-green-200 dark:bg-green-950/40 dark:text-green-400 dark:border-green-900"
+              : "bg-red-50 text-red-800 border border-red-200 dark:bg-red-950/40 dark:text-red-400 dark:border-red-900"
           }`}
         >
           {feedback.text}
@@ -114,14 +115,14 @@ export default function NotificationsForm({ userId: _userId }: NotificationsForm
           Choose which notifications you receive and how.
         </p>
 
-        <div className="mt-6 overflow-x-auto">
+        <div className="mt-6 hidden overflow-x-auto md:block">
           <table className="w-full text-left text-sm">
             <thead>
               <tr className="border-b border-zinc-200 text-xs uppercase tracking-wide text-zinc-400 dark:border-zinc-800">
-                <th className="pb-3 pr-4 font-semibold">Event</th>
-                <th className="pb-3 px-4 text-center font-semibold">Email</th>
-                <th className="pb-3 px-4 text-center font-semibold">Push</th>
-                <th className="pb-3 pl-4 text-center font-semibold">In-App</th>
+                <th scope="col" className="pb-3 pr-4 font-semibold">Event</th>
+                <th scope="col" className="pb-3 px-4 text-center font-semibold">Email</th>
+                <th scope="col" className="pb-3 px-4 text-center font-semibold">Push</th>
+                <th scope="col" className="pb-3 pl-4 text-center font-semibold">In-App</th>
               </tr>
             </thead>
             <tbody>
@@ -133,6 +134,7 @@ export default function NotificationsForm({ userId: _userId }: NotificationsForm
                       type="checkbox"
                       checked={pref.email}
                       onChange={(e) => updatePreference(pref.kind, "email", e.target.checked)}
+                      aria-label={`${KIND_LABELS[pref.kind] || pref.kind} — email`}
                       className="h-4 w-4 rounded border-zinc-300 text-indigo-600 focus:ring-indigo-500"
                     />
                   </td>
@@ -141,6 +143,7 @@ export default function NotificationsForm({ userId: _userId }: NotificationsForm
                       type="checkbox"
                       checked={pref.push}
                       onChange={(e) => updatePreference(pref.kind, "push", e.target.checked)}
+                      aria-label={`${KIND_LABELS[pref.kind] || pref.kind} — push`}
                       className="h-4 w-4 rounded border-zinc-300 text-indigo-600 focus:ring-indigo-500"
                     />
                   </td>
@@ -149,6 +152,7 @@ export default function NotificationsForm({ userId: _userId }: NotificationsForm
                       type="checkbox"
                       checked={pref.inApp}
                       onChange={(e) => updatePreference(pref.kind, "inApp", e.target.checked)}
+                      aria-label={`${KIND_LABELS[pref.kind] || pref.kind} — in-app`}
                       className="h-4 w-4 rounded border-zinc-300 text-indigo-600 focus:ring-indigo-500"
                     />
                   </td>
@@ -156,6 +160,47 @@ export default function NotificationsForm({ userId: _userId }: NotificationsForm
               ))}
             </tbody>
           </table>
+        </div>
+
+        {/* Mobile card layout */}
+        <div className="mt-6 space-y-3 md:hidden">
+          {preferences.map((pref) => (
+            <div key={pref.kind} className="rounded-xl border border-zinc-200 p-4 dark:border-zinc-800">
+              <p className="text-sm font-medium text-zinc-900 dark:text-zinc-100">{KIND_LABELS[pref.kind] || pref.kind}</p>
+              <div className="mt-3 flex items-center gap-4">
+                <label className="flex items-center gap-2 text-xs text-zinc-500">
+                  <input
+                    type="checkbox"
+                    checked={pref.email}
+                    onChange={(e) => updatePreference(pref.kind, "email", e.target.checked)}
+                    aria-label={`${KIND_LABELS[pref.kind] || pref.kind} — email`}
+                    className="h-4 w-4 rounded border-zinc-300 text-indigo-600 focus:ring-indigo-500"
+                  />
+                  Email
+                </label>
+                <label className="flex items-center gap-2 text-xs text-zinc-500">
+                  <input
+                    type="checkbox"
+                    checked={pref.push}
+                    onChange={(e) => updatePreference(pref.kind, "push", e.target.checked)}
+                    aria-label={`${KIND_LABELS[pref.kind] || pref.kind} — push`}
+                    className="h-4 w-4 rounded border-zinc-300 text-indigo-600 focus:ring-indigo-500"
+                  />
+                  Push
+                </label>
+                <label className="flex items-center gap-2 text-xs text-zinc-500">
+                  <input
+                    type="checkbox"
+                    checked={pref.inApp}
+                    onChange={(e) => updatePreference(pref.kind, "inApp", e.target.checked)}
+                    aria-label={`${KIND_LABELS[pref.kind] || pref.kind} — in-app`}
+                    className="h-4 w-4 rounded border-zinc-300 text-indigo-600 focus:ring-indigo-500"
+                  />
+                  In-App
+                </label>
+              </div>
+            </div>
+          ))}
         </div>
       </div>
 

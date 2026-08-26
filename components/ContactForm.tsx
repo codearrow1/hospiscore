@@ -5,14 +5,16 @@ import { useState } from "react";
 export default function ContactForm() {
   const [submitted, setSubmitted] = useState(false);
   const [sending, setSending] = useState(false);
+  const [error, setError] = useState("");
 
   async function onSubmit(e: React.FormEvent<HTMLFormElement>) {
     e.preventDefault();
     const form = e.currentTarget;
     const data = Object.fromEntries(new FormData(form).entries());
     setSending(true);
+    setError("");
     try {
-      await fetch("/api/demo", {
+      const res = await fetch("/api/demo", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
@@ -22,9 +24,13 @@ export default function ContactForm() {
           source: "contact",
         }),
       });
+      if (!res.ok) {
+        const body = await res.json().catch(() => ({}));
+        throw new Error(body.error || "Failed to send message");
+      }
       setSubmitted(true);
-    } catch {
-      setSubmitted(true);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Something went wrong. Please try again.");
     } finally {
       setSending(false);
     }
@@ -87,6 +93,11 @@ export default function ContactForm() {
       >
         {sending ? "Sending…" : "Send message"}
       </button>
+      {error && (
+        <p role="alert" className="rounded-lg bg-red-50 px-4 py-3 text-sm text-red-700 dark:bg-red-950/40 dark:text-red-400">
+          {error}
+        </p>
+      )}
     </form>
   );
 }

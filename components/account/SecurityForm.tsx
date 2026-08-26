@@ -57,10 +57,11 @@ export default function SecurityForm({ userId: _userId }: SecurityFormProps) {
     <form onSubmit={handleSubmit} className="space-y-6">
       {feedback && (
         <div
+          role="alert"
           className={`rounded-lg px-4 py-3 text-sm font-medium ${
             feedback.type === "success"
-              ? "bg-green-50 text-green-800 border border-green-200"
-              : "bg-red-50 text-red-800 border border-red-200"
+              ? "bg-green-50 text-green-800 border border-green-200 dark:bg-green-950/40 dark:text-green-400 dark:border-green-900"
+              : "bg-red-50 text-red-800 border border-red-200 dark:bg-red-950/40 dark:text-red-400 dark:border-red-900"
           }`}
         >
           {feedback.text}
@@ -80,6 +81,7 @@ export default function SecurityForm({ userId: _userId }: SecurityFormProps) {
               type="password"
               value={currentPassword}
               onChange={(e) => setCurrentPassword(e.target.value)}
+              autoComplete="current-password"
               className="mt-1 w-full rounded-lg border border-zinc-300 bg-white px-3 py-2 text-sm outline-none focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500 dark:border-zinc-700 dark:bg-zinc-800"
               required
             />
@@ -91,6 +93,7 @@ export default function SecurityForm({ userId: _userId }: SecurityFormProps) {
               type="password"
               value={newPassword}
               onChange={(e) => setNewPassword(e.target.value)}
+              autoComplete="new-password"
               className="mt-1 w-full rounded-lg border border-zinc-300 bg-white px-3 py-2 text-sm outline-none focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500 dark:border-zinc-700 dark:bg-zinc-800"
               required
               minLength={8}
@@ -103,6 +106,7 @@ export default function SecurityForm({ userId: _userId }: SecurityFormProps) {
               type="password"
               value={confirmPassword}
               onChange={(e) => setConfirmPassword(e.target.value)}
+              autoComplete="new-password"
               className="mt-1 w-full rounded-lg border border-zinc-300 bg-white px-3 py-2 text-sm outline-none focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500 dark:border-zinc-700 dark:bg-zinc-800"
               required
               minLength={8}
