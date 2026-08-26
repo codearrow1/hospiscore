@@ -56,7 +56,7 @@ export const metadata = {
 export default async function SaasLayout({ children }: { children: ReactNode }) {
   const user = await getCurrentUser();
   if (!user) redirect("/account?next=/saas");
-  await initSaasDb();
+  await initSaasDb().catch(() => {});
   if (!canAccess(user)) {
     return restrictedPanel(
       "SaaS Command Center",

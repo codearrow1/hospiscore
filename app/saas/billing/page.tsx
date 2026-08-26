@@ -80,8 +80,8 @@ export default async function BillingPage({
     .map((inv) => ({
       id: inv.id,
       orgId: inv.organizationId,
-      label: `${inv.organization.legalName} · ${formatMoney(inv.amount, inv.currency)} · ${inv.status.replace("_", " ")}`,
-      orgName: inv.organization.legalName,
+      label: `${inv.organization?.legalName ?? "Unknown"} · ${formatMoney(inv.amount, inv.currency)} · ${inv.status.replace("_", " ")}`,
+      orgName: inv.organization?.legalName ?? "Unknown",
       amountCents: inv.amount,
       currency: inv.currency,
       outstandingCents: inv.amount - inv.payments.filter((p) => p.status === "succeeded").reduce((a, p) => a + p.amount, 0),
@@ -90,8 +90,8 @@ export default async function BillingPage({
   const invoices: InvoiceView[] = invPage.items.map((i) => ({
     id: i.id,
     orgId: i.organizationId,
-    orgName: i.organization.legalName,
-    country: i.organization.country,
+    orgName: i.organization?.legalName ?? "Unknown",
+    country: i.organization?.country ?? null,
     type: i.type,
     status: i.status,
     amountCents: i.amount,
@@ -114,7 +114,7 @@ export default async function BillingPage({
   const payments: PaymentView[] = payPage.items.map((p) => ({
     id: p.id,
     orgId: p.organizationId,
-    orgName: p.organization.legalName,
+    orgName: p.organization?.legalName ?? "Unknown",
     gateway: p.gateway,
     status: p.status,
     amountCents: p.amount,

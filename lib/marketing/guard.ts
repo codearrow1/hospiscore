@@ -27,6 +27,7 @@ export type GuardResult =
 
 /** Authenticate + require the marketing admin at all. */
 export async function requireMarketingUser(): Promise<GuardResult> {
+  await initSaasDb().catch(() => {});
   const user = await getCurrentUser();
   if (!user) {
     return {
