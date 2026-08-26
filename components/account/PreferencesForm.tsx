@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useState, useCallback } from "react";
-import { TIMEZONES, DATE_FORMATS, type UserPreferences } from "@/lib/userPreferences";
+import { TIMEZONES, DATE_FORMATS, type UserPreferences } from "@/lib/userPreferences.constants";
 
 export default function PreferencesForm() {
   const [prefs, setPrefs] = useState<UserPreferences | null>(null);
