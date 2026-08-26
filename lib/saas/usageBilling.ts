@@ -7,8 +7,12 @@
  *
  * Each (org, metric, period) is billed at most once — markers live in the
  * `usage_billed_periods` SystemSetting KV so no schema change is required.
+ *
+ * Settings (via Settings Resolver):
+ * - usage_invoice_due_days: Days until usage invoice is due [default: 14]
  */
 import { prisma } from "@/lib/prisma";
+import { resolveSetting } from "@/lib/settings/resolver";
 
 const RATES_KEY = "usage_overage_rates";
 const BILLED_KEY = "usage_billed_periods";
@@ -95,6 +99,15 @@ export async function billUsagePeriod(opts?: { period?: string; actorEmail?: str
 
     let billedInvoices = 0;
     let billedTotalMinor = 0;
+    
+    // Get invoice due days from settings
+    let invoiceDueDays = 14;
+    try {
+      invoiceDueDays = await resolveSetting<number>("usage_invoice_due_days");
+    } catch {
+      // Use default
+    }
+
     for (const [orgId, items] of byOrg) {
       const sub = await tx.subscription.findFirst({
         where: { organizationId: orgId, status: { in: ["active", "past_due", "grace"] } },
@@ -110,7 +123,7 @@ export async function billUsagePeriod(opts?: { period?: string; actorEmail?: str
             amount: total,
             currency: sub?.currency || "USD",
             type: "usage",
-            dueAt: new Date(Date.now() + 14 * 86_400_000),
+            dueAt: new Date(Date.now() + invoiceDueDays * 86_400_000),
             actorEmail,
           },
           tx,

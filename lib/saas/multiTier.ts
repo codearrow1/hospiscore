@@ -5,6 +5,17 @@
  */
 
 import { prisma } from "@/lib/prisma";
+import { resolveSetting } from "@/lib/settings/resolver";
+
+/** Get max tier depth from campaign or platform settings */
+async function getMaxTierDepth(campaignMaxDepth: number | null): Promise<number> {
+  if (campaignMaxDepth != null) return campaignMaxDepth;
+  try {
+    return await resolveSetting<number>("max_tier_depth");
+  } catch {
+    return 3;
+  }
+}
 
 /**
  * Register a parent→child recruitment relationship.
@@ -38,7 +49,7 @@ export async function recruitAffiliate(params: {
   const campaign = parent.campaignId
     ? await prisma.affiliateCampaign.findUnique({ where: { id: parent.campaignId }, select: { maxTierDepth: true } })
     : null;
-  const maxDepth = campaign?.maxTierDepth ?? 3;
+  const maxDepth = await getMaxTierDepth(campaign?.maxTierDepth ?? null);
   if (depth >= maxDepth) throw new Error(`Maximum tier depth (${maxDepth}) exceeded`);
 
   // Cycle check: ensure child is not an ancestor of parent

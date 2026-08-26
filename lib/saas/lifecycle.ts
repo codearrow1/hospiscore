@@ -9,13 +9,21 @@
  *
  * `classifyLifecycle` is pure so the windows are unit-testable; the cron route
  * applies transitions through the guarded state machine.
+ *
+ * Settings (via Settings Resolver):
+ * - past_due_grace_days: Grace period before past due [default: 3]
+ * - suspend_after_days: Days before suspension [default: 10]
  */
 import type { SubscriptionStatus } from "./subscriptions";
+import { resolveSetting } from "@/lib/settings/resolver";
 
-/** Grace after period end before an active sub is marked past_due: 3 days. */
-export const PAST_DUE_AFTER_MS = 3 * 86_400_000;
-/** Delinquency window before past_due/grace subs are suspended: 10 days. */
-export const SUSPEND_AFTER_MS = 10 * 86_400_000;
+/** Default grace period (used as fallback if setting unavailable) */
+export const DEFAULT_PAST_DUE_AFTER_MS = 3 * 86_400_000;
+/** Default delinquency window (used as fallback if setting unavailable) */
+export const DEFAULT_SUSPEND_AFTER_MS = 10 * 86_400_000;
+/** Backward-compatible constants */
+export const PAST_DUE_AFTER_MS = DEFAULT_PAST_DUE_AFTER_MS;
+export const SUSPEND_AFTER_MS = DEFAULT_SUSPEND_AFTER_MS;
 /** Small skew allowance after trialEndsAt before expiry: 24h. */
 export const TRIAL_EXPIRY_SKEW_MS = 86_400_000;
 
@@ -32,6 +40,8 @@ export function classifyLifecycle(
     trialEndsAt?: Date | null;
   },
   nowMs: number = Date.now(),
+  pastDueAfterMs: number = DEFAULT_PAST_DUE_AFTER_MS,
+  suspendAfterMs: number = DEFAULT_SUSPEND_AFTER_MS,
 ): SubscriptionStatus | null {
   const status = asStatus(sub.status);
   if (!status) return null;
@@ -45,7 +55,36 @@ export function classifyLifecycle(
   const periodEnd = sub.currentPeriodEnd?.getTime();
   if (periodEnd == null || !Number.isFinite(periodEnd)) return null;
 
-  if (status === "active" && periodEnd + PAST_DUE_AFTER_MS < nowMs) return "past_due";
-  if ((status === "past_due" || status === "grace") && periodEnd + SUSPEND_AFTER_MS < nowMs) return "suspended";
+  if (status === "active" && periodEnd + pastDueAfterMs < nowMs) return "past_due";
+  if ((status === "past_due" || status === "grace") && periodEnd + suspendAfterMs < nowMs) return "suspended";
   return null;
+}
+
+/**
+ * Async version that resolves settings from the database.
+ * Use this in production code; keep classifyLifecycle pure for tests.
+ */
+export async function classifyLifecycleAsync(
+  sub: {
+    status: string;
+    currentPeriodEnd: Date | null;
+    trialEndsAt?: Date | null;
+  },
+  nowMs: number = Date.now(),
+): Promise<SubscriptionStatus | null> {
+  let pastDueAfterMs = DEFAULT_PAST_DUE_AFTER_MS;
+  let suspendAfterMs = DEFAULT_SUSPEND_AFTER_MS;
+
+  try {
+    const [graceDays, suspendDays] = await Promise.all([
+      resolveSetting<number>("past_due_grace_days"),
+      resolveSetting<number>("suspend_after_days"),
+    ]);
+    pastDueAfterMs = graceDays * 86_400_000;
+    suspendAfterMs = suspendDays * 86_400_000;
+  } catch {
+    // Use defaults if settings unavailable
+  }
+
+  return classifyLifecycle(sub, nowMs, pastDueAfterMs, suspendAfterMs);
 }

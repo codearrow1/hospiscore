@@ -4,32 +4,56 @@
  * (max 4 attempts). Recovered on successful payment; after final failure the
  * subscription is suspended and the case is given up.
  * Emails go through lib/mailer (console transport in dev).
+ *
+ * Settings (via Settings Resolver):
+ * - dunning_retry_schedule: Array of retry intervals in days [default: [1,3,5,7]]
+ * - dunning_max_attempts: Maximum retry attempts [default: 4]
  */
 import { prisma } from "@/lib/prisma";
 import { sendMail } from "@/lib/mailer";
+import { resolveSetting } from "@/lib/settings/resolver";
 
 export type DunningStatus = "active" | "recovered" | "suspended" | "given_up";
 export const DUNNING_STATUSES: DunningStatus[] = ["active", "recovered", "suspended", "given_up"];
 
-/** Retry schedule in days after each failed attempt (index = attempt number just made) */
-export const RETRY_SCHEDULE_DAYS = [1, 3, 5, 7];
+/** Default retry schedule (used as fallback if setting unavailable) */
+export const DEFAULT_RETRY_SCHEDULE_DAYS = [1, 3, 5, 7];
 
-export function nextRetryAfterAttempt(attempt: number, from = new Date()): Date | null {
-  // After contact N, check again RETRY_SCHEDULE_DAYS[N-1] later; beyond the ladder there is no next check.
-  if (attempt < 1 || attempt > RETRY_SCHEDULE_DAYS.length) return null;
-  return new Date(from.getTime() + RETRY_SCHEDULE_DAYS[attempt - 1] * 86400000);
+/** Backward-compatible constant (resolves to default schedule) */
+export const RETRY_SCHEDULE_DAYS = DEFAULT_RETRY_SCHEDULE_DAYS;
+
+/** Get retry schedule from settings */
+async function getRetrySchedule(): Promise<number[]> {
+  try {
+    return await resolveSetting<number[]>("dunning_retry_schedule");
+  } catch {
+    return DEFAULT_RETRY_SCHEDULE_DAYS;
+  }
+}
+
+export async function nextRetryAfterAttempt(attempt: number, from = new Date()): Promise<Date | null> {
+  const schedule = await getRetrySchedule();
+  return nextRetryAfterAttemptSync(attempt, from, schedule);
+}
+
+/** Synchronous version using a provided schedule (for tests and backward compat). */
+export function nextRetryAfterAttemptSync(attempt: number, from = new Date(), schedule: number[] = DEFAULT_RETRY_SCHEDULE_DAYS): Date | null {
+  // After contact N, check again schedule[N-1] later; beyond the ladder there is no next check.
+  if (attempt < 1 || attempt > schedule.length) return null;
+  return new Date(from.getTime() + schedule[attempt - 1] * 86400000);
 }
 
 export async function startDunning(params: { invoiceId: string; organizationId: string; subscriptionId?: string | null; reason?: string }): Promise<{ caseId: string; resumed: boolean }> {
   const existing = await prisma.dunningCase.findFirst({ where: { invoiceId: params.invoiceId, status: "active" } });
   if (existing) return { caseId: existing.id, resumed: true };
+  const nextRetry = await nextRetryAfterAttempt(1);
   const dc = await prisma.dunningCase.create({
     data: {
       organizationId: params.organizationId,
       invoiceId: params.invoiceId,
       subscriptionId: params.subscriptionId ?? null,
       attempt: 1,
-      nextRetryAt: nextRetryAfterAttempt(1),
+      nextRetryAt: nextRetry,
       lastError: params.reason?.slice(0, 300) ?? null,
       status: "active",
     },
@@ -86,9 +110,10 @@ export async function processDueCases(now = new Date()): Promise<{ processed: nu
       suspended++;
       continue;
     }
+    const nextRetry = await nextRetryAfterAttempt(attempt);
     await prisma.dunningCase.update({
       where: { id: dc.id },
-      data: { attempt, nextRetryAt: nextRetryAfterAttempt(attempt) },
+      data: { attempt, nextRetryAt: nextRetry },
     });
     await notify(await orgPrimaryEmail(dc.organizationId), `Reminder ${attempt}/${dc.maxAttempts}: invoice payment overdue`, dunningHtml(dc.organizationId, attempt));
   }

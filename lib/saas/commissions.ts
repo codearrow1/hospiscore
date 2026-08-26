@@ -8,6 +8,7 @@
 import { prisma } from "@/lib/prisma";
 import { isSelfReferral, lockAttribution, type AttributionModel } from "./attribution";
 import { calculateOverrideCommissions } from "./multiTier";
+import { resolveSetting } from "@/lib/settings/resolver";
 
 export type CommissionStatus = "pending" | "eligible" | "approved" | "payable" | "paid" | "rejected" | "reversed" | "fraud_hold";
 export const COMMISSION_STATUSES = ["pending","eligible","approved","payable","paid","rejected","reversed","fraud_hold"] as const;
@@ -55,8 +56,10 @@ async function resolveCommissionParams(params: {
 
   let model = aff.customCommissionModel || aff.commissionModel;
   let value = aff.customCommissionValue ?? aff.commissionValue;
-  let recurringDuration = aff.customRecurringDuration ?? 12;
-  let holdingPeriodDays = aff.customHoldingPeriodDays ?? 30;
+  const defaultRecurringDuration = await resolveSetting<number>("recurring_duration_months");
+  const defaultHoldingPeriod = await resolveSetting<number>("holding_period_days");
+  let recurringDuration = aff.customRecurringDuration ?? defaultRecurringDuration;
+  let holdingPeriodDays = aff.customHoldingPeriodDays ?? defaultHoldingPeriod;
   let maxCommission = aff.customMaxCommission ?? null;
   const campaignId = aff.campaignId || null;
 

@@ -2,9 +2,18 @@
  * Affiliate Fraud Detection Engine — Phase G
  * Conservative, multi-signal fraud detection with manual review queue.
  * No auto-bans. Risk score + reasons → hold status → manual review.
+ *
+ * Settings (via Settings Resolver):
+ * - fraud_should_flag_threshold: Risk score threshold for flagging [default: 50]
+ * - fraud_no_conversion_clicks: Clicks before no-conversion signal [default: 100]
+ * - fraud_low_conversion_ratio: Click/conversion ratio threshold [default: 200]
+ * - fraud_ip_concentration_threshold: IP click concentration threshold [default: 50]
+ * - fraud_immediate_cancellation_days: Days for immediate cancellation signal [default: 7]
+ * - fraud_signal_weights: Signal weights (JSON) [default: { self_referral: 80, ... }]
  */
 
 import { prisma } from "@/lib/prisma";
+import { resolveSetting } from "@/lib/settings/resolver";
 
 export type FraudStatus = "open" | "investigating" | "resolved" | "dismissed";
 export const FRAUD_STATUSES = ["open","investigating","resolved","dismissed"] as const;
@@ -30,6 +39,59 @@ interface FraudSignal {
   detail: string;
 }
 
+interface FraudWeights {
+  self_referral: number;
+  no_conversions: number;
+  low_conversion: number;
+  immediate_cancel: number;
+  ip_concentration: number;
+}
+
+const DEFAULT_WEIGHTS: FraudWeights = {
+  self_referral: 80,
+  no_conversions: 30,
+  low_conversion: 20,
+  immediate_cancel: 50,
+  ip_concentration: 25,
+};
+
+async function getFraudSettings() {
+  try {
+    const [
+      shouldFlagThreshold,
+      noConversionClicks,
+      lowConversionRatio,
+      ipConcentrationThreshold,
+      immediateCancellationDays,
+      signalWeights,
+    ] = await Promise.all([
+      resolveSetting<number>("fraud_should_flag_threshold"),
+      resolveSetting<number>("fraud_no_conversion_clicks"),
+      resolveSetting<number>("fraud_low_conversion_ratio"),
+      resolveSetting<number>("fraud_ip_concentration_threshold"),
+      resolveSetting<number>("fraud_immediate_cancellation_days"),
+      resolveSetting<FraudWeights>("fraud_signal_weights"),
+    ]);
+    return {
+      shouldFlagThreshold,
+      noConversionClicks,
+      lowConversionRatio,
+      ipConcentrationThreshold,
+      immediateCancellationDays,
+      signalWeights: { ...DEFAULT_WEIGHTS, ...signalWeights },
+    };
+  } catch {
+    return {
+      shouldFlagThreshold: 50,
+      noConversionClicks: 100,
+      lowConversionRatio: 200,
+      ipConcentrationThreshold: 50,
+      immediateCancellationDays: 7,
+      signalWeights: DEFAULT_WEIGHTS,
+    };
+  }
+}
+
 /**
  * Run fraud detection checks on an affiliate. Returns risk score and flagged signals.
  * Does NOT create a fraud case — caller decides whether to flag.
@@ -45,6 +107,7 @@ export async function detectFraud(affiliateId: string): Promise<{
   });
   if (!aff) throw new Error("Affiliate not found");
 
+  const settings = await getFraudSettings();
   const signals: FraudSignal[] = [];
   let totalWeight = 0;
 
@@ -58,8 +121,8 @@ export async function detectFraud(affiliateId: string): Promise<{
     select: { id: true, legalName: true },
   });
   if (selfRefOrgs.length > 0) {
-    signals.push({ signal: "self_referral_org", weight: 80, detail: `Affiliate email matches ${selfRefOrgs.length} organization(s)` });
-    totalWeight += 80;
+    signals.push({ signal: "self_referral_org", weight: settings.signalWeights.self_referral, detail: `Affiliate email matches ${selfRefOrgs.length} organization(s)` });
+    totalWeight += settings.signalWeights.self_referral;
   }
 
   // Signal 2: Abnormal click→conversion ratio
@@ -67,14 +130,14 @@ export async function detectFraud(affiliateId: string): Promise<{
     prisma.affiliateClick.count({ where: { affiliateId } }),
     prisma.affiliateCommission.count({ where: { affiliateId, amount: { gt: 0 } } }),
   ]);
-  if (clickCount > 100 && commissionCount === 0) {
-    signals.push({ signal: "no_conversions", weight: 30, detail: `${clickCount} clicks, 0 conversions` });
-    totalWeight += 30;
+  if (clickCount > settings.noConversionClicks && commissionCount === 0) {
+    signals.push({ signal: "no_conversions", weight: settings.signalWeights.no_conversions, detail: `${clickCount} clicks, 0 conversions` });
+    totalWeight += settings.signalWeights.no_conversions;
   } else if (clickCount > 0 && commissionCount > 0) {
     const ratio = clickCount / commissionCount;
-    if (ratio > 200) {
-      signals.push({ signal: "low_conversion_rate", weight: 20, detail: `${clickCount} clicks / ${commissionCount} conversions = ${ratio.toFixed(1)}:1` });
-      totalWeight += 20;
+    if (ratio > settings.lowConversionRatio) {
+      signals.push({ signal: "low_conversion_rate", weight: settings.signalWeights.low_conversion, detail: `${clickCount} clicks / ${commissionCount} conversions = ${ratio.toFixed(1)}:1` });
+      totalWeight += settings.signalWeights.low_conversion;
     }
   }
 
@@ -88,9 +151,9 @@ export async function detectFraud(affiliateId: string): Promise<{
   for (const c of recentCommissions) {
     if (c.subscription?.cancelAt && c.subscription?.createdAt) {
       const daysBetween = (c.subscription.cancelAt.getTime() - c.subscription.createdAt.getTime()) / 86400000;
-      if (daysBetween < 7) {
-        signals.push({ signal: "immediate_cancellation", weight: 50, detail: `Subscription cancelled after ${Math.round(daysBetween)} days` });
-        totalWeight += 50;
+      if (daysBetween < settings.immediateCancellationDays) {
+        signals.push({ signal: "immediate_cancellation", weight: settings.signalWeights.immediate_cancel, detail: `Subscription cancelled after ${Math.round(daysBetween)} days` });
+        totalWeight += settings.signalWeights.immediate_cancel;
         break;
       }
     }
@@ -102,14 +165,14 @@ export async function detectFraud(affiliateId: string): Promise<{
     where: { affiliateId, ip: { not: null } },
     _count: { _all: true },
   });
-  const ipGroups = ipGroupsRaw.filter(g => (g._count?._all ?? 0) > 50);
+  const ipGroups = ipGroupsRaw.filter(g => (g._count?._all ?? 0) > settings.ipConcentrationThreshold);
   if (ipGroups.length > 0) {
-    signals.push({ signal: "ip_concentration", weight: 25, detail: `${ipGroups.length} IP(s) with 50+ clicks` });
-    totalWeight += 25;
+    signals.push({ signal: "ip_concentration", weight: settings.signalWeights.ip_concentration, detail: `${ipGroups.length} IP(s) with ${settings.ipConcentrationThreshold}+ clicks` });
+    totalWeight += settings.signalWeights.ip_concentration;
   }
 
   const riskScore = Math.min(totalWeight, 100);
-  const shouldFlag = riskScore >= 50; // Conservative threshold
+  const shouldFlag = riskScore >= settings.shouldFlagThreshold;
 
   return { riskScore, signals, shouldFlag };
 }

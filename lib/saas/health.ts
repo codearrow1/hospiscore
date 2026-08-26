@@ -6,6 +6,7 @@
  * Statuses: healthy | stable | at_risk | critical | churned
  */
 import { prisma } from "@/lib/prisma";
+import { resolveSetting } from "@/lib/settings/resolver";
 
 export type HealthStatus = "healthy" | "stable" | "at_risk" | "critical" | "churned";
 
@@ -40,10 +41,11 @@ export async function computeHealth(orgId: string): Promise<{ score: number | nu
     return { score: 0, status: "churned", signals: { subscription: sub.status } };
   }
 
-  const since90 = new Date(Date.now() - 90 * DAY);
+  const paymentWindowDays = await resolveSetting<number>("health_payment_window_days");
+  const sinceWindow = new Date(Date.now() - paymentWindowDays * DAY);
   const [failedPayments, totalPayments, lastUsage, usageAgg, openTickets] = await Promise.all([
-    prisma.payment.count({ where: { organizationId: orgId, status: "failed", createdAt: { gte: since90 } } }),
-    prisma.payment.count({ where: { organizationId: orgId, createdAt: { gte: since90 } } }),
+    prisma.payment.count({ where: { organizationId: orgId, status: "failed", createdAt: { gte: sinceWindow } } }),
+    prisma.payment.count({ where: { organizationId: orgId, createdAt: { gte: sinceWindow } } }),
     prisma.usageRecord.findFirst({ where: { organizationId: orgId }, orderBy: { recordedAt: "desc" }, select: { recordedAt: true } }),
     prisma.usageRecord.aggregate({ where: { organizationId: orgId, metric: "users" }, _max: { quantity: true } }),
     prisma.supportTicket.count({ where: { organizationId: orgId, status: { in: ["open", "pending", "in_progress"] } } }),

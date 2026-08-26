@@ -2,12 +2,25 @@
  * Enhanced Payout Engine — Phase H
  * Multi-currency payout support, period tracking, settlement runs.
  * Extends the existing payouts.ts FIFO consumption logic.
+ *
+ * Settings (via Settings Resolver):
+ * - min_payout_cents: Minimum payout threshold [default: 5000]
  */
 
 import { prisma } from "@/lib/prisma";
 import { availablePayoutBalance } from "./payouts";
+import { resolveSetting } from "@/lib/settings/resolver";
 
 export type PayoutRequestStatus = "requested" | "approved" | "processing" | "paid" | "failed";
+
+/** Get min payout from settings (fallback to 5000 cents) */
+async function getMinPayout(): Promise<number> {
+  try {
+    return await resolveSetting<number>("min_payout_cents");
+  } catch {
+    return 5000;
+  }
+}
 
 /**
  * Create a payout request with period tracking and currency validation.
@@ -79,12 +92,14 @@ export async function runSettlementBatch(opts?: { campaignId?: string }) {
     : [];
   const campaignMinPayouts = new Map(campaigns.map(c => [c.id, c.minPayout]));
 
+  const defaultMinPayout = await getMinPayout();
+
   for (const aff of affiliates) {
     try {
       const balance = await availablePayoutBalance({ affiliateId: aff.id });
       if (balance <= 0) continue;
 
-      const minPayout = (aff.campaignId && campaignMinPayouts.get(aff.campaignId)) || 5000;
+      const minPayout = (aff.campaignId && campaignMinPayouts.get(aff.campaignId)) || defaultMinPayout;
       if (balance < minPayout) continue;
 
       const payout = await requestPayout({

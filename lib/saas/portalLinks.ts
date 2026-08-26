@@ -16,6 +16,7 @@
 import { createHash, randomBytes } from "node:crypto";
 import { Prisma } from "@/lib/generated/prisma/client";
 import { prisma } from "@/lib/prisma";
+import { resolveSetting } from "@/lib/settings/resolver";
 
 export type PortalKind = "affiliate" | "partner" | "org_contact";
 export const PORTAL_KINDS: readonly PortalKind[] = ["affiliate", "partner", "org_contact"];
@@ -41,6 +42,14 @@ export interface PortalClaimRecord {
 const BINDINGS_KEY = "portal_bindings";
 const CLAIMS_KEY = "portal_claims";
 export const CLAIM_TTL_MS = 15 * 60_000;
+
+async function getClaimTtl(): Promise<number> {
+  try {
+    return await resolveSetting<number>("portal_claim_ttl_ms");
+  } catch {
+    return CLAIM_TTL_MS;
+  }
+}
 
 /** Injectable KV seam so the pure logic is unit-testable without Prisma. */
 export interface PortalStore {
@@ -153,10 +162,11 @@ export async function createPortalClaimToken(params: { kind: PortalKind; refId: 
     throw new Error("Portal identity not found");
   }
   const token = randomBytes(24).toString("base64url");
+  const ttl = await getClaimTtl();
   const rec: PortalClaimRecord = {
     kind: params.kind,
     refId: params.refId,
-    expiresAt: new Date(Date.now() + CLAIM_TTL_MS).toISOString(),
+    expiresAt: new Date(Date.now() + ttl).toISOString(),
     createdBy: params.createdBy,
   };
   const map = await readMap(CLAIMS_KEY);
