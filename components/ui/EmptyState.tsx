@@ -49,7 +49,7 @@ export function FilteredEmptyState({
           <button
             type="button"
             onClick={onClear}
-            className="rounded-lg border border-line px-3 py-1.5 text-xs font-semibold hover:bg-surface-subtle"
+            className="inline-flex min-h-9 items-center rounded-lg border border-line px-3 py-1.5 text-xs font-semibold hover:bg-surface-subtle"
           >
             {clearLabel}
           </button>

@@ -1,6 +1,7 @@
 "use client";
 
-import { useEffect, useRef, type ReactNode } from "react";
+import { useRef, type ReactNode } from "react";
+import { useFocusTrap } from "@/hooks/useFocusTrap";
 
 /**
  * Right-side slide-over panel for contextual details. Shares the a11y
@@ -24,41 +25,8 @@ export function DetailDrawer({
   width?: string;
 }) {
   const panelRef = useRef<HTMLDivElement>(null);
-  const restoreRef = useRef<HTMLElement | null>(null);
 
-  useEffect(() => {
-    if (!open) return;
-    restoreRef.current = document.activeElement as HTMLElement | null;
-    setTimeout(() => panelRef.current?.focus(), 10);
-    const onKey = (e: KeyboardEvent) => {
-      if (e.key === "Escape") {
-        e.preventDefault();
-        onClose();
-      }
-      if (e.key === "Tab" && panelRef.current) {
-        const nodes = Array.from(
-          panelRef.current.querySelectorAll<HTMLElement>(
-            'a[href], button:not([disabled]), input:not([disabled]), select:not([disabled]), textarea:not([disabled]), [tabindex]:not([tabindex="-1"])',
-          ),
-        );
-        if (nodes.length === 0) return;
-        const first = nodes[0];
-        const last = nodes[nodes.length - 1];
-        if (e.shiftKey && document.activeElement === first) {
-          e.preventDefault();
-          last.focus();
-        } else if (!e.shiftKey && document.activeElement === last) {
-          e.preventDefault();
-          first.focus();
-        }
-      }
-    };
-    document.addEventListener("keydown", onKey);
-    return () => {
-      document.removeEventListener("keydown", onKey);
-      restoreRef.current?.focus?.();
-    };
-  }, [open, onClose]);
+  useFocusTrap(panelRef, open, { onEscape: onClose });
 
   if (!open) return null;
 
@@ -80,7 +48,7 @@ export function DetailDrawer({
             type="button"
             onClick={onClose}
             aria-label="Close panel"
-            className="rounded-lg p-1.5 text-zinc-400 hover:bg-surface-subtle hover:text-zinc-700 dark:hover:text-zinc-200"
+            className="rounded-lg p-2.5 text-zinc-400 hover:bg-surface-subtle hover:text-zinc-700 dark:hover:text-zinc-200"
           >
             <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
               <path d="M6 6l12 12M18 6L6 18" />
@@ -88,7 +56,7 @@ export function DetailDrawer({
           </button>
         </div>
         <div className="min-h-0 flex-1 overflow-y-auto px-5 py-4">{children}</div>
-        {footer && <div className="border-t border-line px-5 py-3">{footer}</div>}
+        {footer && <div className="border-t border-line px-5 py-3" style={{ paddingBottom: "max(0.75rem, env(safe-area-inset-bottom, 0px))" }}>{footer}</div>}
       </div>
     </div>
   );

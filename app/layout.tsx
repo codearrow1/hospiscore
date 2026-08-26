@@ -5,6 +5,7 @@ import JsonLd from "@/components/JsonLd";
 import ScrollProgress from "@/components/marketing/ScrollProgress";
 import BackToTop from "@/components/marketing/BackToTop";
 import ThemeInit from "@/components/account/ThemeInit";
+import ServiceWorkerRegistration from "@/components/ServiceWorkerRegistration";
 import { SITE_DESCRIPTION, SITE_NAME, SITE_TAGLINE, SITE_URL, ogImage } from "@/lib/site";
 import "./globals.css";
 
@@ -39,6 +40,8 @@ export const metadata: Metadata = {
   authors: [{ name: SITE_NAME }],
   creator: SITE_NAME,
   applicationName: SITE_NAME,
+  manifest: "/manifest.json",
+  themeColor: "#6366f1",
   alternates: {
     canonical: "/",
   },
@@ -77,6 +80,7 @@ export default function RootLayout({ children }: { children: ReactNode }) {
     >
       <body className="min-h-full flex flex-col">
         <ThemeInit />
+        <ServiceWorkerRegistration />
         <a href="#main" className="skip-link">
           Skip to content
         </a>

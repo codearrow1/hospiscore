@@ -27,11 +27,11 @@ export function KpiTile({
   const body = (
     <>
       <div className="flex items-center justify-between gap-2">
-        <p className="text-xs font-semibold uppercase tracking-wide text-zinc-400">{label}</p>
+        <p className="text-xs font-semibold uppercase tracking-wide text-ink-secondary">{label}</p>
         {icon ? <span aria-hidden>{icon}</span> : null}
       </div>
-      <p className={`mt-2 text-2xl font-bold tabular-nums ${accent ?? "text-zinc-900 dark:text-zinc-50"}`}>{value}</p>
-      <div className="mt-1 flex items-center gap-2 text-xs text-zinc-500 dark:text-zinc-400">
+      <p className={`mt-2 text-2xl font-bold tabular-nums ${accent ?? "text-foreground"}`}>{value}</p>
+      <div className="mt-1 flex items-center gap-2 text-xs text-ink-secondary">
         {delta && delta.pct != null && Number.isFinite(delta.pct) ? <DeltaPill delta={delta} /> : null}
         {hint ? <span className="truncate">{hint}</span> : null}
       </div>
@@ -41,13 +41,13 @@ export function KpiTile({
     return (
       <Link
         href={href}
-        className="block rounded-2xl border border-zinc-200 bg-white p-4 shadow-sm transition hover:border-indigo-400 dark:border-zinc-800 dark:bg-zinc-900"
+        className="block rounded-2xl border border-line bg-surface p-4 shadow-sm transition hover:border-indigo-400"
       >
         {body}
       </Link>
     );
   }
-  return <div className="rounded-2xl border border-zinc-200 bg-white p-4 shadow-sm dark:border-zinc-800 dark:bg-zinc-900">{body}</div>;
+  return <div className="rounded-2xl border border-line bg-surface p-4 shadow-sm">{body}</div>;
 }
 
 function DeltaPill({ delta }: { delta: KpiDelta }) {
@@ -56,7 +56,7 @@ function DeltaPill({ delta }: { delta: KpiDelta }) {
   const up = pct > 0;
   const good = flat ? null : delta.goodWhen === "up" ? up : !up;
   const cls = good == null
-    ? "bg-zinc-100 text-zinc-500 dark:bg-zinc-800 dark:text-zinc-400"
+    ? "bg-surface-subtle text-ink-secondary"
     : good
       ? "bg-emerald-100 text-emerald-700 dark:bg-emerald-950 dark:text-emerald-300"
       : "bg-rose-100 text-rose-700 dark:bg-rose-950 dark:text-rose-300";

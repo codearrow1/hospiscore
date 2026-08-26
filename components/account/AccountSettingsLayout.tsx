@@ -33,6 +33,7 @@ export default function AccountSettingsLayout({ children }: AccountSettingsLayou
               <a
                 key={item.href}
                 href={item.href}
+                aria-current={pathname === item.href ? "page" : undefined}
                 className={`whitespace-nowrap rounded-lg px-3 py-2 text-sm font-medium transition-colors ${
                   pathname === item.href
                     ? "bg-indigo-50 text-indigo-700 dark:bg-indigo-900/30 dark:text-indigo-400"

@@ -225,7 +225,7 @@ export default function AuthCard({ onAuthed }: Props) {
           {!isRegister && (
             <button
               onClick={() => { setShowForgot(true); setError(null); }}
-              className="mt-2 w-full text-center text-xs font-medium text-zinc-500 hover:text-indigo-600 hover:underline dark:text-zinc-400"
+              className="mt-2 inline-flex min-h-9 w-full items-center justify-center rounded-lg px-3 py-2 text-xs font-medium text-zinc-500 hover:text-indigo-600 hover:underline dark:text-zinc-400"
             >
               Forgot your password?
             </button>

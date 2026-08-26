@@ -23,7 +23,7 @@ export default function DemoPage() {
     <div className="flex min-h-screen flex-col">
       <Header />
 
-      <main className="flex-1 bg-zinc-50/60 dark:bg-zinc-900/40">
+      <main id="main" className="flex-1 bg-zinc-50/60 dark:bg-zinc-900/40">
         <section className="mx-auto grid w-full max-w-6xl gap-12 px-4 py-16 sm:px-6 lg:grid-cols-2 lg:items-center lg:py-24">
           <Reveal from="left">
             <div>

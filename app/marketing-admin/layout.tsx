@@ -2,7 +2,9 @@ import type { ReactNode } from "react";
 import { redirect } from "next/navigation";
 import { AppShell } from "@/components/shell/AppShell";
 import { NavIcon } from "@/components/shell/NavIcon";
+import PortalBottomNav from "@/components/shell/PortalBottomNav";
 import type { NavItem } from "@/components/shell/types";
+import type { BottomNavItem } from "@/components/shell/PortalBottomNav";
 import { restrictedPanel } from "@/app/marketing-admin/restricted";
 import { getCurrentUser } from "@/lib/sessionCookie";
 import {
@@ -27,6 +29,14 @@ const ALL_NAV: (NavItem & { capability?: Parameters<typeof hasCapability>[1] })[
   { href: "/marketing-admin/audit", label: "Audit log", capability: "audit.read" },
   { href: "/marketing-admin/settings", label: "Settings", capability: "settings.manage" },
   { href: "/saas", label: "SaaS Control Plane" },
+];
+
+const MARKETING_BOTTOM_NAV: BottomNavItem[] = [
+  { href: "/marketing-admin", label: "Home" },
+  { href: "/marketing-admin/leads", label: "Leads" },
+  { href: "/marketing-admin/pipeline", label: "Pipeline" },
+  { href: "/marketing-admin/campaigns", label: "Campaigns" },
+  { href: "/marketing-admin/settings", label: "Settings" },
 ];
 
 const ICONS: Record<string, string> = {
@@ -78,6 +88,7 @@ export default async function MarketingAdminLayout({ children }: { children: Rea
       }}
       nav={nav}
       leadSearch
+      bottomNav={<PortalBottomNav items={MARKETING_BOTTOM_NAV} />}
     >
       {children}
     </AppShell>

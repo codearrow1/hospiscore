@@ -259,14 +259,14 @@ export default function DemosCalendar({
         <div className="flex items-center gap-1 rounded-xl bg-zinc-100 p-1 dark:bg-zinc-800">
           <Link
             href={navHref({ view: "week" })}
-            aria-current={view === "week"}
+            aria-pressed={view === "week"}
             className={`rounded-lg px-3 py-1.5 text-xs font-semibold transition ${view === "week" ? "bg-white shadow-sm dark:bg-zinc-900" : "text-zinc-500 hover:text-zinc-700 dark:hover:text-zinc-200"}`}
           >
             Week
           </Link>
           <Link
             href={navHref({ view: "list", page: undefined })}
-            aria-current={view === "list"}
+            aria-pressed={view === "list"}
             className={`rounded-lg px-3 py-1.5 text-xs font-semibold transition ${view === "list" ? "bg-white shadow-sm dark:bg-zinc-900" : "text-zinc-500 hover:text-zinc-700 dark:hover:text-zinc-200"}`}
           >
             List

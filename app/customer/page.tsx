@@ -93,7 +93,6 @@ export default async function CustomerPortal() {
 
   return (
     <div className="space-y-6">
-      <OnboardingChecklist title="Getting started" />
       <CustomerPortalClient
         orgLabel={[org.businessName || org.legalName, org.country].filter(Boolean).join(" · ")}
         healthStatus={org.healthStatus || org.status}
@@ -102,6 +101,7 @@ export default async function CustomerPortal() {
         usage30d={usage.map((u) => ({ metric: u.metric, quantity: u._sum.quantity ?? 0 }))}
         invoices={invoiceList}
       />
+      <OnboardingChecklist title="Getting started" />
     </div>
   );
 }

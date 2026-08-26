@@ -81,10 +81,12 @@ export default function PreferencesForm() {
         <p className="mt-1 text-sm text-zinc-500 dark:text-zinc-400">
           Choose how HospiOS looks on this device.
         </p>
-        <div className="mt-4 grid grid-cols-3 gap-3 max-w-md">
+        <div role="radiogroup" aria-label="Color theme" className="mt-4 grid grid-cols-3 gap-3 max-w-md">
           {(["light", "dark", "system"] as const).map((opt) => (
             <button
               key={opt}
+              role="radio"
+              aria-checked={theme === opt}
               onClick={() => applyTheme(opt)}
               className={`rounded-lg border px-4 py-3 text-sm font-medium transition-colors ${
                 theme === opt

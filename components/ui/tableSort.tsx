@@ -55,7 +55,7 @@ export function SortHeader({
       <button
         type="button"
         onClick={() => onSort(nextSort(sort, sortKey))}
-        className="inline-flex min-h-6 items-center gap-1 tracking-wide transition hover:text-zinc-700 dark:hover:text-zinc-200"
+        className="inline-flex min-h-9 items-center gap-1 tracking-wide transition hover:text-zinc-700 dark:hover:text-zinc-200"
         aria-label={`Sort by ${label}`}
       >
         {label}

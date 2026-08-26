@@ -126,7 +126,7 @@ export function SearchableSelect({
                 aria-selected={o.value === value}
                 onClick={() => commit(o.value)}
                 onMouseEnter={() => setActive(i)}
-                className={`flex w-full flex-col rounded-lg px-2.5 py-1.5 text-left text-sm ${
+                className={`flex w-full flex-col rounded-lg px-2.5 py-2 text-left text-sm ${
                   i === active ? "bg-brand-soft" : ""
                 } ${o.value === value ? "font-semibold" : ""}`}
               >

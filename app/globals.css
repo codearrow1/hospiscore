@@ -95,9 +95,14 @@ body {
 }
 
 :focus-visible {
-  outline: 2px solid #4f46e5;
+  outline: 2px solid var(--brand, #4f46e5);
   outline-offset: 2px;
   border-radius: 4px;
+}
+
+/* Suppress focus ring on pointer-mouse clicks; keep for keyboard */
+:focus:not(:focus-visible) {
+  outline: none;
 }
 
 [id] {
@@ -754,5 +759,57 @@ a {
   .faq-panel,
   .tilt-card {
     transition: none !important;
+  }
+}
+
+/* Print — hide chrome, show content, force light colors */
+@media print {
+  *,
+  *::before,
+  *::after {
+    background: transparent !important;
+    color: #000 !important;
+    box-shadow: none !important;
+    text-shadow: none !important;
+  }
+  body {
+    font-size: 12pt;
+    line-height: 1.4;
+  }
+  nav, header, footer, .skip-link, .scroll-progress, .back-to-top,
+  [role="banner"], [role="navigation"], button:not(.print-show),
+  .sidebar, .bottom-nav, .mobile-menu, .toast-container,
+  .animate-float, .animate-glow, .shimmer, .marquee-track,
+  .glow-border, .btn-shine, .reveal, .reveal-left, .reveal-right,
+  .reveal-scale {
+    display: none !important;
+  }
+  main, [role="main"], article, section {
+    display: block !important;
+    width: 100% !important;
+    margin: 0 !important;
+    padding: 0 !important;
+  }
+  a[href]::after {
+    content: " (" attr(href) ")";
+    font-size: 0.85em;
+    color: #555 !important;
+  }
+  a[href^="#"]::after,
+  a[href^="javascript:"]::after {
+    content: "";
+  }
+  h1, h2, h3, h4 {
+    page-break-after: avoid;
+  }
+  img {
+    max-width: 100% !important;
+    page-break-inside: avoid;
+  }
+  table {
+    border-collapse: collapse !important;
+  }
+  @page {
+    margin: 2cm;
   }
 }

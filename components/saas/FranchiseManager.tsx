@@ -378,7 +378,7 @@ export default function FranchiseManager({ initialTerritories, initialFranchisee
                 <td className="px-3 py-2 space-x-1">
                   {canManage && f.status === "proposed" && <button onClick={() => fStatus(f.id, "signed")} className={btnGhost}>Sign</button>}
                   {canManage && f.status === "signed" && <button onClick={() => fStatus(f.id, "active")} className={btnGhost}>Activate</button>}
-                  {canManage && ["signed", "active"].includes(f.status) && <button onClick={() => setTerminating(f)} className="rounded-lg border border-red-200 px-2 py-1 text-xs text-red-600">Terminate</button>}
+                  {canManage && ["signed", "active"].includes(f.status) && <button onClick={() => setTerminating(f)} className="rounded-lg border border-rose-200 px-2 py-1 text-xs text-rose-600 dark:border-rose-900 dark:text-rose-400">Terminate</button>}
                 </td>
               </tr>
             ))}

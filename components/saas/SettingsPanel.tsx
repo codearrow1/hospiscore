@@ -135,8 +135,8 @@ export default function SettingsPanel({ category }: { category: string }) {
         <div
           className={`rounded-lg px-4 py-3 text-sm font-medium ${
             feedback.type === "success"
-              ? "bg-green-50 text-green-800 border border-green-200"
-              : "bg-red-50 text-red-800 border border-red-200"
+              ? "border-emerald-200 bg-emerald-50 text-emerald-800 dark:border-emerald-900 dark:bg-emerald-950 dark:text-emerald-200"
+              : "border-rose-200 bg-rose-50 text-rose-800 dark:border-rose-900 dark:bg-rose-950 dark:text-rose-200"
           }`}
         >
           {feedback.text}

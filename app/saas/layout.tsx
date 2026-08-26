@@ -7,7 +7,9 @@ import type { SaasPermission } from "@/lib/saas/roles";
 import { initSaasDb } from "@/lib/saas/init";
 import { AppShell } from "@/components/shell/AppShell";
 import { NavIcon } from "@/components/shell/NavIcon";
+import PortalBottomNav from "@/components/shell/PortalBottomNav";
 import type { NavItem, QuickAction } from "@/components/shell/types";
+import type { BottomNavItem } from "@/components/shell/PortalBottomNav";
 import { restrictedPanel } from "@/app/marketing-admin/restricted";
 
 export const dynamic = "force-dynamic";
@@ -48,6 +50,14 @@ const QUICK_ACTIONS: QuickAction[] = [
   { label: "+ Subscription", href: "/saas/subscriptions?new=1" },
 ];
 
+const SAAS_BOTTOM_NAV: BottomNavItem[] = [
+  { href: "/saas", label: "Home" },
+  { href: "/saas/organizations", label: "Orgs" },
+  { href: "/saas/subscriptions", label: "Subs" },
+  { href: "/saas/billing", label: "Billing" },
+  { href: "/saas/settings", label: "Settings" },
+];
+
 export const metadata = {
   title: "SaaS Command Center · HospiOS",
   robots: { index: false, follow: false },
@@ -81,6 +91,7 @@ export default async function SaasLayout({ children }: { children: ReactNode }) 
       nav={nav}
       quickActions={QUICK_ACTIONS}
       entitySearch
+      bottomNav={<PortalBottomNav items={SAAS_BOTTOM_NAV} />}
     >
       {children}
     </AppShell>

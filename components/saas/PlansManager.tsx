@@ -101,7 +101,7 @@ export default function PlansManager({ initialPlans }: { initialPlans: Plan[] })
                 <td className="px-3 py-2">{p.isActive ? <Badge>Active</Badge> : <Badge>Off</Badge>}</td>
                 <td className="px-3 py-2 flex gap-1">
                   <button onClick={() => setEditing(p)} className={btnGhost}>Edit</button>
-                  <button onClick={() => setArchiving(p)} className="rounded-lg border border-red-200 px-2 py-1 text-xs text-red-600">Archive</button>
+                  <button onClick={() => setArchiving(p)} className="rounded-lg border border-rose-200 px-2 py-1 text-xs text-rose-600 dark:border-rose-900 dark:text-rose-400">Archive</button>
                 </td>
               </tr>
             ))}

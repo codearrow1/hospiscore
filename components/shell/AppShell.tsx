@@ -6,6 +6,7 @@ import { usePathname, useRouter } from "next/navigation";
 import { ToastProvider, useToast } from "@/components/ui/Toast";
 import { CommandPalette } from "./CommandPalette";
 import NotificationBell from "./NotificationBell";
+import { useFocusTrap } from "@/hooks/useFocusTrap";
 import type { NavItem, PlaneInfo, QuickAction, ShellUser } from "./types";
 
 /**
@@ -83,41 +84,12 @@ function ShellFrame({
   const hamburgerRef = useRef<HTMLButtonElement>(null);
   const drawerRef = useRef<HTMLDivElement>(null);
 
-  // Mobile drawer: move focus in on open, trap Tab, ESC closes, focus returns
-  // to the hamburger so keyboard/SR users never lose their place.
+  useFocusTrap(drawerRef, mobileOpen, { onEscape: () => setMobileOpen(false) });
+
+  // Mobile drawer: toggle aria-expanded on the hamburger.
   useEffect(() => {
-    if (!mobileOpen) return;
-    const opener = document.activeElement as HTMLElement | null;
     const hamburger = hamburgerRef.current;
-    hamburger?.setAttribute("aria-expanded", "true");
-    const drawer = drawerRef.current;
-    const first = drawer?.querySelector<HTMLElement>("a, button");
-    setTimeout(() => first?.focus(), 10);
-    const onKey = (e: KeyboardEvent) => {
-      if (e.key === "Escape") {
-        e.preventDefault();
-        setMobileOpen(false);
-        return;
-      }
-      if (e.key !== "Tab" || !drawer) return;
-      const nodes = Array.from(drawer.querySelectorAll<HTMLElement>("a[href], button:not([disabled])")).filter(
-        (n) => n.offsetParent !== null,
-      );
-      if (nodes.length === 0) return;
-      if (e.shiftKey && document.activeElement === nodes[0]) {
-        e.preventDefault();
-        nodes[nodes.length - 1].focus();
-      } else if (!e.shiftKey && document.activeElement === nodes[nodes.length - 1]) {
-        e.preventDefault();
-        nodes[0].focus();
-      }
-    };
-    document.addEventListener("keydown", onKey);
-    return () => {
-      document.removeEventListener("keydown", onKey);
-      hamburger?.setAttribute("aria-expanded", "false");
-      opener?.focus?.();
-    };
+    hamburger?.setAttribute("aria-expanded", mobileOpen ? "true" : "false");
   }, [mobileOpen]);
 
   // User menu closes on Escape.

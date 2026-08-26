@@ -302,6 +302,7 @@ export default function Header() {
           <Dropdown label="Solutions" items={SOLUTION_ITEMS} />
           <Link
             href="/pricing"
+            aria-current={pathname === "/pricing" ? "page" : undefined}
             className="link-underline rounded-lg px-3 py-2 text-sm text-zinc-400 transition hover:text-zinc-50"
           >
             Pricing
@@ -309,6 +310,7 @@ export default function Header() {
           <Dropdown label="Resources" items={RESOURCE_ITEMS} wide />
           <Link
             href="/score-check"
+            aria-current={pathname === "/score-check" ? "page" : undefined}
             className="link-underline rounded-lg px-3 py-2 text-sm font-medium text-indigo-300 transition hover:text-indigo-200"
           >
             Score check

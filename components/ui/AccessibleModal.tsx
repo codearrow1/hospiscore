@@ -1,9 +1,7 @@
 "use client";
 
-import { useEffect, useRef, type ReactNode } from "react";
-
-const FOCUSABLE =
-  'a[href], button:not([disabled]), textarea:not([disabled]), input:not([disabled]), select:not([disabled]), [tabindex]:not([tabindex="-1"])';
+import { useRef, type ReactNode } from "react";
+import { useFocusTrap } from "@/hooks/useFocusTrap";
 
 /**
  * Sticky action footer for forms rendered inside a modal sheet. Pins to the
@@ -34,43 +32,11 @@ export function AccessibleModal({
   initialFocusRef?: React.RefObject<HTMLElement | null>;
 }) {
   const panelRef = useRef<HTMLDivElement>(null);
-  const restoreRef = useRef<HTMLElement | null>(null);
 
-  useEffect(() => {
-    if (!open) return;
-    restoreRef.current = document.activeElement as HTMLElement | null;
-
-    const target = initialFocusRef?.current ?? panelRef.current;
-    const first = target?.querySelector<HTMLElement>(FOCUSABLE);
-    setTimeout(() => (first ?? target)?.focus(), 10);
-
-    const onKeyDown = (e: KeyboardEvent) => {
-      if (e.key === "Escape") {
-        e.preventDefault();
-        onClose();
-        return;
-      }
-      if (e.key !== "Tab" || !panelRef.current) return;
-      const nodes = Array.from(panelRef.current.querySelectorAll<HTMLElement>(FOCUSABLE)).filter(
-        (n) => n.offsetParent !== null,
-      );
-      if (nodes.length === 0) return;
-      const firstEl = nodes[0];
-      const lastEl = nodes[nodes.length - 1];
-      if (e.shiftKey && document.activeElement === firstEl) {
-        e.preventDefault();
-        lastEl.focus();
-      } else if (!e.shiftKey && document.activeElement === lastEl) {
-        e.preventDefault();
-        firstEl.focus();
-      }
-    };
-    document.addEventListener("keydown", onKeyDown);
-    return () => {
-      document.removeEventListener("keydown", onKeyDown);
-      restoreRef.current?.focus?.();
-    };
-  }, [open, onClose, initialFocusRef]);
+  useFocusTrap(panelRef, open, {
+    onEscape: onClose,
+    initialFocusRef,
+  });
 
   if (!open) return null;
 
