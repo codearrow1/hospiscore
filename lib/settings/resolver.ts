@@ -101,6 +101,11 @@ const SETTING_DEFINITIONS: SettingDefinition[] = [
 
   // Franchise defaults
   { key: "franchise_default_revenue_share_bps", type: "number", defaultValue: 1500, description: "Default franchise revenue share (bps)", category: "affiliate", min: 0 },
+
+  // Organization defaults
+  { key: "org_default_country", type: "string", defaultValue: "", description: "Default country for new organizations (ISO2)", category: "platform" },
+  { key: "org_default_currency", type: "string", defaultValue: "USD", description: "Default billing currency for new subscriptions", category: "platform", options: ["USD", "EUR", "GBP", "INR", "ZAR", "AED"] },
+  { key: "org_default_timezone", type: "string", defaultValue: "UTC", description: "Default timezone for new organizations", category: "platform" },
 ];
 
 export function getSettingDefinitions(): SettingDefinition[] {

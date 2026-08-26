@@ -4,6 +4,7 @@ import { Inter, Geist_Mono } from "next/font/google";
 import JsonLd from "@/components/JsonLd";
 import ScrollProgress from "@/components/marketing/ScrollProgress";
 import BackToTop from "@/components/marketing/BackToTop";
+import ThemeInit from "@/components/account/ThemeInit";
 import { SITE_DESCRIPTION, SITE_NAME, SITE_TAGLINE, SITE_URL, ogImage } from "@/lib/site";
 import "./globals.css";
 
@@ -75,6 +76,7 @@ export default function RootLayout({ children }: { children: ReactNode }) {
       className={`${inter.variable} ${geistMono.variable} dark h-full antialiased`}
     >
       <body className="min-h-full flex flex-col">
+        <ThemeInit />
         <a href="#main" className="skip-link">
           Skip to content
         </a>

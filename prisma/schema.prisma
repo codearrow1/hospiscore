@@ -927,3 +927,11 @@ model AffiliateRecruitment {
   @@index([parentAffiliateId])
   @@index([childAffiliateId])
 }
+
+model UserPreference {
+  email      String   @id
+  timezone   String   @default("UTC")
+  dateFormat String   @default("YYYY-MM-DD")
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+}

@@ -12,6 +12,7 @@ import {
   canTransitionTicket,
   type TicketStatus,
 } from "@/lib/saas/ticketRules";
+import { resolveSettings } from "@/lib/settings/resolver";
 
 export {
   TICKET_CATEGORIES,
@@ -39,6 +40,7 @@ export async function createTicket(input: {
   const priority = input.priority && PRIORITIES.includes(input.priority as never) ? input.priority : "medium";
   const org = await prisma.organization.findUnique({ where: { id: input.organizationId }, select: { id: true } });
   if (!org) throw new Error("Organization not found");
+  const slaHours = await resolveSettings(["sla_hours_urgent", "sla_hours_high", "sla_hours_medium", "sla_hours_low"]);
   return prisma.supportTicket.create({
     data: {
       organizationId: input.organizationId,
@@ -47,7 +49,7 @@ export async function createTicket(input: {
       description: input.description?.slice(0, 4000) || null,
       priority,
       requesterEmail: input.requesterEmail || null,
-      slaDueAt: slaDueFor(priority),
+      slaDueAt: slaDueFor(priority, new Date(), { urgent: slaHours.sla_hours_urgent as number, high: slaHours.sla_hours_high as number, medium: slaHours.sla_hours_medium as number, low: slaHours.sla_hours_low as number }),
     },
   });
 }

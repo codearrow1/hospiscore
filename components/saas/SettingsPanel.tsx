@@ -14,6 +14,45 @@ interface SettingValue {
   options?: string[];
 }
 
+function JsonEditor({
+  value,
+  onChange,
+}: {
+  value: unknown;
+  onChange: (v: unknown) => void;
+}) {
+  const [text, setText] = useState(() => JSON.stringify(value, null, 2));
+  const [error, setError] = useState<string | null>(null);
+
+  const handleChange = (raw: string) => {
+    setText(raw);
+    try {
+      const parsed = JSON.parse(raw);
+      setError(null);
+      onChange(parsed);
+    } catch {
+      setError("Invalid JSON");
+    }
+  };
+
+  return (
+    <div className="w-72">
+      <textarea
+        value={text}
+        rows={4}
+        onChange={(e) => handleChange(e.target.value)}
+        className={`w-full rounded-lg border bg-white px-3 py-2 font-mono text-xs dark:bg-zinc-800 ${
+          error
+            ? "border-red-300 focus:border-red-500 focus:ring-red-500"
+            : "border-zinc-300 focus:border-indigo-500 focus:ring-indigo-500"
+        } dark:border-zinc-700`}
+        spellCheck={false}
+      />
+      {error && <p className="mt-1 text-xs text-red-600">{error}</p>}
+    </div>
+  );
+}
+
 export default function SettingsPanel({ category }: { category: string }) {
   const [settings, setSettings] = useState<SettingValue[]>([]);
   const [loading, setLoading] = useState(true);
@@ -132,6 +171,11 @@ export default function SettingsPanel({ category }: { category: string }) {
                         }`}
                       />
                     </button>
+                  ) : s.type === "json" ? (
+                    <JsonEditor
+                      value={editValues[s.key]}
+                      onChange={(v) => setEditValues((prev) => ({ ...prev, [s.key]: v }))}
+                    />
                   ) : s.options ? (
                     <select
                       value={String(editValues[s.key] ?? "")}

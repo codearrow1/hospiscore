@@ -8,6 +8,7 @@ import { prisma } from "@/lib/prisma";
 import { randomBytes } from "node:crypto";
 import { calcCommissionAmount } from "./commissions";
 import { availablePayoutBalance } from "./payouts";
+import { resolveSetting } from "@/lib/settings/resolver";
 
 export const PARTNER_STATUSES = ["applied", "review", "approved", "active", "suspended"] as const;
 export type PartnerStatus = (typeof PARTNER_STATUSES)[number];
@@ -29,6 +30,7 @@ export async function createPartner(input: {
   if (input.tier && !PARTNER_TIERS.includes(input.tier as never)) throw new Error("Invalid tier");
   const dupe = await prisma.partner.findUnique({ where: { email } });
   if (dupe) throw new Error("Partner with this email already exists");
+  const defaultValue = await resolveSetting<number>("partner_default_commission_value");
   let code = genCode();
   for (let i = 0; i < 5; i++) {
     const c = await prisma.partner.findUnique({ where: { referralCode: code } });
@@ -47,7 +49,7 @@ export async function createPartner(input: {
       tier: input.tier || "bronze",
       status: "applied",
       commissionModel: input.commissionModel || "percent_first",
-      commissionValue: input.commissionValue ?? 1500,
+      commissionValue: input.commissionValue ?? defaultValue,
       referralCode: code,
     },
   });

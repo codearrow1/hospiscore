@@ -2,7 +2,8 @@ import { getCurrentUser } from "@/lib/sessionCookie";
 import { redirect } from "next/navigation";
 import { prisma } from "@/lib/prisma";
 import { hasSaasPerm } from "@/lib/saas/roles";
-import { SettingsLayout, SettingsSection, SettingsField, SettingsInput, SettingsSelect, SettingsToggle } from "@/components/settings/SettingsUI";
+import { SettingsLayout, SettingsSection } from "@/components/settings/SettingsUI";
+import OrgDefaultsForm from "@/components/saas/OrgDefaultsForm";
 
 export const dynamic = "force-dynamic";
 export const runtime = "nodejs";
@@ -25,7 +26,6 @@ export default async function OrganizationSettingsPage() {
     select: { country: true },
     distinct: ["country"],
   });
-
   const industries = await prisma.organization.findMany({
     where: { industry: { not: null } },
     select: { industry: true },
@@ -35,64 +35,20 @@ export default async function OrganizationSettingsPage() {
   return (
     <SettingsLayout
       title="Organization Settings"
-      description="Manage platform-wide organization defaults and policies."
+      description="Manage platform-wide organization defaults and view statistics."
     >
       <SettingsSection
         title="Organization Defaults"
-        description="Default values applied to new organizations."
+        description="Default values applied when creating new organizations."
       >
-        <SettingsField label="Default Country" description="Pre-selected country for new organizations.">
-          <SettingsSelect
-            value=""
-            onChange={() => {}}
-            options={[
-              { value: "", label: "(No default)" },
-              { value: "US", label: "United States" },
-              { value: "GB", label: "United Kingdom" },
-              { value: "IN", label: "India" },
-              { value: "ZA", label: "South Africa" },
-              { value: "AE", label: "UAE" },
-            ]}
-          />
-        </SettingsField>
-
-        <SettingsField label="Default Currency" description="Billing currency for new subscriptions.">
-          <SettingsSelect
-            value="USD"
-            onChange={() => {}}
-            options={[
-              { value: "USD", label: "USD — US Dollar" },
-              { value: "EUR", label: "EUR — Euro" },
-              { value: "GBP", label: "GBP — British Pound" },
-              { value: "INR", label: "INR — Indian Rupee" },
-              { value: "ZAR", label: "ZAR — South African Rand" },
-              { value: "AED", label: "AED — UAE Dirham" },
-            ]}
-          />
-        </SettingsField>
-
-        <SettingsField label="Default Timezone" description="Timezone for date/time display.">
-          <SettingsSelect
-            value="UTC"
-            onChange={() => {}}
-            options={[
-              { value: "UTC", label: "UTC" },
-              { value: "America/New_York", label: "Eastern Time (US)" },
-              { value: "America/Los_Angeles", label: "Pacific Time (US)" },
-              { value: "Europe/London", label: "London (GMT)" },
-              { value: "Asia/Kolkata", label: "India (IST)" },
-              { value: "Asia/Dubai", label: "Dubai (GST)" },
-              { value: "Africa/Johannesburg", label: "South Africa (SAST)" },
-            ]}
-          />
-        </SettingsField>
+        <OrgDefaultsForm />
       </SettingsSection>
 
       <SettingsSection
         title="Platform Statistics"
         description="Current state of organizations on the platform."
       >
-        <div className="grid gap-4 sm:grid-cols-2">
+        <div className="grid gap-4 sm:grid-cols-3">
           <div className="rounded-xl bg-zinc-50 p-4 dark:bg-zinc-800/60">
             <dt className="text-xs font-bold uppercase tracking-wide text-zinc-400">Total Organizations</dt>
             <dd className="mt-1 text-2xl font-bold">{orgCount}</dd>
@@ -106,9 +62,6 @@ export default async function OrganizationSettingsPage() {
             <dd className="mt-1 text-2xl font-bold">{industries.length}</dd>
           </div>
         </div>
-        <p className="text-xs text-zinc-400">
-          These are read-only statistics. Organization defaults will be configurable via SystemSetting in Phase D.
-        </p>
       </SettingsSection>
     </SettingsLayout>
   );

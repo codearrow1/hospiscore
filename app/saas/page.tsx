@@ -295,6 +295,45 @@ export default async function SaasDashboardPage({
         </SectionCard>
       )}
 
+      <SectionCard title="All modules">
+        <div className="grid gap-2 sm:grid-cols-2 lg:grid-cols-3">
+          {[
+            { href: "/saas/settings", label: "Platform Settings", desc: "System-wide configuration" },
+            { href: "/saas/team", label: "Team", desc: "Manage team members and roles" },
+            { href: "/saas/roles", label: "Roles & Permissions", desc: "View role hierarchy" },
+            { href: "/saas/affiliates", label: "Affiliates", desc: "Affiliate program and commissions" },
+            { href: "/saas/partners", label: "Partners", desc: "Partner onboarding and payouts" },
+            { href: "/saas/franchise", label: "Franchise", desc: "Territories and franchisees" },
+            { href: "/saas/feature-flags", label: "Feature Flags", desc: "Toggle features per org" },
+            { href: "/saas/dunning", label: "Dunning", desc: "Payment recovery cases" },
+            { href: "/saas/usage", label: "Usage Billing", desc: "Usage-based metering" },
+            { href: "/saas/properties", label: "Properties", desc: "Property management" },
+            { href: "/saas/audit", label: "Audit Log", desc: "Immutable change history" },
+          ].filter((l) => {
+            if (l.href === "/saas/affiliates" && !p("AFFILIATE_VIEW")) return false;
+            if (l.href === "/saas/partners" && !p("PARTNER_VIEW")) return false;
+            if (l.href === "/saas/franchise" && !p("FRANCHISE_VIEW")) return false;
+            if (l.href === "/saas/settings" && !p("SYSTEM_SETTINGS_MANAGE")) return false;
+            if (l.href === "/saas/team" && !p("SYSTEM_SETTINGS_MANAGE")) return false;
+            if (l.href === "/saas/roles" && !p("SYSTEM_SETTINGS_MANAGE")) return false;
+            if (l.href === "/saas/feature-flags" && !p("SYSTEM_SETTINGS_MANAGE")) return false;
+            if (l.href === "/saas/audit" && !p("AUDIT_VIEW")) return false;
+            return true;
+          }).map((l) => (
+            <Link
+              key={l.href}
+              href={l.href}
+              className="flex items-center gap-3 rounded-lg border border-zinc-200 p-3 transition-colors hover:border-indigo-300 hover:bg-indigo-50/50 dark:border-zinc-800 dark:hover:border-indigo-700 dark:hover:bg-indigo-900/10"
+            >
+              <div>
+                <div className="text-sm font-semibold">{l.label}</div>
+                <div className="text-xs text-zinc-500">{l.desc}</div>
+              </div>
+            </Link>
+          ))}
+        </div>
+      </SectionCard>
+
       <p className="text-right text-[11px] text-zinc-400 dark:text-zinc-500">
         Generated {new Date(m.generatedAt).toLocaleString("en-US")}
       </p>

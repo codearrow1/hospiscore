@@ -236,4 +236,10 @@ describe("settings resolver — new definition defaults", () => {
     expect(await resolveSetting("partner_default_commission_value")).toBe(1500);
     expect(await resolveSetting("franchise_default_revenue_share_bps")).toBe(1500);
   });
+
+  it("org default settings have correct defaults", async () => {
+    expect(await resolveSetting("org_default_country")).toBe("");
+    expect(await resolveSetting("org_default_currency")).toBe("USD");
+    expect(await resolveSetting("org_default_timezone")).toBe("UTC");
+  });
 });

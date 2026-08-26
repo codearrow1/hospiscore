@@ -1,3 +1,4 @@
+import Link from "next/link";
 import { requireMarketingUser } from "@/lib/marketing/guard";
 import { restrictedPanel } from "@/app/marketing-admin/restricted";
 import { hasSaasPerm } from "@/lib/saas/roles";
@@ -9,7 +10,8 @@ import { formatDate, formatDateTime } from "@/lib/format";
 export const dynamic = "force-dynamic";
 export const runtime = "nodejs";
 
-/** Human phrasing for record types stored as machine keys. */
+const PAGE_SIZE = 50;
+
 const TARGET_LABELS: Record<string, string> = {
   organization: "Organization",
   subscription: "Subscription",
@@ -35,7 +37,20 @@ export default async function AuditPage({ searchParams }: { searchParams?: Promi
   const sp = (await searchParams) ?? {};
   const action = sp.action || undefined;
   const targetType = sp.targetType || undefined;
-  const { items, total } = await listAuditLogs({ action, targetType, take: 100 });
+  const page = Math.max(1, Number(sp.page) || 1);
+  const skip = (page - 1) * PAGE_SIZE;
+
+  const { items, total } = await listAuditLogs({ action, targetType, take: PAGE_SIZE, skip });
+  const totalPages = Math.ceil(total / PAGE_SIZE);
+
+  function pageUrl(p: number) {
+    const params = new URLSearchParams();
+    if (action) params.set("action", action);
+    if (targetType) params.set("targetType", targetType);
+    if (p > 1) params.set("page", String(p));
+    return `/saas/audit?${params.toString()}`;
+  }
+
   return (
     <div className="space-y-4">
       <h1 className="text-2xl font-bold">Audit Log</h1>
@@ -78,6 +93,33 @@ export default async function AuditPage({ searchParams }: { searchParams?: Promi
               </tbody>
             </table>
           </div>
+
+          {/* Pagination */}
+          {totalPages > 1 && (
+            <div className="flex items-center justify-between text-sm">
+              <p className="text-xs text-zinc-500">
+                Page {page} of {totalPages} ({total} total)
+              </p>
+              <div className="flex gap-2">
+                {page > 1 && (
+                  <Link
+                    href={pageUrl(page - 1)}
+                    className="rounded-lg border border-zinc-300 px-3 py-1.5 text-xs font-medium hover:bg-zinc-50 dark:border-zinc-700 dark:hover:bg-zinc-800"
+                  >
+                    ← Previous
+                  </Link>
+                )}
+                {page < totalPages && (
+                  <Link
+                    href={pageUrl(page + 1)}
+                    className="rounded-lg border border-zinc-300 px-3 py-1.5 text-xs font-medium hover:bg-zinc-50 dark:border-zinc-700 dark:hover:bg-zinc-800"
+                  >
+                    Next →
+                  </Link>
+                )}
+              </div>
+            </div>
+          )}
         </>
       )}
     </div>

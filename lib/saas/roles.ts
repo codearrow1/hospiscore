@@ -116,5 +116,12 @@ export function requireSaasPerm(user: Pick<AuthUser, "email" | "role">, perm: Sa
   return hasSaasPerm(user, perm);
 }
 
+/** Return all permissions for a given role key. */
+export function getRolePermissions(role: string): SaasPermission[] {
+  const perms = ROLE_SAAS_PERMS[role];
+  if (!perms) return [];
+  return Array.from(perms) as SaasPermission[];
+}
+
 // Re-export marketing guard for incremental migration
 export { hasMarketingCapability, roleFor };

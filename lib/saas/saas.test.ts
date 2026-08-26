@@ -1,7 +1,7 @@
 import { describe, it, expect } from "vitest";
 import { validateOrgInput, validateOrgPatch } from "./organizations";
 import { validatePropertyInput } from "./properties";
-import { hasSaasPerm } from "./roles";
+import { hasSaasPerm, getRolePermissions } from "./roles";
 import { validatePlanInput } from "./plans";
 import { canTransition, computeMrr, isSubscriptionStatus } from "./subscriptions";
 import { getPlanLimit } from "./usage";
@@ -11,6 +11,7 @@ import { statusForScore } from "./health";
 import { nextRetryAfterAttemptSync, RETRY_SCHEDULE_DAYS } from "./dunning";
 import { validateCouponInput, computeDiscount } from "./coupons";
 import { canTransitionTicket, slaDueFor, isSlaBreached, TICKET_CATEGORIES } from "./support";
+import { DEFAULT_SLA_HOURS } from "./ticketRules";
 import { canTransitionFranchisee, FRANCHISEE_STATUSES } from "./franchise";
 import { PARTNER_STATUSES } from "./partners";
 
@@ -65,6 +66,22 @@ describe("saas RBAC", () => {
   });
   it("no role = no access", () => {
     expect(hasSaasPerm({ email: "a@x.com", role: "" }, "CUSTOMER_VIEW")).toBe(false);
+  });
+  it("getRolePermissions returns all perms for super_admin", () => {
+    const perms = getRolePermissions("super_admin");
+    expect(perms.length).toBe(28);
+    expect(perms).toContain("CUSTOMER_MANAGE");
+    expect(perms).toContain("SYSTEM_SETTINGS_MANAGE");
+  });
+  it("getRolePermissions returns scoped perms for analyst", () => {
+    const perms = getRolePermissions("analyst");
+    expect(perms.length).toBeGreaterThan(0);
+    expect(perms).toContain("CUSTOMER_VIEW");
+    expect(perms).not.toContain("CUSTOMER_MANAGE");
+    expect(perms).not.toContain("SYSTEM_SETTINGS_MANAGE");
+  });
+  it("getRolePermissions returns empty for unknown role", () => {
+    expect(getRolePermissions("bogus_role")).toEqual([]);
   });
 });
 
@@ -225,6 +242,22 @@ describe("saas support tickets", () => {
     expect(slaDueFor("high", base)).toEqual(new Date("2026-01-01T08:00:00Z"));
     expect(slaDueFor("medium", base)).toEqual(new Date("2026-01-02T00:00:00Z"));
     expect(slaDueFor("low", base)).toEqual(new Date("2026-01-04T00:00:00Z"));
+  });
+  it("DEFAULT_SLA_HOURS matches hardcoded defaults", () => {
+    expect(DEFAULT_SLA_HOURS).toEqual({ urgent: 4, high: 8, medium: 24, low: 72 });
+  });
+  it("slaDueFor uses custom hours when provided", () => {
+    const base = new Date("2026-01-01T00:00:00Z");
+    const custom = { urgent: 2, high: 4, medium: 12, low: 48 };
+    expect(slaDueFor("urgent", base, custom)).toEqual(new Date("2026-01-01T02:00:00Z"));
+    expect(slaDueFor("high", base, custom)).toEqual(new Date("2026-01-01T04:00:00Z"));
+    expect(slaDueFor("medium", base, custom)).toEqual(new Date("2026-01-01T12:00:00Z"));
+    expect(slaDueFor("low", base, custom)).toEqual(new Date("2026-01-03T00:00:00Z"));
+  });
+  it("slaDueFor falls back to default for unknown priority", () => {
+    const base = new Date("2026-01-01T00:00:00Z");
+    expect(slaDueFor("unknown", base)).toEqual(new Date("2026-01-04T00:00:00Z"));
+    expect(slaDueFor("unknown", base, { urgent: 1 })).toEqual(new Date("2026-01-04T00:00:00Z"));
   });
   it("flags SLA breaches deterministically", () => {
     const overdue = { status: "open", slaDueAt: new Date(Date.now() - 60000), resolvedAt: null, firstResponseAt: null };

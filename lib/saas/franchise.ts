@@ -5,6 +5,7 @@
  * Revenue share is configurable bps of customer MRR per franchisee.
  */
 import { prisma } from "@/lib/prisma";
+import { resolveSetting } from "@/lib/settings/resolver";
 
 export const TERRITORY_TYPES = ["master", "region", "city"] as const;
 export type TerritoryType = (typeof TERRITORY_TYPES)[number];
@@ -117,7 +118,8 @@ export async function createFranchisee(input: { company: string; contactName: st
   const email = input.email.toLowerCase().trim();
   if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) throw new Error("Invalid email");
   if (!input.company?.trim()) throw new Error("Company required");
-  const bps = input.revenueShareBps ?? 1500;
+  const defaultBps = await resolveSetting<number>("franchise_default_revenue_share_bps");
+  const bps = input.revenueShareBps ?? defaultBps;
   if (bps <= 0 || bps > 5000) throw new Error("revenueShareBps must be 1-5000");
   const dupe = await prisma.franchisee.findUnique({ where: { email } });
   if (dupe) throw new Error("Franchisee with this email already exists");

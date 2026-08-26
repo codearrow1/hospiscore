@@ -26,10 +26,12 @@ export function canTransitionTicket(from: TicketStatus, to: TicketStatus): boole
 export const PRIORITIES = ["low", "medium", "high", "urgent"] as const;
 export type TicketPriority = (typeof PRIORITIES)[number];
 
-/** SLA targets by priority: urgent 4h, high 8h, medium 24h, low 72h. */
-export function slaDueFor(priority: string, from = new Date()): Date {
-  const hours = priority === "urgent" ? 4 : priority === "high" ? 8 : priority === "medium" ? 24 : 72;
-  return new Date(from.getTime() + hours * 3600000);
+export const DEFAULT_SLA_HOURS: Record<string, number> = { urgent: 4, high: 8, medium: 24, low: 72 };
+
+/** SLA targets by priority: urgent 4h, high 8h, medium 24h, low 72h. Pass `hours` to use resolver-driven values. */
+export function slaDueFor(priority: string, from = new Date(), hours?: Record<string, number>): Date {
+  const h = hours?.[priority] ?? DEFAULT_SLA_HOURS[priority] ?? 72;
+  return new Date(from.getTime() + h * 3600000);
 }
 
 export function isSlaBreached(t: { status: string; slaDueAt: Date | null; resolvedAt: Date | null; firstResponseAt: Date | null }): boolean {
