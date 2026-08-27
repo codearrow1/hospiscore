@@ -55,7 +55,7 @@ export async function acquisitionBySource(): Promise<Bucket[]> {
     by: ["acquisitionSource"],
     _count: { _all: true },
     _sum: { mrr: true },
-    orderBy: { _count: { _all: "desc" } },
+    orderBy: { _count: { _all: "desc" } } as never,
   });
   return rows.map((r) => ({
     key: r.acquisitionSource || "unattributed",

@@ -258,17 +258,17 @@ export async function refundPayment(paymentId: string, actorEmail: string, ip?: 
         }
       }
     }
-    return updated;
-  }, { maxWait: 20_000, timeout: 60_000 }).then(async (updated) => {
-    if (pay.invoiceId) {
+    return { updated, invoiceId: pay.invoiceId, organizationId: pay.organizationId };
+  }, { maxWait: 20_000, timeout: 60_000 }).then(async (result) => {
+    if (result.invoiceId) {
       try {
-        const inv = await prisma.invoice.findUnique({ where: { id: pay.invoiceId }, select: { subscriptionId: true } });
+        const inv = await prisma.invoice.findUnique({ where: { id: result.invoiceId }, select: { subscriptionId: true } });
         if (inv?.subscriptionId) {
           const { handleReversal } = await import("./commissions");
-          await handleReversal(pay.organizationId, inv.subscriptionId);
+          await handleReversal(result.organizationId, inv.subscriptionId);
         }
       } catch (e) { console.error("[gateway] commission reversal failed:", e); }
     }
-    return updated;
+    return result.updated;
   });
 }

@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { requireSaasAccess } from "@/lib/marketing/guard";
 import { hasSaasPerm } from "@/lib/saas/roles";
-import { updatePartnerStatus, PARTNER_STATUSES } from "@/lib/saas/partners";
+import { getPartner, updatePartnerStatus, PARTNER_STATUSES } from "@/lib/saas/partners";
 import type { PartnerStatus } from "@/lib/saas/partners";
 import { writeSaasAudit } from "@/lib/saas/audit";
 import { clientIp } from "@/lib/marketing/guard";

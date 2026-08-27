@@ -19,8 +19,8 @@ function errText(e: unknown): string {
 export async function GET() {
   const guard = await requireSaasAccess();
   if (!guard.ok) return guard.response;
-  if (!hasSaasPerm(guard.user, "SYSTEM_SETTINGS")) {
-    return NextResponse.json({ error: "SYSTEM_SETTINGS required" }, { status: 403 });
+  if (!hasSaasPerm(guard.user, "SYSTEM_SETTINGS_MANAGE")) {
+    return NextResponse.json({ error: "SYSTEM_SETTINGS_MANAGE required" }, { status: 403 });
   }
 
   const steps: Step[] = [];

@@ -51,7 +51,7 @@ export async function pushNotificationToOrg(input: {
       href,
     }));
     if (data.length > 0) {
-      await prisma.notification.createMany({ data, skipDuplicates: true });
+      await prisma.notification.createMany({ data });
     }
   } catch {
     // best-effort

@@ -44,9 +44,9 @@ export async function deleteProperty(id: string) {
   const prop = await prisma.property.findUnique({ where: { id }, select: { id: true, name: true } });
   if (!prop) throw new Error("Property not found");
 
-  const bookingCount = await prisma.booking.count({ where: { propertyId: id } }).catch(() => 0);
-  if (bookingCount > 0) {
-    throw new Error(`Cannot delete property "${prop.name}" with ${bookingCount} booking(s). Remove bookings first.`);
+  const orgSubCount = await prisma.subscription.count({ where: { organization: { properties: { some: { id } } }, status: { in: ["active", "trial", "past_due", "grace"] } } });
+  if (orgSubCount > 0) {
+    throw new Error(`Cannot delete property "${prop.name}" while active subscriptions reference it.`);
   }
 
   await prisma.property.delete({ where: { id } });
