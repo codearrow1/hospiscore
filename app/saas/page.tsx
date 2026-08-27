@@ -43,7 +43,7 @@ function SectionFail({ label, error }: { label: string; error: unknown }) {
   );
 }
 
-async function SaasDashboardRender({
+export default async function SaasDashboardPage({
   searchParams,
 }: {
   searchParams?: Promise<Record<string, string | undefined>>;
@@ -212,7 +212,7 @@ async function SaasDashboardRender({
                   <MultiLine
                     labels={m.mrrGrowth.map((d) => d.day)}
                     series={[{ name: "MRR", color: "#6366f1", values: m.mrrGrowth.map((d) => Math.round(d.mrr / 100)) }]}
-                    formatValue={(v) => `$${v.toLocaleString("en-US")}`}
+                    money
                     ariaLabel="MRR trend"
                   />
                 )}
@@ -235,7 +235,7 @@ async function SaasDashboardRender({
             ) : (
               <BarChart
                 data={m.revenueByPlan.slice(0, 8).map((r) => ({ key: r.plan, count: Math.round(r.mrr / 100) }))}
-                formatValue={(v) => `$${v.toLocaleString("en-US")}`}
+                money
                 ariaLabel="Revenue by plan"
               />
             )}
@@ -394,18 +394,4 @@ async function SaasDashboardRender({
       </p>
     </div>
   );
-}
-
-export default async function SaasDashboardPage({
-  searchParams,
-}: {
-  searchParams?: Promise<Record<string, string | undefined>>;
-}) {
-  try {
-    return await SaasDashboardRender({ searchParams });
-  } catch (e) {
-    if (e instanceof Error) console.error("[saas-cmd-page-diag] RENDER FAILED:", e.stack ?? e.message);
-    else console.error("[saas-cmd-page-diag] RENDER FAILED:", e);
-    throw e;
-  }
 }

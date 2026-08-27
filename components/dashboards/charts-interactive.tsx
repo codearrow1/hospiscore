@@ -4,18 +4,24 @@ import { useRef, useState } from "react";
 
 export type LineSeries = { name: string; color: string; values: number[] };
 
+/** Format a number as USD currency (client-side; serializable prop). */
+function moneyFmt(v: number): string {
+  return `$${v.toLocaleString("en-US")}`;
+}
+
 /** Multi-series line chart with axes and a hover tooltip. */
 export function MultiLine({
   labels,
   series,
   height = 140,
-  formatValue,
+  money = false,
   ariaLabel = "Trend chart",
 }: {
   labels: string[];
   series: LineSeries[];
   height?: number;
-  formatValue?: (v: number) => string;
+  /** Serializable switch for USD formatting — functions cannot cross the RSC boundary. */
+  money?: boolean;
   ariaLabel?: string;
 }) {
   const [hover, setHover] = useState<number | null>(null);
@@ -28,7 +34,7 @@ export function MultiLine({
   const max = Math.max(...series.flatMap((s) => s.values), 1);
   const x = (i: number) => padL + (i * plotW) / Math.max(n - 1, 1);
   const y = (v: number) => 4 + (1 - v / max) * height;
-  const fmt = formatValue ?? ((v: number) => String(v));
+  const fmt = money ? moneyFmt : ((v: number) => String(v));
   const ticks = [0, max / 2, max];
 
   const onMove = (e: React.MouseEvent) => {
@@ -107,13 +113,14 @@ export function BarChart({
   data,
   barClass = "fill-indigo-500",
   height = 140,
-  formatValue,
+  money = false,
   ariaLabel = "Bar chart",
 }: {
   data: { key: string; count: number }[];
   barClass?: string;
   height?: number;
-  formatValue?: (v: number) => string;
+  /** Serializable switch for USD formatting — functions cannot cross the RSC boundary. */
+  money?: boolean;
   ariaLabel?: string;
 }) {
   const [hover, setHover] = useState<number | null>(null);
@@ -124,7 +131,7 @@ export function BarChart({
   const max = Math.max(...data.map((d) => d.count), 1);
   const gap = 6;
   const bw = Math.max(10, Math.min(36, (plotW - gap * Math.max(data.length - 1, 0)) / Math.max(data.length, 1)));
-  const fmt = formatValue ?? ((v: number) => String(v));
+  const fmt = money ? moneyFmt : ((v: number) => String(v));
 
   return (
     <div className="relative">
