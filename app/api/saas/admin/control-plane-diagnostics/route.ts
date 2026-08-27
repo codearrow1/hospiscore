@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { requireMarketingUser } from "@/lib/marketing/guard";
 import { hasSaasPerm } from "@/lib/saas/roles";
+import { getCurrentUser } from "@/lib/sessionCookie";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -54,12 +55,47 @@ export async function GET() {
   const rbacDetail = perms.filter((p) => hasSaasPerm(user, p)).join(", ") || "(none)";
   steps.push({ step: "RBAC (hasSaasPerm)", ok: true, detail: rbacDetail });
 
+  // 2b. getCurrentUser() — the exact call /saas/organizations/page.tsx makes
+  const currentUser = await timed("AUTH (getCurrentUser, orgs page path)", () => getCurrentUser());
+  steps.push(currentUser.step);
+  if (currentUser.step.ok) {
+    const cu = currentUser.value;
+    steps.push({
+      step: "getCurrentUser resolved",
+      ok: cu != null,
+      detail: cu ? `${cu.id} / ${cu.email}` : "NULL (would redirect on page)",
+    });
+  }
+
+  // 2c. Layout gate functions (canAccess + roleFor)
+  const layoutGate = await timed("LAYOUT (canAccess + roleFor)", async () => {
+    const { canAccess, roleFor } = await import("@/lib/marketing/roles");
+    const { hasSaasPerm: hsp } = await import("@/lib/saas/roles");
+    const navPerms = ["CUSTOMER_VIEW", "SUBSCRIPTION_VIEW", "PLAN_VIEW", "SYSTEM_SETTINGS_MANAGE", "BILLING_VIEW", "SUPPORT_VIEW"];
+    return {
+      canAccess: canAccess(user),
+      role: roleFor(user) ?? "none",
+      navShown: navPerms.filter((p) => hsp(user, p as never)).length,
+    };
+  });
+  steps.push(layoutGate.step);
+  if (layoutGate.step.ok) {
+    steps.push({ step: "layout gate detail", ok: true, detail: JSON.stringify(layoutGate.value) });
+  }
+
   // 3. initSaasDb
   const init = await timed("DB INIT (initSaasDb)", async () => {
     const { initSaasDb } = await import("@/lib/saas/init");
     await initSaasDb();
   });
   steps.push(init.step);
+
+  // 3b. seedDefaultPlans (runs on /saas before queries)
+  const seed = await timed("DB SEED (seedDefaultPlans)", async () => {
+    const { seedDefaultPlans } = await import("@/lib/saas/plans");
+    await seedDefaultPlans();
+  });
+  steps.push(seed.step);
 
   // 4. Each Command Center data query individually
   const q1 = await timed("QUERY (saasMetrics)", async () => {
