@@ -41,7 +41,7 @@ export async function listOrganizations(opts?: {
   const [items, total] = await Promise.all([
     prisma.organization.findMany({
       where,
-      include: { contacts: true, properties: true, subscriptions: { include: { plan: true } } },
+      include: { _count: { select: { properties: true, contacts: true, subscriptions: true } } },
       orderBy,
       take: opts?.take ?? 50,
       skip: opts?.skip ?? 0,

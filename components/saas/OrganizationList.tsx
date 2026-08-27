@@ -12,7 +12,7 @@ interface Org {
   mrr: number;
   healthScore: number | null;
   createdAt: string;
-  _count: { properties: number; contacts: number; subscriptions: number };
+  _count?: { properties: number; contacts: number; subscriptions: number };
 }
 
 const STATUS_COLORS: Record<string, string> = {
@@ -126,7 +126,7 @@ export default function OrganizationList() {
                       <span className="text-xs text-zinc-400">—</span>
                     )}
                   </td>
-                  <td className="px-4 py-3 text-xs">{o._count.properties}</td>
+                  <td className="px-4 py-3 text-xs">{o._count?.properties ?? 0}</td>
                   <td className="px-4 py-3 text-xs text-zinc-500">
                     {new Date(o.createdAt).toLocaleDateString()}
                   </td>

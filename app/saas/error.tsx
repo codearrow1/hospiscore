@@ -25,13 +25,6 @@ export default function SaasError({
           ref: {error.digest}
         </p>
       )}
-      {/* TEMP-DIAG: surface the real client-side error message */}
-      <pre className="mt-3 max-w-full overflow-auto whitespace-pre-wrap rounded-lg bg-zinc-100 p-3 text-left font-mono text-[10px] text-zinc-700 dark:bg-zinc-900 dark:text-zinc-300">
-        {error.message}
-        {"\n\n"}
-        {error.stack}
-      </pre>
-      {/* END TEMP-DIAG */}
       <button
         type="button"
         onClick={reset}
