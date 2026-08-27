@@ -9,6 +9,7 @@ import CustomerPortalClient, {
   type PortalSubscription,
 } from "@/components/saas/CustomerPortalClient";
 import OnboardingChecklist from "@/components/saas/OnboardingChecklist";
+import ClaimVerifyControl from "@/components/saas/ClaimVerifyControl";
 
 export const dynamic = "force-dynamic";
 export const runtime = "nodejs";
@@ -36,7 +37,7 @@ export default async function CustomerPortal() {
   const orgId = resolved.organizationId;
   const since = new Date(Date.now() - 30 * 86_400_000);
 
-  const [org, subscription, invoices, usage] = await Promise.all([
+  const [org, subscription, invoices, usage, claims] = await Promise.all([
     prisma.organization.findUnique({ where: { id: orgId } }),
     prisma.subscription.findFirst({
       where: { organizationId: orgId },
@@ -52,6 +53,11 @@ export default async function CustomerPortal() {
       by: ["metric"],
       where: { organizationId: orgId, recordedAt: { gte: since } },
       _sum: { quantity: true },
+    }),
+    prisma.propertyClaim.findMany({
+      where: { organizationId: orgId },
+      orderBy: { createdAt: "desc" },
+      take: 20,
     }),
   ]);
 
@@ -102,6 +108,39 @@ export default async function CustomerPortal() {
         invoices={invoiceList}
       />
       <OnboardingChecklist title="Getting started" />
+      {claims.length > 0 && (
+        <section className="rounded-2xl border border-zinc-200 bg-white p-5 dark:border-zinc-800 dark:bg-zinc-900">
+          <h2 className="text-sm font-semibold text-zinc-900 dark:text-zinc-100">Property claims</h2>
+          <ul className="mt-3 space-y-2">
+            {claims.map((c) => (
+              <li key={c.id} className="flex items-center justify-between gap-3 text-sm">
+                <div className="min-w-0">
+                  <p className="truncate font-medium text-zinc-800 dark:text-zinc-200">{c.propertyName}</p>
+                  <p className="truncate text-xs text-zinc-500">{c.placeId}</p>
+                </div>
+                {c.status === "pending" ? (
+                  <ClaimVerifyControl
+                    claimId={c.id}
+                    verified={c.verified}
+                    verificationMethod={c.verificationMethod}
+                  />
+                ) : (
+                  <span
+                    className={
+                      "shrink-0 rounded-full px-2 py-0.5 text-xs font-medium " +
+                      (c.status === "approved"
+                        ? "bg-emerald-100 text-emerald-700 dark:bg-emerald-900/40 dark:text-emerald-300"
+                        : "bg-red-100 text-red-700 dark:bg-red-900/40 dark:text-red-300")
+                    }
+                  >
+                    {c.status}
+                  </span>
+                )}
+              </li>
+            ))}
+          </ul>
+        </section>
+      )}
     </div>
   );
 }

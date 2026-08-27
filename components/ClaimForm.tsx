@@ -1,137 +1,151 @@
 "use client";
 
-import { useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import Link from "next/link";
-import { properties } from "@/lib/data";
 
-export default function ClaimForm({
-  slug,
-  propertyName,
-}: {
-  slug: string;
-  propertyName: string;
-}) {
-  const [email, setEmail] = useState("");
-  const [phone, setPhone] = useState("");
-  const [agree, setAgree] = useState(false);
-  const [submitting, setSubmitting] = useState(false);
-  const [done, setDone] = useState(false);
+/**
+ * Claim form for a property listing. Real claims are submitted server-side
+ * against the signed-in user's organization via POST /api/customer/properties/claim
+ * and only apply to live Google listings (`place:<placeId>`). Demo slugs cannot
+ * be claimed — this form guides the visitor to a live listing or to sign in.
+ */
+export default function ClaimForm({ slug, propertyName }: { slug: string; propertyName: string }) {
+  const [auth, setAuth] = useState<"loading" | "out" | "in">("loading");
+  const [busy, setBusy] = useState(false);
+  const [state, setState] = useState<"idle" | "submitted" | "error">("idle");
+  const [message, setMessage] = useState("");
 
-  const valid = /^\S+@\S+\.\S+$/.test(email) && phone.trim().length >= 7 && agree;
+  const isLive = slug.startsWith("place:");
 
-  function handleSubmit(e: React.FormEvent) {
-    e.preventDefault();
-    if (!valid) return;
-    setSubmitting(true);
-    // Simulated verification handshake — replace with your own backend / GBP API.
-    setTimeout(() => {
-      setSubmitting(false);
-      setDone(true);
+  useEffect(() => {
+    let disposed = false;
+    (async () => {
       try {
-        const claimed = JSON.parse(localStorage.getItem("hospiscore-claimed") ?? "{}");
-        claimed[slug] = true;
-        localStorage.setItem("hospiscore-claimed", JSON.stringify(claimed));
+        const res = await fetch("/api/auth/me");
+        const d = await res.json();
+        if (!disposed) setAuth(d?.user ? "in" : "out");
       } catch {
-        /* ignore storage errors in demo */
+        if (!disposed) setAuth("out");
       }
-    }, 900);
+    })();
+    return () => {
+      disposed = true;
+    };
+  }, []);
+
+  const submit = useCallback(async () => {
+    setBusy(true);
+    setMessage("");
+    try {
+      const res = await fetch("/api/customer/properties/claim", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ slug }),
+      });
+      const d = await res.json().catch(() => ({}));
+      if (res.status === 401 || res.status === 403) {
+        setAuth("out");
+        setMessage("Please sign in with your organization account to claim this listing.");
+        return;
+      }
+      if (!res.ok) {
+        setState("error");
+        setMessage(d.error ?? "Claim could not be submitted.");
+        return;
+      }
+      setState("submitted");
+      setMessage(`Claim submitted — status: ${d.claim?.status ?? "pending"}. An admin will review it.`);
+    } catch {
+      setState("error");
+      setMessage("Network error submitting the claim. Try again.");
+    } finally {
+      setBusy(false);
+    }
+  }, [slug]);
+
+  if (!isLive) {
+    return (
+      <div className="rounded-xl border border-amber-200 bg-amber-50 p-4 text-center dark:border-amber-900 dark:bg-amber-950/40">
+        <h2 className="text-sm font-semibold text-amber-800 dark:text-amber-200">
+          Claiming {propertyName}
+        </h2>
+        <p className="mt-1 text-xs text-amber-700 dark:text-amber-300">
+          Claims are available for live Google listings. Search for your property
+          to see its live listing and claim it from there.
+        </p>
+        <Link
+          href="/"
+          className="mt-3 inline-block rounded-xl bg-indigo-600 px-4 py-2 text-xs font-medium text-white transition hover:bg-indigo-700"
+        >
+          Search for your property
+        </Link>
+      </div>
+    );
   }
 
-  if (done) {
+  if (auth === "loading") {
+    return <div className="text-sm text-zinc-500">Checking account…</div>;
+  }
+
+  if (state === "submitted") {
     return (
       <div
         role="status"
-        aria-live="polite"
         className="rounded-xl border border-emerald-200 bg-emerald-50 p-6 text-center dark:border-emerald-900 dark:bg-emerald-950/40"
       >
-        <svg
-          className="mx-auto h-10 w-10 text-emerald-500"
-          viewBox="0 0 20 20"
-          fill="currentColor"
-        >
-          <path
-            fillRule="evenodd"
-            d="M10 18a8 8 0 1 0 0-16 8 8 0 0 0 0 16Zm3.7-9.3a1 1 0 0 0-1.4-1.4L9 10.6 7.7 9.3a1 1 0 0 0-1.4 1.4l2 2a1 1 0 0 0 1.4 0l4-4Z"
-            clipRule="evenodd"
-          />
-        </svg>
-        <h2 className="mt-2 text-lg font-semibold text-emerald-900 dark:text-emerald-200">
+        <h2 className="text-lg font-semibold text-emerald-900 dark:text-emerald-200">
           Claim request submitted
         </h2>
-        <p className="mt-1 text-sm text-emerald-700 dark:text-emerald-300">
-          In production this would kick off Google Business Profile verification for{" "}
-          {propertyName}.
+        <p className="mt-1 text-sm text-emerald-700 dark:text-emerald-300">{message}</p>
+        <Link
+          href="/customer"
+          className="mt-4 inline-block rounded-xl bg-emerald-600 px-4 py-2 text-sm font-medium text-white transition hover:bg-emerald-700"
+        >
+          Track it in your customer portal
+        </Link>
+      </div>
+    );
+  }
+
+  if (auth === "out") {
+    return (
+      <div className="rounded-xl border border-indigo-200 bg-indigo-50 p-5 text-center dark:border-indigo-900 dark:bg-indigo-950/40">
+        <h2 className="text-sm font-semibold text-indigo-900 dark:text-indigo-200">
+          Own {propertyName}?
+        </h2>
+        <p className="mt-1 text-xs text-indigo-800 dark:text-indigo-200">
+          Sign in with your organization account to claim this listing and unlock owner tools.
         </p>
-        <div className="mt-4 flex flex-col gap-2 sm:flex-row sm:justify-center">
-          <Link
-            href={`/properties/${slug}`}
-            className="rounded-xl bg-emerald-600 px-4 py-2 text-sm font-medium text-white transition hover:bg-emerald-700"
-          >
-            Back to score
-          </Link>
-          <Link
-            href={`/properties/${slug}/dashboard`}
-            className="rounded-xl border border-emerald-300 px-4 py-2 text-sm font-medium text-emerald-700 transition hover:bg-emerald-100 dark:border-emerald-800 dark:text-emerald-300 dark:hover:bg-emerald-900/30"
-          >
-            Open owner dashboard
-          </Link>
-        </div>
+        <Link
+          href="/account"
+          className="mt-3 inline-block rounded-xl bg-indigo-600 px-4 py-2 text-sm font-medium text-white transition hover:bg-indigo-700"
+        >
+          Sign in to claim
+        </Link>
       </div>
     );
   }
 
   return (
-    <form onSubmit={handleSubmit} className="flex flex-col gap-4">
+    <div className="flex flex-col gap-4">
       <div>
-        <label htmlFor="email" className="mb-1 block text-sm font-medium text-zinc-700 dark:text-zinc-200">
-          Work email
-        </label>
-        <input
-          id="email"
-          type="email"
-          required
-          value={email}
-          onChange={(e) => setEmail(e.target.value)}
-          placeholder="owner@example.com"
-          className="w-full rounded-xl border border-zinc-300 bg-white px-3 py-2.5 text-sm text-zinc-900 outline-none transition focus:border-indigo-500 focus:ring-2 focus:ring-indigo-200 dark:border-zinc-700 dark:bg-zinc-950 dark:text-zinc-50 dark:focus:ring-indigo-900"
-        />
+        <h2 className="text-sm font-semibold text-zinc-900 dark:text-zinc-100">Claim {propertyName}</h2>
+        <p className="mt-1 text-xs text-zinc-500 dark:text-zinc-400">
+          Verify ownership of this Google listing. An admin will review your request.
+        </p>
       </div>
-      <div>
-        <label htmlFor="phone" className="mb-1 block text-sm font-medium text-zinc-700 dark:text-zinc-200">
-          On-file phone
-        </label>
-        <input
-          id="phone"
-          type="tel"
-          required
-          value={phone}
-          onChange={(e) => setPhone(e.target.value)}
-          placeholder="+1 555 000 0000"
-          className="w-full rounded-xl border border-zinc-300 bg-white px-3 py-2.5 text-sm text-zinc-900 outline-none transition focus:border-indigo-500 focus:ring-2 focus:ring-indigo-200 dark:border-zinc-700 dark:bg-zinc-950 dark:text-zinc-50 dark:focus:ring-indigo-900"
-        />
-      </div>
-      <label className="flex items-start gap-2 text-sm text-zinc-600 dark:text-zinc-400">
-        <input
-          type="checkbox"
-          checked={agree}
-          onChange={(e) => setAgree(e.target.checked)}
-          className="mt-0.5 h-4 w-4 rounded border-zinc-300 text-indigo-600 focus:ring-indigo-500"
-        />
-        <span>
-          I confirm I am the owner or an authorized manager of {propertyName} and accept
-          the demo verification terms.
-        </span>
-      </label>
       <button
-        type="submit"
-        disabled={!valid || submitting}
+        onClick={submit}
+        disabled={busy}
         className="rounded-xl bg-indigo-600 px-4 py-2.5 text-sm font-medium text-white shadow-sm transition hover:bg-indigo-700 disabled:cursor-not-allowed disabled:opacity-40"
       >
-        {submitting ? "Verifying…" : "Submit claim request"}
+        {busy ? "Submitting…" : "Submit claim request"}
       </button>
+      {state === "error" && <p className="text-center text-sm text-red-500">{message}</p>}
+      {message && state === "idle" && <p className="text-center text-xs text-zinc-500">{message}</p>}
       <p className="text-center text-xs text-zinc-400">
-        Demo uses simulated verification. {properties.length} sample properties available.
+        Claims are reviewed by our team and verified against the Google listing.
       </p>
-    </form>
+    </div>
   );
 }

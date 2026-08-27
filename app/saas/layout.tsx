@@ -19,6 +19,7 @@ const SAAS_NAV: (NavItem & { perm?: SaasPermission })[] = [
   { href: "/saas", label: "Command Center" },
   { href: "/saas/organizations", label: "Organizations", perm: "CUSTOMER_VIEW" },
   { href: "/saas/subscriptions", label: "Subscriptions", perm: "SUBSCRIPTION_VIEW" },
+  { href: "/saas/claims", label: "Claims", perm: "PROPERTY_VIEW" },
   { href: "/saas/plans", label: "Plans", perm: "PLAN_VIEW" },
   { href: "/saas/plan-approvals", label: "Plan Approvals", perm: "SYSTEM_SETTINGS_MANAGE" },
   { href: "/saas/settings", label: "Settings", perm: "SYSTEM_SETTINGS_MANAGE" },

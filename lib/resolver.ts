@@ -175,3 +175,29 @@ export async function resolvePropertyById(id: string): Promise<Property | null> 
   // demo slug path
   return findProperty(id) ?? null;
 }
+
+/**
+ * Canonical, persistent identity for a Google listing (`place:<placeId>`).
+ * Used by the claim flow to record the listing's placeId / phone / address so
+ * ownership verification has stable ground truth. Returns null for demo slugs
+ * (demo properties aren't claimable against Google) or when offline.
+ */
+export async function getPlaceIdentity(
+  id: string,
+): Promise<{ placeId: string; name: string; address: string; phone: string | null } | null> {
+  if (!id.startsWith("place:")) return null;
+  if (!CONFIG.live) return null;
+  const placeId = id.slice("place:".length);
+  try {
+    const place = await getPlaceDetails(placeId);
+    return {
+      placeId: place.placeId,
+      name: place.name,
+      address: place.address,
+      phone: place.phone,
+    };
+  } catch (err) {
+    console.error("place identity resolve failed:", err);
+    return null;
+  }
+}

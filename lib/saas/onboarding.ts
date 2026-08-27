@@ -72,11 +72,12 @@ function merge(
   return [...autos, ...manuals];
 }
 
-/** Customer: Organization → Property → Team → Invoice → Support/onboarding. */
+/** Customer: Organization → Property → Claim listing → Team → Invoice → Support/onboarding. */
 export async function customerChecklist(organizationId: string): Promise<OnboardingStep[]> {
-  const [org, propertyCount, contactCount, invoiceCount, done] = await Promise.all([
+  const [org, propertyCount, claimCount, contactCount, invoiceCount, done] = await Promise.all([
     prisma.organization.findUnique({ where: { id: organizationId }, select: { id: true } }),
     prisma.property.count({ where: { organizationId } }),
+    prisma.propertyClaim.count({ where: { organizationId, status: "approved" } }),
     prisma.orgContact.count({ where: { organizationId } }),
     prisma.invoice.count({ where: { organizationId } }),
     completedMap("customer", organizationId),
@@ -84,6 +85,7 @@ export async function customerChecklist(organizationId: string): Promise<Onboard
   return merge("customer", done, [
     { key: "organization", label: "Organization created", hint: "Your company record on HospiOS.", done: Boolean(org) },
     { key: "property", label: "First property added", hint: "Add the hotel/property you want to score.", done: propertyCount > 0 },
+    { key: "claim", label: "Google listing claimed", hint: "Verify you own your property's Google listing.", done: claimCount > 0 },
     { key: "team", label: "Team set up", hint: "Invite at least one colleague as an org contact.", done: contactCount > 1 },
     { key: "invoice", label: "Billing active", hint: "Your first invoice exists.", done: invoiceCount > 0 },
   ]);

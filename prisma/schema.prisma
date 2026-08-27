@@ -41,6 +41,7 @@ model Organization {
 
   contacts             OrgContact[]
   properties           Property[]
+  propertyClaims       PropertyClaim[]
   subscriptions        Subscription[]
   invoices             Invoice[]
   payments             Payment[]
@@ -83,11 +84,55 @@ model Property {
   country        String?
   rooms          Int?
   pmsInstanceUrl String?
+  /// Canonical Google Place ID when this property maps to a live listing.
+  placeId        String?       @unique
   status         String        @default("active")
   createdAt      DateTime      @default(now())
   featureFlags   FeatureFlag[]
 
   @@index([organizationId])
+}
+
+/**
+ * A request by an owner/manager to claim an existing Google listing
+ * (`placeId`) against an organization. Owned by an Organization (so an admin
+ * can track and adjudicate all of its customers' claims in one place) and
+ * authored by a logged-in user.
+ */
+model PropertyClaim {
+  id             String       @id @default(cuid())
+  organizationId String
+  organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  placeId        String
+  propertyName   String
+  propertyCity   String?
+  propertyCountry String?
+  address        String?
+  /// On-file phone recorded from Google at claim time (for later verification).
+  googlePhone    String?
+  requesterName  String?
+  requesterEmail String?
+  requesterPhone String?
+  /// Acquisition context captured at claim time (mirrors Organization fields).
+  acquisitionSource   String?
+  acquisitionCampaign String?
+  createdById    String?
+  status         String       @default("pending") // pending|approved|rejected
+  reason         String? // rejection reason
+  propertyId     String? // set when an approved claim is linked to a Property row
+  /// Ownership proof completed. Approval is gated on this for new claims.
+  verified         Boolean  @default(false)
+  verificationMethod String? // phone_otp|email|dns|gbp
+  verifiedAt       DateTime?
+  verifiedBy       String?
+  createdAt      DateTime     @default(now())
+  decidedAt      DateTime?
+  decidedBy      String?
+
+  @@unique([placeId, organizationId])
+  @@index([organizationId])
+  @@index([status])
+  @@index([placeId])
 }
 
 model Plan {
