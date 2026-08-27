@@ -1,4 +1,4 @@
-import type { Metadata } from "next";
+import type { Metadata, Viewport } from "next";
 import type { ReactNode } from "react";
 import { Inter, Geist_Mono } from "next/font/google";
 import JsonLd from "@/components/JsonLd";
@@ -41,7 +41,6 @@ export const metadata: Metadata = {
   creator: SITE_NAME,
   applicationName: SITE_NAME,
   manifest: "/manifest.json",
-  themeColor: "#6366f1",
   alternates: {
     canonical: "/",
   },
@@ -70,6 +69,10 @@ export const metadata: Metadata = {
       "max-snippet": -1,
     },
   },
+};
+
+export const viewport: Viewport = {
+  themeColor: "#6366f1",
 };
 
 export default function RootLayout({ children }: { children: ReactNode }) {
