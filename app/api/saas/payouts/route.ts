@@ -25,9 +25,13 @@ export async function POST(req: NextRequest) {
   let body: Record<string, unknown>;
   try { body = await req.json(); } catch { return NextResponse.json({ error: "Invalid JSON" }, { status: 400 }); }
   try {
+    const amount = Number(body.amount);
+    if (!Number.isFinite(amount) || amount <= 0) {
+      return NextResponse.json({ error: "amount must be a positive number" }, { status: 400 });
+    }
     const payout = await createPayout({
       affiliateId: String(body.affiliateId ?? ""),
-      amount: Number(body.amount),
+      amount,
       currency: typeof body.currency === "string" ? body.currency : "USD",
       method: typeof body.method === "string" ? body.method : "bank",
     });

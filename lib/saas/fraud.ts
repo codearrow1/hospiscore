@@ -238,13 +238,22 @@ async function applyFraudResolution(affiliateId: string, resolution: FraudResolu
     case "account_suspend":
       await prisma.affiliate.update({ where: { id: affiliateId }, data: { status: "suspended" } });
       break;
+    case "account_terminate":
+      await prisma.$transaction([
+        prisma.affiliate.update({ where: { id: affiliateId }, data: { status: "suspended" } }),
+        prisma.affiliateCommission.updateMany({
+          where: { affiliateId, status: { in: ["pending","eligible","approved","payable"] } },
+          data: { status: "reversed", reversalReason: "fraud termination" },
+        }),
+      ]);
+      break;
     case "commission_hold":
       await prisma.affiliateCommission.updateMany({
         where: { affiliateId, status: { in: ["pending","eligible"] } },
         data: { status: "fraud_hold" },
       });
       break;
-    // no_action, warning, account_terminate — logged but no auto-action for terminate
+    // no_action, warning — logged but no auto-action
   }
 }
 

@@ -39,15 +39,20 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id
   }
   const { status, reviewNote } = body as { status?: string; reviewNote?: string };
 
-  const application = await prisma.affiliateApplication.update({
-    where: { id },
-    data: {
-      status,
-      reviewNote,
-      reviewedByEmail: user.email,
-      reviewedAt: new Date(),
-    },
-  });
+  let application;
+  try {
+    application = await prisma.affiliateApplication.update({
+      where: { id },
+      data: {
+        status,
+        reviewNote,
+        reviewedByEmail: user.email,
+        reviewedAt: new Date(),
+      },
+    });
+  } catch (e) {
+    return NextResponse.json({ error: e instanceof Error ? e.message : "Update failed" }, { status: 400 });
+  }
 
   await writeSaasAudit({ byEmail: user.email, action: "affiliate_application.reviewed", entity: "affiliateApplication", entityId: application.id, ip: clientIp(req) });
 

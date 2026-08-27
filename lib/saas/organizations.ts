@@ -155,5 +155,19 @@ export async function updateOrganization(id: string, patch: Partial<OrgInput> & 
 }
 
 export async function deleteOrganization(id: string) {
+  const org = await prisma.organization.findUnique({
+    where: { id },
+    select: { id: true, legalName: true },
+  });
+  if (!org) throw new Error("Organization not found");
+
+  const [subCount, invoiceCount] = await Promise.all([
+    prisma.subscription.count({ where: { organizationId: id } }),
+    prisma.invoice.count({ where: { organizationId: id } }),
+  ]);
+  if (subCount > 0 || invoiceCount > 0) {
+    throw new Error(`Cannot delete organization "${org.legalName}" with ${subCount} subscription(s) and ${invoiceCount} invoice(s). Archive it first.`);
+  }
+
   await prisma.organization.delete({ where: { id } });
 }

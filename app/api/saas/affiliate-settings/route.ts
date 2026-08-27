@@ -31,11 +31,16 @@ export async function POST(req: NextRequest) {
 
   const { key, value } = body as { key: string; value: unknown };
 
-  const setting = await prisma.affiliateSetting.upsert({
-    where: { key },
-    update: { value: JSON.stringify(value), updatedByEmail: user.email },
-    create: { key, value: JSON.stringify(value), updatedByEmail: user.email },
-  });
+  let setting;
+  try {
+    setting = await prisma.affiliateSetting.upsert({
+      where: { key },
+      update: { value: JSON.stringify(value), updatedByEmail: user.email },
+      create: { key, value: JSON.stringify(value), updatedByEmail: user.email },
+    });
+  } catch (e) {
+    return NextResponse.json({ error: e instanceof Error ? e.message : "Upsert failed" }, { status: 400 });
+  }
 
   await writeSaasAudit({ byEmail: user.email, action: "affiliate_setting.updated", entity: "affiliateSetting", entityId: setting.key, ip: clientIp(req) });
 

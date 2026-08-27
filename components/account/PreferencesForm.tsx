@@ -54,8 +54,8 @@ export default function PreferencesForm() {
         body: JSON.stringify({ timezone, dateFormat }),
       });
       if (!res.ok) {
-        const data = await res.json();
-        throw new Error(data.error || "Save failed");
+        const errData = await res.json();
+        throw new Error(errData.error || "Save failed");
       }
       const data: UserPreferences = await res.json();
       setPrefs(data);

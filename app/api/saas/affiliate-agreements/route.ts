@@ -53,9 +53,14 @@ export async function POST(req: NextRequest) {
 
   const { affiliateId, campaignId, version, title, content } = body as { affiliateId: string; campaignId?: string; version: string; title: string; content: string };
 
-  const agreement = await prisma.affiliateAgreement.create({
-    data: { affiliateId, campaignId, version, title, content },
-  });
+  let agreement;
+  try {
+    agreement = await prisma.affiliateAgreement.create({
+      data: { affiliateId, campaignId, version, title, content },
+    });
+  } catch (e) {
+    return NextResponse.json({ error: e instanceof Error ? e.message : "Create failed" }, { status: 400 });
+  }
 
   await writeSaasAudit({ byEmail: user.email, action: "affiliate_agreement.created", entity: "affiliateAgreement", entityId: agreement.id, ip: clientIp(req) });
 

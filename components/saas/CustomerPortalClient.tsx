@@ -283,7 +283,6 @@ export default function CustomerPortalClient({
   usage30d: { metric: string; quantity: number }[];
   invoices: PortalInvoice[];
 }) {
-  const toast = useToast();
   const [openInvoice, setOpenInvoice] = useState<string | null>(null);
 
   const needsPayment = outstandingCents > 0;
@@ -302,17 +301,11 @@ export default function CustomerPortalClient({
       {/* Outstanding banner — self-pay honestly gated */}
       {(needsPayment || subAttention) && (
         <div className="rounded-2xl border border-amber-300 bg-amber-50 p-4 dark:border-amber-800 dark:bg-amber-950/40">
-          {needsPayment && (
+           {needsPayment && (
             <div className="flex flex-wrap items-center justify-between gap-2">
               <p className="text-sm font-semibold text-amber-800 dark:text-amber-200">
-                Outstanding balance {formatMoney(outstandingCents, "USD")} — see billing history below.
+                Outstanding balance {formatMoney(outstandingCents, "USD")} — contact billing to settle this invoice.
               </p>
-              <button
-                className={btnGhost}
-                onClick={() => toast.error("Online self-pay is not configured yet (payment gateway pending) — contact billing to settle this invoice.")}
-              >
-                Pay now
-              </button>
             </div>
           )}
           {subAttention && (

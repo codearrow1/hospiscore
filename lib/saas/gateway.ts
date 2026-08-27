@@ -236,34 +236,39 @@ export async function voidInvoice(invoiceId: string, actorEmail: string, ip?: st
 }
 
 export async function refundPayment(paymentId: string, actorEmail: string, ip?: string) {
-  const pay = await prisma.payment.findUnique({ where: { id: paymentId } });
-  if (!pay) throw new Error("Payment not found");
-  if (pay.status === "refunded") throw new Error("Already refunded");
-  if (pay.status !== "succeeded") throw new Error(`Only succeeded payments are refundable (payment is ${pay.status})`);
-  const updated = await prisma.payment.update({ where: { id: paymentId }, data: { status: "refunded" } });
-  await writeSaasAudit({ byEmail: actorEmail, action: "payment.refunded", entity: "payment", entityId: paymentId, detail: `refund ${(pay.amount/100).toFixed(2)}`, ip });
+  return prisma.$transaction(async (tx) => {
+    const pay = await tx.payment.findUnique({ where: { id: paymentId } });
+    if (!pay) throw new Error("Payment not found");
+    if (pay.status === "refunded") throw new Error("Already refunded");
+    if (pay.status !== "succeeded") throw new Error(`Only succeeded payments are refundable (payment is ${pay.status})`);
+    const updated = await tx.payment.update({ where: { id: paymentId }, data: { status: "refunded" } });
+    await writeSaasAudit({ byEmail: actorEmail, action: "payment.refunded", entity: "payment", entityId: paymentId, detail: `refund ${(pay.amount/100).toFixed(2)}`, ip });
 
-  if (pay.invoiceId) {
-    // Re-settle the invoice excluding refunded money.
-    const paidAgg = await prisma.payment.aggregate({ where: { invoiceId: pay.invoiceId, status: "succeeded" }, _sum: { amount: true } });
-    const inv = await prisma.invoice.findUnique({ where: { id: pay.invoiceId }, select: { amount: true, status: true, subscriptionId: true } });
-    if (inv && inv.status !== "void") {
-      const totalPaid = paidAgg._sum.amount ?? 0;
-      const newStatus = totalPaid >= inv.amount ? "paid" : totalPaid > 0 ? "partially_paid" : "issued";
-      if (newStatus !== inv.status || (newStatus === "issued")) {
-        await prisma.invoice.update({
-          where: { id: pay.invoiceId },
-          data: { status: newStatus, ...(newStatus !== "paid" ? { paidAt: null } : {}) },
-        });
+    if (pay.invoiceId) {
+      const paidAgg = await tx.payment.aggregate({ where: { invoiceId: pay.invoiceId, status: "succeeded" }, _sum: { amount: true } });
+      const inv = await tx.invoice.findUnique({ where: { id: pay.invoiceId }, select: { amount: true, status: true, subscriptionId: true } });
+      if (inv && inv.status !== "void") {
+        const totalPaid = paidAgg._sum.amount ?? 0;
+        const newStatus = totalPaid >= inv.amount ? "paid" : totalPaid > 0 ? "partially_paid" : "issued";
+        if (newStatus !== inv.status || (newStatus === "issued")) {
+          await tx.invoice.update({
+            where: { id: pay.invoiceId },
+            data: { status: newStatus, ...(newStatus !== "paid" ? { paidAt: null } : {}) },
+          });
+        }
       }
     }
-    // Policy: refunds reverse outstanding commissions for the subscription.
-    try {
-      if (inv?.subscriptionId) {
-        const { handleReversal } = await import("./commissions");
-        await handleReversal(pay.organizationId, inv.subscriptionId);
-      }
-    } catch (e) { console.error("[gateway] commission reversal failed:", e); }
-  }
-  return updated;
+    return updated;
+  }, { maxWait: 20_000, timeout: 60_000 }).then(async (updated) => {
+    if (pay.invoiceId) {
+      try {
+        const inv = await prisma.invoice.findUnique({ where: { id: pay.invoiceId }, select: { subscriptionId: true } });
+        if (inv?.subscriptionId) {
+          const { handleReversal } = await import("./commissions");
+          await handleReversal(pay.organizationId, inv.subscriptionId);
+        }
+      } catch (e) { console.error("[gateway] commission reversal failed:", e); }
+    }
+    return updated;
+  });
 }

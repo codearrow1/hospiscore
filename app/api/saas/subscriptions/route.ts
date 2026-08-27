@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { requireSaasAccess, clientIp } from "@/lib/marketing/guard";
 import { hasSaasPerm } from "@/lib/saas/roles";
-import { listSubscriptions, createSubscription } from "@/lib/saas/subscriptions";
+import { listSubscriptions, createSubscription, SUBSCRIPTION_STATUSES } from "@/lib/saas/subscriptions";
 import { writeSaasAudit } from "@/lib/saas/audit";
 import { SEED_COUNTRIES } from "@/lib/pricing/countries";
 
@@ -57,7 +57,7 @@ export async function POST(req: NextRequest) {
       planId: String(body.planId ?? ""),
       country: typeof body.country === "string" ? body.country : undefined,
       billingCycle: body.billingCycle === "yearly" ? "yearly" : "monthly",
-      status: typeof body.status === "string" ? (body.status as never) : "trial",
+      status: typeof body.status === "string" && SUBSCRIPTION_STATUSES.includes(body.status as never) ? (body.status as never) : "trial",
       trialEndsAt: body.trialEndsAt ? new Date(String(body.trialEndsAt)) : undefined,
       unitAmount: body.unitAmount !== undefined && body.unitAmount !== null && body.unitAmount !== "" ? Number(body.unitAmount) : undefined,
       startAt: body.startAt ? new Date(String(body.startAt)) : undefined,

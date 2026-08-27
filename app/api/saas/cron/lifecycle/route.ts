@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { timingSafeEqual } from "node:crypto";
+import { secretsMatch } from "@/lib/saas/cronAuth";
 import { requireSaasAccess } from "@/lib/marketing/guard";
 import { hasSaasPerm } from "@/lib/saas/roles";
 import { classifyLifecycle } from "@/lib/saas/lifecycle";
@@ -7,17 +7,6 @@ import { canTransition } from "@/lib/saas/subscriptions";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
-
-/** Constant-time string comparison — never leaks prefix matches via timing. */
-function secretsMatch(a: string, b: string): boolean {
-  const ha = Buffer.from(a, "utf8");
-  const hb = Buffer.from(b, "utf8");
-  if (ha.length !== hb.length) {
-    timingSafeEqual(ha, ha);
-    return false;
-  }
-  return timingSafeEqual(ha, hb);
-}
 
 /**
  * Applies every due lifecycle transition (M-06). Pure classification first,

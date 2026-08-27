@@ -43,16 +43,21 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id
   }
   const { status, resolution, resolutionNote } = body as { status?: string; resolution?: string; resolutionNote?: string };
 
-  const fraudCase = await prisma.affiliateFraudCase.update({
-    where: { id },
-    data: {
-      status,
-      resolution,
-      resolutionNote,
-      resolvedByEmail: user.email,
-      resolvedAt: new Date(),
-    },
-  });
+  let fraudCase;
+  try {
+    fraudCase = await prisma.affiliateFraudCase.update({
+      where: { id },
+      data: {
+        status,
+        resolution,
+        resolutionNote,
+        resolvedByEmail: user.email,
+        resolvedAt: new Date(),
+      },
+    });
+  } catch (e) {
+    return NextResponse.json({ error: e instanceof Error ? e.message : "Update failed" }, { status: 400 });
+  }
 
   await writeSaasAudit({ byEmail: user.email, action: "affiliate_fraud.resolved", entity: "affiliateFraudCase", entityId: fraudCase.id, ip: clientIp(req) });
 

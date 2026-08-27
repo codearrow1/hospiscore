@@ -48,9 +48,14 @@ export async function POST(req: NextRequest) {
 
   const { affiliateId, reasons } = body as { affiliateId: string; reasons?: Record<string, unknown> };
 
-  const fraudCase = await prisma.affiliateFraudCase.create({
-    data: { affiliateId, riskScore, reasons: reasons as unknown as import("@prisma/client/runtime/library").InputJsonValue },
-  });
+  let fraudCase;
+  try {
+    fraudCase = await prisma.affiliateFraudCase.create({
+      data: { affiliateId, riskScore, reasons: reasons as unknown as import("@prisma/client/runtime/library").InputJsonValue },
+    });
+  } catch (e) {
+    return NextResponse.json({ error: e instanceof Error ? e.message : "Create failed" }, { status: 400 });
+  }
 
   await writeSaasAudit({ byEmail: user.email, action: "affiliate_fraud.flagged", entity: "affiliateFraudCase", entityId: fraudCase.id, ip: clientIp(req) });
 

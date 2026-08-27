@@ -45,20 +45,25 @@ export async function POST(req: NextRequest) {
 
   const { affiliateId, website, audience, socialProfiles, promotionMethod, geography, niche, expectedTraffic, planDescription } = body as { affiliateId: string; website?: string; audience?: string; socialProfiles?: Record<string, unknown>; promotionMethod?: string; geography?: string; niche?: string; expectedTraffic?: string; planDescription?: string };
 
-  const application = await prisma.affiliateApplication.create({
-    data: {
-      affiliateId,
-      website,
-      audience,
-      socialProfiles: socialProfiles as unknown as InputJsonValue,
-      promotionMethod,
-      geography,
-      niche,
-      expectedTraffic,
-      planDescription,
-      status: "pending",
-    },
-  });
+  let application;
+  try {
+    application = await prisma.affiliateApplication.create({
+      data: {
+        affiliateId,
+        website,
+        audience,
+        socialProfiles: socialProfiles as unknown as InputJsonValue,
+        promotionMethod,
+        geography,
+        niche,
+        expectedTraffic,
+        planDescription,
+        status: "pending",
+      },
+    });
+  } catch (e) {
+    return NextResponse.json({ error: e instanceof Error ? e.message : "Create failed" }, { status: 400 });
+  }
 
   await writeSaasAudit({ byEmail: user.email, action: "affiliate_application.submitted", entity: "affiliateApplication", entityId: application.id, ip: clientIp(req) });
 

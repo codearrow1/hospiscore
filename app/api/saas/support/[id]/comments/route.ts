@@ -66,12 +66,13 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
   // Notify the requester (if not the same person and comment is not internal)
   if (!isInternal && ticket.requesterEmail && ticket.requesterEmail !== guard.user.email) {
     try {
+      const esc = (s: string) => s.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;");
       const origin = req.nextUrl.origin;
       await sendMail({
         to: ticket.requesterEmail,
-        subject: `New reply on ticket: ${ticket.subject}`,
-        html: `<p>A team member replied to your support ticket "<strong>${ticket.subject}</strong>" (${ticket.organization?.legalName ?? ""}):</p>
-<blockquote>${bodyText.replace(/\n/g, "<br/>")}</blockquote>
+        subject: `New reply on ticket: ${esc(ticket.subject)}`,
+        html: `<p>A team member replied to your support ticket "<strong>${esc(ticket.subject)}</strong>" (${esc(ticket.organization?.legalName ?? "")}):</p>
+<blockquote>${esc(bodyText).replace(/\n/g, "<br/>")}</blockquote>
 <p><a href="${origin}/customer">Open your portal</a> to view the full conversation.</p>`,
       });
     } catch {

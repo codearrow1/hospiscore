@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
-import { getCurrentUser } from "@/lib/sessionCookie";
-import { appRoleFromStoredRole } from "@/lib/rbac";
+import { requireSaasAccess } from "@/lib/marketing/guard";
+import { hasSaasPerm } from "@/lib/saas/roles";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -13,15 +13,14 @@ function errText(e: unknown): string {
 }
 
 /**
- * GET /api/saas/admin/db-diag — super-admin-only, prisma-free module that
- * probes the SaaS database chain step by step with dynamic imports so it can
- * report exactly which stage fails on hosts where static imports crash.
+ * GET /api/saas/admin/db-diag — super-admin-only diagnostic endpoint.
+ * Uses requireSaasAccess() for standard auth gate + initSaasDb.
  */
 export async function GET() {
-  const user = await getCurrentUser();
-  if (!user) return NextResponse.json({ error: "Not signed in" }, { status: 401 });
-  if (appRoleFromStoredRole(user) !== "super_admin") {
-    return NextResponse.json({ error: "Super admin only" }, { status: 403 });
+  const guard = await requireSaasAccess();
+  if (!guard.ok) return guard.response;
+  if (!hasSaasPerm(guard.user, "SYSTEM_SETTINGS")) {
+    return NextResponse.json({ error: "SYSTEM_SETTINGS required" }, { status: 403 });
   }
 
   const steps: Step[] = [];

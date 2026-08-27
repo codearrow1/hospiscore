@@ -18,10 +18,7 @@ export default async function PartnerPortal() {
   if (!user) redirect("/account?next=/partner");
   await initSaasDb().catch(() => {});
 
-  let partner = await findPartnerForUser(user.id).catch(() => null);
-  if (!partner) {
-    partner = await prisma.partner.findFirst({ where: { email: user.email } });
-  }
+  const partner = await findPartnerForUser(user.id).catch(() => null);
   if (!partner) {
     const appRole = await resolveAppRole(user);
     if (appRole !== "super_admin") redirect("/account?next=/partner");
