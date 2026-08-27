@@ -5,7 +5,6 @@
  */
 
 import { prisma } from "@/lib/prisma";
-import { listLeads } from "@/lib/marketing/leads";
 
 export type SearchResult = {
   type: "organization" | "property" | "subscription" | "invoice" | "payment" | "lead" | "user";
@@ -18,7 +17,6 @@ export type SearchResult = {
 export async function globalSearch(q: string, limit = 20): Promise<SearchResult[]> {
   const query = q.trim();
   if (!query || query.length < 2) return [];
-  const lower = query.toLowerCase();
 
   const [orgs, props, subs, invoices, payments, leads] = await Promise.all([
     prisma.organization.findMany({
@@ -29,7 +27,11 @@ export async function globalSearch(q: string, limit = 20): Promise<SearchResult[
     prisma.subscription.findMany({ where: { OR: [{ id: { contains: query } }, { status: { contains: query } }] }, take: 5, include: { organization: { select: { legalName: true } }, plan: { select: { name: true } } } }),
     prisma.invoice.findMany({ where: { OR: [{ id: { contains: query } }, { type: { contains: query } }] }, take: 5, include: { organization: { select: { legalName: true } } } }),
     prisma.payment.findMany({ where: { id: { contains: query } }, take: 5, include: { organization: { select: { legalName: true } } } }),
-    listLeads().then((all) => all.filter((l) => [l.name, l.email, l.company, l.propertyName].some((s) => s?.toLowerCase().includes(lower))).slice(0, 5)),
+    prisma.marketingLead.findMany({
+      where: { OR: [{ name: { contains: query } }, { email: { contains: query } }, { company: { contains: query } }] },
+      take: 5,
+      select: { id: true, name: true, email: true, stage: true, company: true },
+    }),
   ]);
 
   const results: SearchResult[] = [];

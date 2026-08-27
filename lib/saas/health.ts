@@ -41,7 +41,12 @@ export async function computeHealth(orgId: string): Promise<{ score: number | nu
     return { score: 0, status: "churned", signals: { subscription: sub.status } };
   }
 
-  const paymentWindowDays = await resolveSetting<number>("health_payment_window_days");
+  let paymentWindowDays: number;
+  try {
+    paymentWindowDays = await resolveSetting<number>("health_payment_window_days");
+  } catch {
+    paymentWindowDays = 90;
+  }
   const sinceWindow = new Date(Date.now() - paymentWindowDays * DAY);
   const [failedPayments, totalPayments, lastUsage, usageAgg, openTickets] = await Promise.all([
     prisma.payment.count({ where: { organizationId: orgId, status: "failed", createdAt: { gte: sinceWindow } } }),
@@ -117,23 +122,39 @@ export async function computeHealth(orgId: string): Promise<{ score: number | nu
 }
 
 export async function recomputeAllHealth(): Promise<{ recomputed: number }> {
-  const orgs = await prisma.organization.findMany({ select: { id: true }, where: { status: { not: "cancelled" } } });
-  for (const o of orgs) {
-    try {
-      await computeHealth(o.id);
-    } catch (e) { console.error("[health] recompute failed for org", o.id, e); }
+  const PAGE_SIZE = 100;
+  let offset = 0;
+  let recomputed = 0;
+  while (true) {
+    const batch = await prisma.organization.findMany({
+      select: { id: true },
+      where: { status: { not: "cancelled" } },
+      skip: offset,
+      take: PAGE_SIZE,
+    });
+    if (batch.length === 0) break;
+    for (const o of batch) {
+      try {
+        await computeHealth(o.id);
+        recomputed++;
+      } catch (e) { console.error("[health] recompute failed for org", o.id, e); }
+    }
+    offset += PAGE_SIZE;
   }
-  return { recomputed: orgs.length };
+  return { recomputed };
 }
 
 export async function listHealth(opts?: { status?: string }) {
   const where: Record<string, unknown> = {};
   if (opts?.status) where.healthStatus = opts.status;
-  const items = await prisma.organization.findMany({
-    where,
-    select: { id: true, legalName: true, businessName: true, country: true, healthScore: true, healthStatus: true, mrr: true, status: true, updatedAt: true },
-    orderBy: [{ healthScore: "asc" }, { mrr: "desc" }],
-    take: 200,
-  });
-  return { items, total: items.length };
+  const [items, total] = await Promise.all([
+    prisma.organization.findMany({
+      where,
+      select: { id: true, legalName: true, businessName: true, country: true, healthScore: true, healthStatus: true, mrr: true, status: true, updatedAt: true },
+      orderBy: [{ healthScore: "asc" }, { mrr: "desc" }],
+      take: 200,
+    }),
+    prisma.organization.count({ where }),
+  ]);
+  return { items, total };
 }

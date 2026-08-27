@@ -12,7 +12,7 @@ export async function GET(_req: NextRequest) {
   const { user } = guard;
   if (!hasSaasPerm(user, "AFFILIATE_VIEW")) return NextResponse.json({ error: "Forbidden" }, { status: 403 });
 
-  const settings = await prisma.affiliateSetting.findMany();
+  const settings = await prisma.affiliateSetting.findMany({ take: 500 });
   return NextResponse.json({ settings });
 }
 

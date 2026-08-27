@@ -40,18 +40,18 @@ export async function pushNotificationToOrg(input: {
       where: { organizationId: input.organizationId },
       select: { email: true },
     });
-    // Notifications are keyed by userId (from session). We store by email as
-    // userId fallback — the UI resolves the current user's email to filter.
-    for (const c of contacts) {
-      await prisma.notification.create({
-        data: {
-          userId: c.email, // resolved by the bell component's current user
-          kind: input.kind,
-          title: input.title.slice(0, 200),
-          body: input.body.slice(0, 500),
-          href: input.href || null,
-        },
-      });
+    const title = input.title.slice(0, 200);
+    const body = input.body.slice(0, 500);
+    const href = input.href || null;
+    const data = contacts.map((c) => ({
+      userId: c.email,
+      kind: input.kind,
+      title,
+      body,
+      href,
+    }));
+    if (data.length > 0) {
+      await prisma.notification.createMany({ data, skipDuplicates: true });
     }
   } catch {
     // best-effort

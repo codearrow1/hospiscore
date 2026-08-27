@@ -54,17 +54,20 @@ export async function createTicket(input: {
   });
 }
 
-export async function listTickets(opts?: { organizationId?: string; status?: string; category?: string }) {
+export async function listTickets(opts?: { organizationId?: string; status?: string; category?: string; take?: number; skip?: number }) {
   const where: Record<string, unknown> = {};
   if (opts?.organizationId) where.organizationId = opts.organizationId;
   if (opts?.status) where.status = opts.status;
   if (opts?.category) where.category = opts.category;
+  const take = Math.min(opts?.take ?? 200, 500);
+  const skip = opts?.skip ?? 0;
   const [items, total] = await Promise.all([
     prisma.supportTicket.findMany({
       where,
       include: { organization: { select: { legalName: true, country: true } } },
       orderBy: [{ status: "asc" }, { slaDueAt: "asc" }],
-      take: 200,
+      take,
+      skip,
     }),
     prisma.supportTicket.count({ where }),
   ]);

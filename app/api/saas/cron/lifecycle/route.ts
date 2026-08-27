@@ -15,40 +15,51 @@ export const dynamic = "force-dynamic";
  */
 async function sweep(now = new Date()) {
   const { prisma } = await import("@/lib/prisma");
-  const subs = await prisma.subscription.findMany({
-    where: { status: { in: ["trial", "active", "past_due", "grace"] } },
-    select: { id: true, status: true, organizationId: true, currentPeriodEnd: true, trialEndsAt: true },
-    take: 500,
-  });
   let expired = 0;
   let pastDue = 0;
   let suspended = 0;
-  for (const s of subs) {
-    const target = classifyLifecycle(s, now.getTime());
-    if (!target) continue;
-    const from = s.status as "trial" | "active" | "past_due" | "grace";
-    if (!canTransition(from, target)) continue;
-    await prisma.subscription.update({ where: { id: s.id }, data: { status: target } });
-    if (target === "expired") expired += 1;
-    else if (target === "past_due") pastDue += 1;
-    else if (target === "suspended") suspended += 1;
-    // Every automated money-affecting state change is individually auditable.
-    try {
-      const { writeSaasAudit } = await import("@/lib/saas/audit");
-      await writeSaasAudit({
-        byEmail: "system:lifecycle-cron",
-        action: "subscription.lifecycle",
-        entity: "subscription",
-        entityId: s.id,
-        detail: `${s.status} → ${target}`,
-      });
-    } catch (e) { console.error("[lifecycle] audit write failed:", e); }
-    try {
-      const { syncOrgMrr } = await import("@/lib/saas/subscriptions");
-      await syncOrgMrr(s.organizationId);
-    } catch (e) { console.error("[lifecycle] syncOrgMrr failed:", e); }
+  let processed = 0;
+  const PAGE = 200;
+  let cursor: string | undefined;
+
+  while (true) {
+    const subs = await prisma.subscription.findMany({
+      where: { status: { in: ["trial", "active", "past_due", "grace"] } },
+      select: { id: true, status: true, organizationId: true, currentPeriodEnd: true, trialEndsAt: true },
+      take: PAGE,
+      ...(cursor ? { skip: 1, cursor: { id: cursor } } : {}),
+    });
+    if (subs.length === 0) break;
+    processed += subs.length;
+    cursor = subs[subs.length - 1].id;
+
+    for (const s of subs) {
+      const target = classifyLifecycle(s, now.getTime());
+      if (!target) continue;
+      const from = s.status as "trial" | "active" | "past_due" | "grace";
+      if (!canTransition(from, target)) continue;
+      await prisma.subscription.update({ where: { id: s.id }, data: { status: target } });
+      if (target === "expired") expired += 1;
+      else if (target === "past_due") pastDue += 1;
+      else if (target === "suspended") suspended += 1;
+      try {
+        const { writeSaasAudit } = await import("@/lib/saas/audit");
+        await writeSaasAudit({
+          byEmail: "system:lifecycle-cron",
+          action: "subscription.lifecycle",
+          entity: "subscription",
+          entityId: s.id,
+          detail: `${s.status} → ${target}`,
+        });
+      } catch (e) { console.error("[lifecycle] audit write failed:", e); }
+      try {
+        const { syncOrgMrr } = await import("@/lib/saas/subscriptions");
+        await syncOrgMrr(s.organizationId);
+      } catch (e) { console.error("[lifecycle] syncOrgMrr failed:", e); }
+    }
+    if (subs.length < PAGE) break;
   }
-  return { processed: subs.length, expired, pastDue, suspended };
+  return { processed, expired, pastDue, suspended };
 }
 
 /**

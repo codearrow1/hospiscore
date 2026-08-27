@@ -22,6 +22,7 @@ export async function GET(req: NextRequest) {
       where,
       include: { affiliate: { select: { name: true, email: true } } },
       orderBy: { acceptedAt: "desc" },
+      take: 200,
     }),
     prisma.affiliateAgreement.count({ where }),
   ]);
