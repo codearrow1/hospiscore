@@ -30,6 +30,19 @@ function mrrDelta(series: { day: string; mrr: number }[]): KpiDelta | undefined 
   return { pct: Math.round(((last - prev) / prev) * 1000) / 10, goodWhen: "up" };
 }
 
+function SectionFail({ label, error }: { label: string; error: unknown }) {
+  const msg = error instanceof Error ? error.message : String(error);
+  console.error(`[saas-command-center] ${label} failed:`, msg);
+  return (
+    <SectionCard title={label}>
+      <div className="flex flex-col items-center gap-2 py-8 text-center">
+        <p className="text-sm font-medium text-zinc-500 dark:text-zinc-400">Unavailable</p>
+        <p className="max-w-xs text-xs text-zinc-400 dark:text-zinc-500">{msg}</p>
+      </div>
+    </SectionCard>
+  );
+}
+
 export default async function SaasDashboardPage({
   searchParams,
 }: {
@@ -39,8 +52,8 @@ export default async function SaasDashboardPage({
   if (!guard.ok) return restrictedPanel("SaaS Command Center", "Platform owner access required.");
   const user = guard.user;
 
-  await initSaasDb();
-  await seedDefaultPlans();
+  await initSaasDb().catch((e) => console.error("[saas-command-center] initSaasDb retry failed:", e?.message ?? e));
+  await seedDefaultPlans().catch((e) => console.error("[saas-command-center] seedDefaultPlans failed:", e?.message ?? e));
 
   const sp = (await searchParams) ?? {};
   const range = ["7", "30", "90"].includes(sp.range ?? "") ? (sp.range as string) : "30";
@@ -54,7 +67,7 @@ export default async function SaasDashboardPage({
   const canApprovals = p("PLAN_VIEW");
   const canManage = p("CUSTOMER_MANAGE");
 
-  const [m, ops, health, country, churn] = await Promise.all([
+  const [metricsResult, opsResult, healthResult, countryResult, churnResult] = await Promise.allSettled([
     saasMetrics(days),
     saasOpsSummary(),
     listHealth({}),
@@ -62,38 +75,54 @@ export default async function SaasDashboardPage({
     churnCohort(6),
   ]);
 
-  const atRisk = health.items
-    .filter((h) => h.healthStatus === "at_risk" || h.healthStatus === "critical")
-    .sort((a, b) => (a.healthScore ?? 0) - (b.healthScore ?? 0))
-    .map((h) => ({ ...h, healthStatus: h.healthStatus ?? "stable" }));
+  const m = metricsResult.status === "fulfilled" ? metricsResult.value : null;
+  const ops = opsResult.status === "fulfilled" ? opsResult.value : null;
+  const health = healthResult.status === "fulfilled" ? healthResult.value : null;
+  const country = countryResult.status === "fulfilled" ? countryResult.value : null;
+  const churn = churnResult.status === "fulfilled" ? churnResult.value : null;
+
+  const atRisk = health
+    ? health.items
+        .filter((h) => h.healthStatus === "at_risk" || h.healthStatus === "critical")
+        .sort((a, b) => (a.healthScore ?? 0) - (b.healthScore ?? 0))
+        .map((h) => ({ ...h, healthStatus: h.healthStatus ?? "stable" }))
+    : [];
 
   // ANSWER — what is happening
   const kpis: ReactNode[] = [];
   if (canSubs) {
-    kpis.push(
-      <KpiTile key="mrr" label="MRR" value={money(m.mrr)} delta={mrrDelta(m.mrrGrowth)} accent="text-emerald-600 dark:text-emerald-400" href="/saas/subscriptions" />,
-      <KpiTile key="arr" label="ARR" value={money(m.arr)} hint="MRR × 12" href="/saas/subscriptions" />,
-      <KpiTile key="customers" label="Active customers" value={m.activeCustomers} hint={`${m.totalCustomers} total · +${m.newCustomersWindow} in range`} href="/saas/organizations" />,
-      <KpiTile key="trialconv" label="Trial conversion" value={m.trialConversion == null ? "—" : `${m.trialConversion}%`} hint={`${m.trials} open trials`} accent={m.trialConversion != null && m.trialConversion < 20 ? "text-amber-600 dark:text-amber-400" : undefined} href="/saas/subscriptions?status=trial" />,
-      <KpiTile key="churn" label="Churn (30d)" value={m.churnRate == null ? "—" : `${m.churnRate}%`} accent={m.churnRate != null && m.churnRate > 5 ? "text-rose-600 dark:text-rose-400" : undefined} href="/saas/subscriptions?status=cancelled" />,
-      <KpiTile key="arpu" label="ARPU" value={centsToLabel(m.arpu)} hint="MRR / active customers" />,
-    );
+    if (m) {
+      kpis.push(
+        <KpiTile key="mrr" label="MRR" value={money(m.mrr)} delta={mrrDelta(m.mrrGrowth)} accent="text-emerald-600 dark:text-emerald-400" href="/saas/subscriptions" />,
+        <KpiTile key="arr" label="ARR" value={money(m.arr)} hint="MRR × 12" href="/saas/subscriptions" />,
+        <KpiTile key="customers" label="Active customers" value={m.activeCustomers} hint={`${m.totalCustomers} total · +${m.newCustomersWindow} in range`} href="/saas/organizations" />,
+        <KpiTile key="trialconv" label="Trial conversion" value={m.trialConversion == null ? "—" : `${m.trialConversion}%`} hint={`${m.trials} open trials`} accent={m.trialConversion != null && m.trialConversion < 20 ? "text-amber-600 dark:text-amber-400" : undefined} href="/saas/subscriptions?status=trial" />,
+        <KpiTile key="churn" label="Churn (30d)" value={m.churnRate == null ? "—" : `${m.churnRate}%`} accent={m.churnRate != null && m.churnRate > 5 ? "text-rose-600 dark:text-rose-400" : undefined} href="/saas/subscriptions?status=cancelled" />,
+        <KpiTile key="arpu" label="ARPU" value={centsToLabel(m.arpu)} hint="MRR / active customers" />,
+      );
+    }
   }
   if (canBilling) {
-    kpis.push(
-      <KpiTile key="ar" label="Outstanding AR" value={money(ops.outstandingArCents)} hint={`${ops.openInvoiceCount} open invoices`} accent={ops.outstandingArCents > 0 ? "text-amber-600 dark:text-amber-400" : undefined} href="/saas/billing" />,
-      <KpiTile key="dunning" label="Overdue / dunning" value={ops.overdueInvoiceCount + ops.dunningActiveCount} hint={`${ops.overdueInvoiceCount} overdue · ${ops.dunningActiveCount} dunning`} accent={ops.overdueInvoiceCount + ops.dunningActiveCount > 0 ? "text-rose-600 dark:text-rose-400" : undefined} href="/saas/billing" />,
-    );
+    if (ops) {
+      kpis.push(
+        <KpiTile key="ar" label="Outstanding AR" value={money(ops.outstandingArCents)} hint={`${ops.openInvoiceCount} open invoices`} accent={ops.outstandingArCents > 0 ? "text-amber-600 dark:text-amber-400" : undefined} href="/saas/billing" />,
+        <KpiTile key="dunning" label="Overdue / dunning" value={ops.overdueInvoiceCount + ops.dunningActiveCount} hint={`${ops.overdueInvoiceCount} overdue · ${ops.dunningActiveCount} dunning`} accent={ops.overdueInvoiceCount + ops.dunningActiveCount > 0 ? "text-rose-600 dark:text-rose-400" : undefined} href="/saas/billing" />,
+      );
+    }
   }
   if (canSupport) {
-    kpis.push(
-      <KpiTile key="sla" label="Open SLA breaches" value={ops.slaBreachedCount} accent={ops.slaBreachedCount > 0 ? "text-rose-600 dark:text-rose-400" : undefined} href="/saas/support" />,
-    );
+    if (ops) {
+      kpis.push(
+        <KpiTile key="sla" label="Open SLA breaches" value={ops.slaBreachedCount} accent={ops.slaBreachedCount > 0 ? "text-rose-600 dark:text-rose-400" : undefined} href="/saas/support" />,
+      );
+    }
   }
   if (canApprovals) {
-    kpis.push(
-      <KpiTile key="approvals" label="Pending approvals" value={ops.pendingApprovalCount} hint="Plan change requests" accent={ops.pendingApprovalCount > 0 ? "text-sky-600 dark:text-sky-400" : undefined} href="/saas/plan-approvals" />,
-    );
+    if (ops) {
+      kpis.push(
+        <KpiTile key="approvals" label="Pending approvals" value={ops.pendingApprovalCount} hint="Plan change requests" accent={ops.pendingApprovalCount > 0 ? "text-sky-600 dark:text-sky-400" : undefined} href="/saas/plan-approvals" />,
+      );
+    }
   }
 
   // ACT — what needs attention
@@ -107,7 +136,7 @@ export default async function SaasDashboardPage({
       tone: h.healthStatus === "critical" ? "danger" : "warning",
     });
   }
-  if (canBilling && ops.dunningActiveCount > 0) {
+  if (canBilling && ops && ops.dunningActiveCount > 0) {
     exceptions.push({
       id: "dunning",
       title: `${ops.dunningActiveCount} active dunning case${ops.dunningActiveCount === 1 ? "" : "s"}`,
@@ -116,7 +145,7 @@ export default async function SaasDashboardPage({
       tone: "danger",
     });
   }
-  if (canSupport && ops.slaBreachedCount > 0) {
+  if (canSupport && ops && ops.slaBreachedCount > 0) {
     exceptions.push({
       id: "sla",
       title: `${ops.slaBreachedCount} SLA breach${ops.slaBreachedCount === 1 ? "" : "es"}`,
@@ -125,7 +154,7 @@ export default async function SaasDashboardPage({
       tone: "danger",
     });
   }
-  if (canApprovals && ops.pendingApprovalCount > 0) {
+  if (canApprovals && ops && ops.pendingApprovalCount > 0) {
     exceptions.push({
       id: "approvals",
       title: `${ops.pendingApprovalCount} plan request${ops.pendingApprovalCount === 1 ? "" : "s"} awaiting review`,
@@ -160,27 +189,45 @@ export default async function SaasDashboardPage({
             <EmptyState title="No console sections available" body="Your role does not include SaaS view permissions." />
           </div>
         )}
+        {canSubs && !m && (
+          <div className="col-span-full">
+            <SectionFail label="Subscription KPIs" error={metricsResult.status === "rejected" ? metricsResult.reason : "Metrics unavailable"} />
+          </div>
+        )}
+        {(canBilling || canSupport || canApprovals) && !ops && (
+          <div className="col-span-full">
+            <SectionFail label="Operations KPIs" error={opsResult.status === "rejected" ? opsResult.reason : "Operations data unavailable"} />
+          </div>
+        )}
       </div>
 
       <div className="grid gap-5 lg:grid-cols-3">
         {canSubs && (
-          <SectionCard title={`MRR trend (${range}d)`} className="lg:col-span-2">
-            {m.mrrGrowth.every((d) => d.mrr === 0) ? (
-              <EmptyState title="No MRR yet" body="Create an organization + subscription to see growth." />
+          <>
+            {m ? (
+              <SectionCard title={`MRR trend (${range}d)`} className="lg:col-span-2">
+                {m.mrrGrowth.every((d) => d.mrr === 0) ? (
+                  <EmptyState title="No MRR yet" body="Create an organization + subscription to see growth." />
+                ) : (
+                  <MultiLine
+                    labels={m.mrrGrowth.map((d) => d.day)}
+                    series={[{ name: "MRR", color: "#6366f1", values: m.mrrGrowth.map((d) => Math.round(d.mrr / 100)) }]}
+                    formatValue={(v) => `$${v.toLocaleString("en-US")}`}
+                    ariaLabel="MRR trend"
+                  />
+                )}
+              </SectionCard>
             ) : (
-              <MultiLine
-                labels={m.mrrGrowth.map((d) => d.day)}
-                series={[{ name: "MRR", color: "#6366f1", values: m.mrrGrowth.map((d) => Math.round(d.mrr / 100)) }]}
-                formatValue={(v) => `$${v.toLocaleString("en-US")}`}
-                ariaLabel="MRR trend"
-              />
+              <div className="lg:col-span-2">
+                <SectionFail label={`MRR trend (${range}d)`} error={metricsResult.status === "rejected" ? metricsResult.reason : "Unavailable"} />
+              </div>
             )}
-          </SectionCard>
+          </>
         )}
         <ExceptionRail items={exceptions} className={canSubs ? "" : "lg:col-span-3"} />
       </div>
 
-      {canSubs && (
+      {canSubs && m && (
         <div className="grid gap-5 lg:grid-cols-2">
           <SectionCard title="Revenue by plan">
             {m.revenueByPlan.length === 0 ? (
@@ -193,49 +240,57 @@ export default async function SaasDashboardPage({
               />
             )}
           </SectionCard>
-          <SectionCard title="Churn cohort (6mo)">
-            {churn.every((c) => c.lost === 0) ? (
-              <EmptyState title="No churn recorded" body="Cancelled/expired subscriptions appear here by month." />
-            ) : (
-              <>
-                <BarChart data={churn.map((c) => ({ key: c.month.slice(2), count: c.lost }))} barClass="fill-rose-500" ariaLabel="Churned subscriptions per month" />
-                <p className="mt-2 text-xs text-zinc-500 dark:text-zinc-400">
-                  {churn.reduce((s, c) => s + c.lost, 0)} lost · {money(churn.reduce((s, c) => s + c.lostMrr, 0))} MRR lost over 6 months
-                </p>
-              </>
-            )}
-          </SectionCard>
+          {churn ? (
+            <SectionCard title="Churn cohort (6mo)">
+              {churn.every((c) => c.lost === 0) ? (
+                <EmptyState title="No churn recorded" body="Cancelled/expired subscriptions appear here by month." />
+              ) : (
+                <>
+                  <BarChart data={churn.map((c) => ({ key: c.month.slice(2), count: c.lost }))} barClass="fill-rose-500" ariaLabel="Churned subscriptions per month" />
+                  <p className="mt-2 text-xs text-zinc-500 dark:text-zinc-400">
+                    {churn.reduce((s, c) => s + c.lost, 0)} lost · {money(churn.reduce((s, c) => s + c.lostMrr, 0))} MRR lost over 6 months
+                  </p>
+                </>
+              )}
+            </SectionCard>
+          ) : (
+            <SectionFail label="Churn cohort (6mo)" error={churnResult.status === "rejected" ? churnResult.reason : "Unavailable"} />
+          )}
         </div>
       )}
 
-      {canSubs && (
+      {canSubs && m && (
         <div className="grid gap-5 lg:grid-cols-2">
-          <SectionCard title="MRR by country (top 8)">
-            {country.length === 0 ? (
-              <EmptyState title="No active customers" />
-            ) : (
-              <div className="overflow-x-auto">
-                <table className="w-full min-w-[420px] text-left text-sm">
-                <thead>
-                  <tr className="border-b border-zinc-200 text-xs uppercase tracking-wide text-zinc-400 dark:border-zinc-800">
-                    <th className="pb-1">Country</th>
-                    <th className="pb-1">Customers</th>
-                    <th className="pb-1 text-right">MRR</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {country.slice(0, 8).map((c) => (
-                    <tr key={c.key} className="border-b border-zinc-100 last:border-0 dark:border-zinc-800/60">
-                      <td className="py-1.5 font-medium">{c.key}</td>
-                      <td className="py-1.5 tabular-nums">{c.customers}</td>
-                      <td className="py-1.5 text-right tabular-nums">{money(c.mrr)}</td>
+          {country ? (
+            <SectionCard title="MRR by country (top 8)">
+              {country.length === 0 ? (
+                <EmptyState title="No active customers" />
+              ) : (
+                <div className="overflow-x-auto">
+                  <table className="w-full min-w-[420px] text-left text-sm">
+                  <thead>
+                    <tr className="border-b border-zinc-200 text-xs uppercase tracking-wide text-zinc-400 dark:border-zinc-800">
+                      <th className="pb-1">Country</th>
+                      <th className="pb-1">Customers</th>
+                      <th className="pb-1 text-right">MRR</th>
                     </tr>
-                  ))}
-                </tbody>
-              </table>
-              </div>
-            )}
-          </SectionCard>
+                  </thead>
+                  <tbody>
+                    {country.slice(0, 8).map((c) => (
+                      <tr key={c.key} className="border-b border-zinc-100 last:border-0 dark:border-zinc-800/60">
+                        <td className="py-1.5 font-medium">{c.key}</td>
+                        <td className="py-1.5 tabular-nums">{c.customers}</td>
+                        <td className="py-1.5 text-right tabular-nums">{money(c.mrr)}</td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+                </div>
+              )}
+            </SectionCard>
+          ) : (
+            <SectionFail label="MRR by country" error={countryResult.status === "rejected" ? countryResult.reason : "Unavailable"} />
+          )}
           <SectionCard title="Customer funnel">
             <div className="space-y-2">
               {m.funnel.map((f, i) => (
@@ -335,7 +390,7 @@ export default async function SaasDashboardPage({
       </SectionCard>
 
       <p className="text-right text-[11px] text-zinc-400 dark:text-zinc-500">
-        Generated {new Date(m.generatedAt).toLocaleString("en-US")}
+        {m ? `Generated ${new Date(m.generatedAt).toLocaleString("en-US")}` : "Metrics unavailable"}
       </p>
     </div>
   );
