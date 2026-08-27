@@ -43,7 +43,7 @@ function SectionFail({ label, error }: { label: string; error: unknown }) {
   );
 }
 
-export default async function SaasDashboardPage({
+async function SaasDashboardRender({
   searchParams,
 }: {
   searchParams?: Promise<Record<string, string | undefined>>;
@@ -394,4 +394,18 @@ export default async function SaasDashboardPage({
       </p>
     </div>
   );
+}
+
+export default async function SaasDashboardPage({
+  searchParams,
+}: {
+  searchParams?: Promise<Record<string, string | undefined>>;
+}) {
+  try {
+    return await SaasDashboardRender({ searchParams });
+  } catch (e) {
+    if (e instanceof Error) console.error("[saas-cmd-page-diag] RENDER FAILED:", e.stack ?? e.message);
+    else console.error("[saas-cmd-page-diag] RENDER FAILED:", e);
+    throw e;
+  }
 }
