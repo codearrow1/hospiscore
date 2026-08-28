@@ -18,7 +18,9 @@ export const runtime = "nodejs";
 const SAAS_NAV: (NavItem & { perm?: SaasPermission })[] = [
   { href: "/saas", label: "Command Center" },
   { href: "/saas/organizations", label: "Organizations", perm: "CUSTOMER_VIEW" },
+  { href: "/saas/onboarding", label: "Onboarding", perm: "PROPERTY_MANAGE" },
   { href: "/saas/subscriptions", label: "Subscriptions", perm: "SUBSCRIPTION_VIEW" },
+  { href: "/saas/subscription-requests", label: "Sub Approvals", perm: "SUBSCRIPTION_VIEW" },
   { href: "/saas/claims", label: "Claims", perm: "PROPERTY_VIEW" },
   { href: "/saas/plans", label: "Plans", perm: "PLAN_VIEW" },
   { href: "/saas/plan-approvals", label: "Plan Approvals", perm: "SYSTEM_SETTINGS_MANAGE" },
@@ -48,6 +50,7 @@ const ICON_KEYS = [
 
 const QUICK_ACTIONS: QuickAction[] = [
   { label: "+ Organization", href: "/saas/organizations?new=1" },
+  { label: "+ Onboard Property", href: "/saas/onboarding" },
   { label: "+ Subscription", href: "/saas/subscriptions?new=1" },
 ];
 

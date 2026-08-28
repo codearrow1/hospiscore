@@ -93,6 +93,67 @@ export async function POST(req: NextRequest) {
   }, { status: 201 });
 }
 
+/**
+ * PATCH /api/customer/team
+ * Two owner-only actions (the caller must be this org's primary contact):
+ *   { id, role }                — change a team member's role (owner|billing|tech)
+ *   { id, transferPrimary:true }— make `id` the new primary contact (owner)
+ */
+export async function PATCH(req: NextRequest) {
+  if (!originAllowed(req)) return NextResponse.json({ error: "Rejected" }, { status: 403 });
+  const access = await requireCustomerOrg();
+  if (!access.ok) return NextResponse.json({ error: access.error }, { status: access.status });
+  const orgId = access.org.organizationId;
+
+  if (!access.org.isPrimary) {
+    return NextResponse.json({ error: "Only the primary contact can manage team roles" }, { status: 403 });
+  }
+
+  let body: Record<string, unknown>;
+  try {
+    body = await req.json();
+  } catch {
+    return NextResponse.json({ error: "Invalid JSON" }, { status: 400 });
+  }
+  const id = typeof body.id === "string" ? body.id : "";
+  if (!id) return NextResponse.json({ error: "id required" }, { status: 400 });
+
+  const target = id
+    ? await prisma.orgContact.findFirst({ where: { id, organizationId: orgId } })
+    : null;
+  if (!target) return NextResponse.json({ error: "Contact not found" }, { status: 404 });
+
+  // Change role
+  if (body.role !== undefined) {
+    const role = typeof body.role === "string" && ROLES.includes(body.role) ? body.role : null;
+    if (!role) return NextResponse.json({ error: "role must be owner, billing or tech" }, { status: 400 });
+    const updated = await prisma.orgContact.update({
+      where: { id },
+      data: { role },
+      select: { id: true, name: true, email: true, role: true, isPrimary: true },
+    });
+    return NextResponse.json({ contact: updated });
+  }
+
+  // Transfer primary ownership
+  if (body.transferPrimary === true) {
+    if (target.id === access.org.contactId) {
+      return NextResponse.json({ error: "This contact is already the primary" }, { status: 400 });
+    }
+    const updated = await prisma.$transaction(async (tx) => {
+      await tx.orgContact.updateMany({ where: { organizationId: orgId, isPrimary: true }, data: { isPrimary: false } });
+      return tx.orgContact.update({
+        where: { id: target.id },
+        data: { isPrimary: true, role: target.role || "owner" },
+        select: { id: true, name: true, email: true, role: true, isPrimary: true },
+      });
+    });
+    return NextResponse.json({ contact: updated });
+  }
+
+  return NextResponse.json({ error: "Unsupported action — provide role or transferPrimary:true" }, { status: 400 });
+}
+
 /** DELETE /api/customer/team?id=… — remove a non-primary contact. */
 export async function DELETE(req: NextRequest) {
   if (!originAllowed(req)) return NextResponse.json({ error: "Rejected" }, { status: 403 });

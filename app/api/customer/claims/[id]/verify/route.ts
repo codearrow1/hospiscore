@@ -3,9 +3,17 @@ import { originAllowed, rateLimit } from "@/lib/marketing/guard";
 import { requireCustomerOrg } from "@/lib/saas/portalAccess";
 import { prisma } from "@/lib/prisma";
 import { verifyCode, isVerifyMethod } from "@/lib/saas/propertyVerification";
+import { writeSaasAudit } from "@/lib/saas/audit";
+import { pushNotification } from "@/lib/saas/notifications";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
+
+function clientIp(req: Request): string {
+  const fwd = req.headers.get("x-forwarded-for");
+  if (fwd) return fwd.split(",")[0].trim();
+  return req.headers.get("x-real-ip") ?? "unknown";
+}
 
 /** POST /api/customer/claims/[id]/verify { method, code, phone? } */
 export async function POST(req: NextRequest, ctx: { params: Promise<{ id: string }> }) {
@@ -42,5 +50,22 @@ export async function POST(req: NextRequest, ctx: { params: Promise<{ id: string
     byUser: access.user.email,
   });
   if (!result.ok) return NextResponse.json({ error: result.error }, { status: 400 });
+  if (result.verified) {
+    await writeSaasAudit({
+      byEmail: access.user.email,
+      action: `property_claim.verified.${String(method)}`,
+      entity: "propertyClaim",
+      entityId: claim.id,
+      ip: clientIp(req),
+      actorId: access.user.id,
+    });
+    await pushNotification({
+      userId: access.user.id,
+      kind: "property_claim",
+      title: "Ownership verified",
+      body: "Your claim is verified and now awaits admin review and approval.",
+      href: "/customer",
+    });
+  }
   return NextResponse.json(result);
 }

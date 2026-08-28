@@ -273,3 +273,35 @@ export async function listFraudCases(opts?: { status?: string; affiliateId?: str
   ]);
   return { items, total };
 }
+
+/**
+ * On-demand risk re-scan for a single affiliate. Re-runs detectFraud, persists
+ * the refreshed risk score + signal reasons on the affiliate, and opens a
+ * review case when the score crosses the flag threshold. Idempotent: an already
+ * open/investigating case is never duplicated. Returns the audit-able result.
+ */
+export async function runRiskCheck(affiliateId: string): Promise<{
+  riskScore: number;
+  signals: FraudSignal[];
+  shouldFlag: boolean;
+  caseId: string | null;
+}> {
+  const result = await detectFraud(affiliateId);
+  await prisma.affiliate.update({
+    where: { id: affiliateId },
+    data: { riskScore: result.riskScore, riskReasons: JSON.parse(JSON.stringify(result.signals)) },
+  });
+
+  let caseId: string | null = null;
+  if (result.shouldFlag) {
+    const existingOpen = await prisma.affiliateFraudCase.findFirst({
+      where: { affiliateId, status: { in: ["open", "investigating"] } },
+      select: { id: true },
+    });
+    if (!existingOpen) {
+      const created = await createFraudCase({ affiliateId, riskScore: result.riskScore, reasons: result.signals });
+      caseId = created.id;
+    }
+  }
+  return { riskScore: result.riskScore, signals: result.signals, shouldFlag: result.shouldFlag, caseId };
+}

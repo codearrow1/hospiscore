@@ -2,17 +2,27 @@
 
 import { useCallback, useEffect, useState } from "react";
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 
 /**
- * Claim CTA for a live Google listing (place:<placeId>). Submits a property
- * claim against the signed-in user's organization via the customer API. The
- * listing identity is resolved server-side from Google — never from the client.
+ * Claim CTA for a live Google listing (place:<placeId>).
+ *
+ * Signed-in users claim their organization's listing directly via the customer
+ * API. Logged-out users are offered a short contact capture (name/email/phone)
+ * which mints a one-time, expiring property-claim request token server-side,
+ * then carries it through registration/login (?claim=token&next=…). The token
+ * is what authorizes creating the PropertyClaim — listidentity is resolved
+ * server-side from Google, never from the client.
  */
 export default function PropertyClaimCTA({ slug }: { slug: string }) {
+  const router = useRouter();
   const [auth, setAuth] = useState<"loading" | "out" | "in">("loading");
   const [busy, setBusy] = useState(false);
-  const [state, setState] = useState<"idle" | "submitted" | "error">("idle");
+  const [state, setState] = useState<"idle" | "submitted" | "error" | "started">("idle");
   const [message, setMessage] = useState("");
+  const [name, setName] = useState("");
+  const [email, setEmail] = useState("");
+  const [phone, setPhone] = useState("");
 
   useEffect(() => {
     let disposed = false;
@@ -30,7 +40,7 @@ export default function PropertyClaimCTA({ slug }: { slug: string }) {
     };
   }, []);
 
-  const submit = useCallback(async () => {
+  const submitClaim = useCallback(async () => {
     setBusy(true);
     setMessage("");
     try {
@@ -61,6 +71,38 @@ export default function PropertyClaimCTA({ slug }: { slug: string }) {
     }
   }, [slug]);
 
+  const startClaim = useCallback(async () => {
+    if (!email || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email.trim())) {
+      setState("error");
+      setMessage("Enter a valid email address to continue.");
+      return;
+    }
+    setBusy(true);
+    setMessage("");
+    try {
+      const res = await fetch("/api/properties/claim/start", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ slug, name: name.trim(), email: email.trim(), phone: phone.trim() }),
+      });
+      const d = await res.json().catch(() => ({}));
+      if (!res.ok) {
+        setState("error");
+        setMessage(d.error ?? "Could not start your claim.");
+        return;
+      }
+      setState("started");
+      const next = `/property/${encodeURIComponent(slug)}`;
+      const target = `/account?claim=${encodeURIComponent(d.claimToken)}&next=${encodeURIComponent(next)}`;
+      router.push(target);
+    } catch {
+      setState("error");
+      setMessage("Network error starting your claim. Try again.");
+    } finally {
+      setBusy(false);
+    }
+  }, [slug, name, email, phone, router]);
+
   if (auth === "loading") {
     return <div className="text-sm text-zinc-500">Checking account…</div>;
   }
@@ -77,28 +119,63 @@ export default function PropertyClaimCTA({ slug }: { slug: string }) {
         </div>
       ) : state === "error" ? (
         <div>
-          <h2 className="text-sm font-semibold text-amber-700 dark:text-amber-300">Claim not submitted</h2>
+          <h2 className="text-sm font-semibold text-amber-700 dark:text-amber-300">{auth === "in" ? "Claim not submitted" : "Could not start claim"}</h2>
           <p className="mt-1 text-xs text-indigo-800 dark:text-indigo-200">{message}</p>
           <button
-            onClick={submit}
+            onClick={auth === "in" ? submitClaim : startClaim}
             disabled={busy}
             className="mt-3 rounded-xl bg-indigo-600 px-4 py-2 text-xs font-medium text-white transition hover:bg-indigo-700 disabled:opacity-40"
           >
-            {busy ? "Submitting…" : "Try again"}
+            {busy ? "Working…" : "Try again"}
           </button>
         </div>
       ) : auth === "out" ? (
         <div>
           <h2 className="text-sm font-semibold text-indigo-900 dark:text-indigo-200">Own this listing?</h2>
           <p className="mt-1 text-xs text-indigo-800 dark:text-indigo-200">
-            Sign in with your organization account to claim this property and unlock owner tools.
+            Verify ownership and unlock review-response tracking and an owner dashboard. Start your claim — we&apos;ll guide you through a quick sign-in.
           </p>
-          <Link
-            href="/account"
-            className="mt-3 inline-block rounded-xl bg-indigo-600 px-4 py-2 text-xs font-medium text-white transition hover:bg-indigo-700"
+          <form
+            onSubmit={(e) => {
+              e.preventDefault();
+              startClaim();
+            }}
+            className="mt-3 flex flex-col gap-2"
           >
-            Sign in to claim
-          </Link>
+            <input
+              type="text"
+              value={name}
+              onChange={(e) => setName(e.target.value)}
+              placeholder="Your name (optional)"
+              autoComplete="name"
+              className="rounded-lg border border-indigo-200 bg-white px-3 py-2 text-sm text-zinc-900 outline-none focus:border-indigo-500 dark:border-zinc-700 dark:bg-zinc-800 dark:text-zinc-100"
+            />
+            <input
+              type="email"
+              value={email}
+              onChange={(e) => setEmail(e.target.value)}
+              placeholder="Your email"
+              required
+              autoComplete="email"
+              className="rounded-lg border border-indigo-200 bg-white px-3 py-2 text-sm text-zinc-900 outline-none focus:border-indigo-500 dark:border-zinc-700 dark:bg-zinc-800 dark:text-zinc-100"
+            />
+            <input
+              type="tel"
+              value={phone}
+              onChange={(e) => setPhone(e.target.value)}
+              placeholder="Phone (for verification, optional)"
+              autoComplete="tel"
+              className="rounded-lg border border-indigo-200 bg-white px-3 py-2 text-sm text-zinc-900 outline-none focus:border-indigo-500 dark:border-zinc-700 dark:bg-zinc-800 dark:text-zinc-100"
+            />
+            <button
+              type="submit"
+              disabled={busy}
+              className="mt-1 rounded-xl bg-indigo-600 px-4 py-2 text-xs font-medium text-white transition hover:bg-indigo-700 disabled:opacity-40"
+            >
+              {busy ? "Starting…" : "Start your claim"}
+            </button>
+            {message && <p className="mt-1 text-xs text-amber-700 dark:text-amber-300">{message}</p>}
+          </form>
         </div>
       ) : (
         <div>
@@ -107,7 +184,7 @@ export default function PropertyClaimCTA({ slug }: { slug: string }) {
             Claim it to verify ownership and unlock review-response tracking and an owner dashboard.
           </p>
           <button
-            onClick={submit}
+            onClick={submitClaim}
             disabled={busy}
             className="mt-3 rounded-xl bg-indigo-600 px-4 py-2 text-xs font-medium text-white transition hover:bg-indigo-700 disabled:opacity-40"
           >

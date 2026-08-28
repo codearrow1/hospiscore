@@ -21,6 +21,12 @@ export default async function PropertyScoreView({
 }: {
   property: Property;
 }) {
+  // Live Google listings (`place:<placeId>`) use the canonical PropertyClaimCTA
+  // (rendered separately on the live property page) as their single claim
+  // surface. The legacy /properties/<slug>/claim demo link must never appear
+  // on live pages — it 404s for place: slugs and would be a competing claim
+  // entry point. Demo seed pages keep the legacy demo claim link.
+  const isLive = prop.slug.startsWith("place:");
   const result = computeScore(prop.signals);
   const benchmark = datasetBenchmark();
   const report = buildReport(prop.name, prop.signals);
@@ -74,7 +80,7 @@ export default async function PropertyScoreView({
         </div>
         <div className="flex flex-col items-stretch gap-2 sm:flex-row sm:items-end">
           <SavePropertyButton slug={prop.slug} />
-          {!prop.claimed && (
+          {!isLive && !prop.claimed && (
             <Link
               href={`/properties/${prop.slug}/claim`}
               className="inline-flex items-center gap-2 rounded-xl bg-indigo-600 px-4 py-2.5 text-sm font-medium text-white shadow-sm transition hover:bg-indigo-700"
@@ -97,12 +103,14 @@ export default async function PropertyScoreView({
                 ? `Priority: ${worst.label.toLowerCase()} is your weakest signal.`
                 : "Healthy across the board — keep responding to reviews to sustain it."}
             </p>
-            <Link
-              href={`/properties/${prop.slug}/claim`}
-              className="mt-4 inline-block rounded-xl border border-zinc-300 px-4 py-2 text-sm font-medium text-zinc-700 transition hover:bg-zinc-50 dark:border-zinc-700 dark:text-zinc-200 dark:hover:bg-zinc-800"
-            >
-              {prop.claimed ? "View owner dashboard" : "Claim to see recommendations"}
-            </Link>
+            {!isLive && (
+              <Link
+                href={`/properties/${prop.slug}/claim`}
+                className="mt-4 inline-block rounded-xl border border-zinc-300 px-4 py-2 text-sm font-medium text-zinc-700 transition hover:bg-zinc-50 dark:border-zinc-700 dark:text-zinc-200 dark:hover:bg-zinc-800"
+              >
+                {prop.claimed ? "View owner dashboard" : "Claim to see recommendations"}
+              </Link>
+            )}
           </div>
 
           <div className="flex-1 border-t border-zinc-200 pt-6 lg:border-l lg:border-t-0 lg:pl-8 lg:pt-0 dark:border-zinc-800">

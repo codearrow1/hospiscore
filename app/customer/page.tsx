@@ -10,6 +10,7 @@ import CustomerPortalClient, {
 } from "@/components/saas/CustomerPortalClient";
 import OnboardingChecklist from "@/components/saas/OnboardingChecklist";
 import ClaimVerifyControl from "@/components/saas/ClaimVerifyControl";
+import { getOnboardingStatus } from "@/lib/saas/onboarding";
 
 export const dynamic = "force-dynamic";
 export const runtime = "nodejs";
@@ -37,7 +38,7 @@ export default async function CustomerPortal() {
   const orgId = resolved.organizationId;
   const since = new Date(Date.now() - 30 * 86_400_000);
 
-  const [org, subscription, invoices, usage, claims] = await Promise.all([
+  const [org, subscription, invoices, usage, claims, onboarding] = await Promise.all([
     prisma.organization.findUnique({ where: { id: orgId } }),
     prisma.subscription.findFirst({
       where: { organizationId: orgId },
@@ -59,6 +60,7 @@ export default async function CustomerPortal() {
       orderBy: { createdAt: "desc" },
       take: 20,
     }),
+    getOnboardingStatus(orgId),
   ]);
 
   if (!org) redirect("/account?next=/customer");
@@ -107,7 +109,29 @@ export default async function CustomerPortal() {
         usage30d={usage.map((u) => ({ metric: u.metric, quantity: u._sum.quantity ?? 0 }))}
         invoices={invoiceList}
       />
-      <OnboardingChecklist title="Getting started" />
+      {claims.some((c) => c.status === "approved") && !onboarding.complete && (
+        <section className="rounded-2xl border border-emerald-200 bg-emerald-50 p-5 dark:border-emerald-800 dark:bg-emerald-950/40">
+          <div className="flex flex-wrap items-center justify-between gap-3">
+            <div>
+              <h2 className="text-sm font-semibold text-emerald-900 dark:text-emerald-100">
+                Your listing is verified — finish setting up
+              </h2>
+              <p className="mt-1 text-sm text-emerald-800 dark:text-emerald-300">
+                Your claim was approved. Complete the steps below to activate your account.
+              </p>
+            </div>
+            <a
+              href="#getting-started"
+              className={"shrink-0 rounded-lg px-4 py-2 text-sm font-semibold text-white shadow-sm " + "bg-emerald-600 hover:bg-emerald-700"}
+            >
+              Complete setup
+            </a>
+          </div>
+        </section>
+      )}
+      <div id="getting-started" className="scroll-mt-24">
+        <OnboardingChecklist title="Getting started" />
+      </div>
       {claims.length > 0 && (
         <section className="rounded-2xl border border-zinc-200 bg-white p-5 dark:border-zinc-800 dark:bg-zinc-900">
           <h2 className="text-sm font-semibold text-zinc-900 dark:text-zinc-100">Property claims</h2>

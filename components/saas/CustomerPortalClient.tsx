@@ -177,6 +177,29 @@ function TeamSection() {
     void load();
   };
 
+  const setPrimary = async (id: string) => {
+    const res = await fetch("/api/customer/team", {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ id, transferPrimary: true }),
+    });
+    const d = await res.json().catch(() => ({}));
+    if (!res.ok) { toast.error(d.error ?? "Transfer failed"); return; }
+    toast.success("Primary contact updated");
+    void load();
+  };
+
+  const changeRole = async (id: string, role: string) => {
+    const res = await fetch("/api/customer/team", {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ id, role }),
+    });
+    const d = await res.json().catch(() => ({}));
+    if (!res.ok) { toast.error(d.error ?? "Role update failed"); return; }
+    void load();
+  };
+
   return (
     <SectionCard title="Team &amp; contacts">
       <ul className="divide-y divide-zinc-100 text-sm dark:divide-zinc-800">
@@ -184,11 +207,26 @@ function TeamSection() {
           <li key={c.id} className="flex items-center justify-between gap-2 py-1.5">
             <span className="min-w-0">
               <span className="font-medium">{c.name}{c.isPrimary && <span className="ml-1.5 rounded bg-indigo-100 px-1.5 py-0.5 text-[10px] font-bold uppercase text-indigo-700 dark:bg-indigo-500/20 dark:text-indigo-300">primary</span>}</span>
-              <span className="block truncate text-xs text-zinc-500">{c.email} · {c.role ?? "—"}</span>
+              <span className="block truncate text-xs text-zinc-500">{c.email}</span>
             </span>
-            {!c.isPrimary && (
-              <button onClick={() => remove(c.id)} className={btnGhost + " !py-1 !text-xs"} aria-label={`Remove ${c.name}`}>Remove</button>
-            )}
+            <span className="flex shrink-0 items-center gap-1">
+              <select
+                value={c.role ?? "tech"}
+                onChange={(e) => changeRole(c.id, e.target.value)}
+                className={inputCls + " !w-auto !py-1 !text-xs"}
+                aria-label={`Change role for ${c.name}`}
+              >
+                <option value="owner">owner</option>
+                <option value="billing">billing</option>
+                <option value="tech">tech</option>
+              </select>
+              {!c.isPrimary && (
+                <>
+                  <button onClick={() => setPrimary(c.id)} className={btnGhost + " !py-1 !text-xs"} aria-label={`Make ${c.name} primary`}>Primary</button>
+                  <button onClick={() => remove(c.id)} className={btnGhost + " !py-1 !text-xs"} aria-label={`Remove ${c.name}`}>Remove</button>
+                </>
+              )}
+            </span>
           </li>
         ))}
         {contacts !== null && contacts.length === 0 && <li className="py-3 text-center text-xs text-zinc-400">No contacts yet.</li>}

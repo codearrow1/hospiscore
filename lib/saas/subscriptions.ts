@@ -469,3 +469,70 @@ export async function renewSubscription(id: string, actorEmail = "system:cron") 
   if (syncedOrgId) await syncOrgMrr(syncedOrgId).catch(() => {});
   return result;
 }
+
+/**
+ * End-of-period (scheduled) cancellation: the subscription keeps serving in
+ * its current revenue state until `currentPeriodEnd` and then transitions to
+ * cancelled (via expireScheduledCancellations). Never cancels a suspended,
+ * cancelled or expired subscription — those are not serviceable.
+ */
+export async function scheduleCancellation(id: string, _actorEmail = "customer") {
+  const sub = await prisma.subscription.findUnique({ where: { id } });
+  if (!sub) throw new Error("Subscription not found");
+  if (["cancelled", "expired", "suspended"].includes(sub.status)) {
+    throw new Error(`Cannot schedule cancellation while subscription is "${sub.status}"`);
+  }
+  const updated = await prisma.subscription.update({
+    where: { id },
+    data: { cancelAtPeriodEnd: true, cancelAt: sub.currentPeriodEnd },
+  });
+  return updated;
+}
+
+/**
+ * Reverse a scheduled cancellation (while still active) or resume a paused
+ * subscription. A subscription that has already reached `cancelled` cannot be
+ * resumed (the state machine has no cancelled→active edge).
+ */
+export async function resumeSubscription(id: string, _actorEmail = "customer") {
+  const sub = await prisma.subscription.findUnique({ where: { id } });
+  if (!sub) throw new Error("Subscription not found");
+  if (sub.status === "cancelled" || sub.status === "expired") {
+    throw new Error(`Cannot resume a "${sub.status}" subscription`);
+  }
+  if (sub.cancelAtPeriodEnd) {
+    return prisma.subscription.update({
+      where: { id },
+      data: { cancelAtPeriodEnd: false, cancelAt: null },
+    });
+  }
+  if (sub.status === "paused") {
+    const revived = await updateSubscriptionStatus(id, "active");
+    await prisma.subscription.update({
+      where: { id },
+      data: { cancelAtPeriodEnd: false, cancelAt: null },
+    });
+    return revived;
+  }
+  throw new Error("Nothing to resume — the subscription has no scheduled cancellation and is not paused");
+}
+
+/** Terminal transition for scheduled-cancellation subscriptions whose period has ended. */
+export async function expireScheduledCancellations(now = new Date()): Promise<number> {
+  const due = await prisma.subscription.findMany({
+    where: {
+      cancelAtPeriodEnd: true,
+      status: { in: ["trial", "active", "past_due", "grace", "paused"] },
+      currentPeriodEnd: { lte: now },
+    },
+    select: { id: true, organizationId: true },
+  });
+  for (const s of due) {
+    await prisma.subscription.updateMany({
+      where: { id: s.id },
+      data: { status: "cancelled", cancelAtPeriodEnd: false },
+    });
+    await syncOrgMrr(s.organizationId).catch(() => {});
+  }
+  return due.length;
+}

@@ -72,14 +72,18 @@ function merge(
   return [...autos, ...manuals];
 }
 
-/** Customer: Organization → Property → Claim listing → Team → Invoice → Support/onboarding. */
+/** Customer: Organization → Property → Claim listing → Team → Activation → Invoice → Support/onboarding. */
 export async function customerChecklist(organizationId: string): Promise<OnboardingStep[]> {
-  const [org, propertyCount, claimCount, contactCount, invoiceCount, done] = await Promise.all([
+  const [org, propertyCount, claimCount, contactCount, invoiceCount, activeSub, done] = await Promise.all([
     prisma.organization.findUnique({ where: { id: organizationId }, select: { id: true } }),
     prisma.property.count({ where: { organizationId } }),
     prisma.propertyClaim.count({ where: { organizationId, status: "approved" } }),
     prisma.orgContact.count({ where: { organizationId } }),
     prisma.invoice.count({ where: { organizationId } }),
+    prisma.subscription.findFirst({
+      where: { organizationId, status: { in: ["trial", "active", "past_due", "grace"] } },
+      select: { id: true },
+    }),
     completedMap("customer", organizationId),
   ]);
   return merge("customer", done, [
@@ -87,6 +91,7 @@ export async function customerChecklist(organizationId: string): Promise<Onboard
     { key: "property", label: "First property added", hint: "Add the hotel/property you want to score.", done: propertyCount > 0 },
     { key: "claim", label: "Google listing claimed", hint: "Verify you own your property's Google listing.", done: claimCount > 0 },
     { key: "team", label: "Team set up", hint: "Invite at least one colleague as an org contact.", done: contactCount > 1 },
+    { key: "activation", label: "Plan activated", hint: "Your plan is live (trial or active) so your property is operational.", done: Boolean(activeSub) },
     { key: "invoice", label: "Billing active", hint: "Your first invoice exists.", done: invoiceCount > 0 },
   ]);
 }
@@ -142,4 +147,42 @@ export async function completeStep(params: { kind: OnboardingKind; subjectId: st
     create: { subjectKind: kind, subjectId, stepKey, completedBy: byEmail },
   });
   return { ok: true };
+}
+
+/**
+ * Server-authoritative onboarding readiness for a customer organization.
+ * Mirrors the auto steps in `customerChecklist` so the UI can render a slim,
+ * structured completion status (e.g. right after a claim is approved) without
+ * shipping a second onboarding system. `complete` is true only when every
+ * auto-driven readiness flag is met.
+ */
+export async function getOnboardingStatus(organizationId: string): Promise<{
+  organizationReady: boolean;
+  propertyReady: boolean;
+  claimReady: boolean;
+  teamReady: boolean;
+  billingReady: boolean;
+  activationReady: boolean;
+  complete: boolean;
+}> {
+  const [org, propertyCount, claimCount, contactCount, invoiceCount, activeSub] = await Promise.all([
+    prisma.organization.findUnique({ where: { id: organizationId }, select: { id: true } }),
+    prisma.property.count({ where: { organizationId } }),
+    prisma.propertyClaim.count({ where: { organizationId, status: "approved" } }),
+    prisma.orgContact.count({ where: { organizationId } }),
+    prisma.invoice.count({ where: { organizationId } }),
+    prisma.subscription.findFirst({
+      where: { organizationId, status: { in: ["trial", "active", "past_due", "grace"] } },
+      select: { id: true },
+    }),
+  ]);
+  const status = {
+    organizationReady: Boolean(org),
+    propertyReady: propertyCount > 0,
+    claimReady: claimCount > 0,
+    teamReady: contactCount > 1,
+    billingReady: invoiceCount > 0,
+    activationReady: Boolean(activeSub),
+  };
+  return { ...status, complete: Object.values(status).every(Boolean) };
 }

@@ -2,10 +2,19 @@ import { NextRequest, NextResponse } from "next/server";
 import { originAllowed, rateLimit } from "@/lib/marketing/guard";
 import { requireCustomerOrg } from "@/lib/saas/portalAccess";
 import { getPlaceIdentity } from "@/lib/resolver";
+import { prisma } from "@/lib/prisma";
 import { createClaim } from "@/lib/saas/propertyClaims";
+import { writeSaasAudit } from "@/lib/saas/audit";
+import { pushNotification } from "@/lib/saas/notifications";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
+
+function clientIp(req: Request): string {
+  const fwd = req.headers.get("x-forwarded-for");
+  if (fwd) return fwd.split(",")[0].trim();
+  return req.headers.get("x-real-ip") ?? "unknown";
+}
 
 /**
  * POST /api/customer/properties/claim
@@ -53,8 +62,33 @@ export async function POST(req: NextRequest) {
     acquisitionSource: typeof body.source === "string" ? body.source : undefined,
     acquisitionCampaign: typeof body.campaign === "string" ? body.campaign : undefined,
     createdById: access.user.id,
+  }).catch((err: unknown) => {
+    if (err instanceof Error && err.message === "ALREADY_CLAIMED_CONCURRENT") {
+      return { ok: false as const, error: "This listing is already claimed by your organization" };
+    }
+    throw err;
   });
 
   if (!result.ok) return NextResponse.json({ error: result.error }, { status: 409 });
+  const claim = result.claim as { id: string };
+  await writeSaasAudit({
+    byEmail: access.user.email,
+    action: "property_claim.created",
+    entity: "propertyClaim",
+    entityId: claim.id,
+    ip: clientIp(req),
+    actorId: access.user.id,
+  });
+  const claimRec = await prisma.propertyClaim.findUnique({
+    where: { id: claim.id },
+    select: { propertyName: true },
+  });
+  await pushNotification({
+    userId: access.user.id,
+    kind: "property_claim",
+    title: "Claim submitted",
+    body: `Your claim for ${claimRec?.propertyName ?? "the property"} is submitted and now awaits verification and admin review.`,
+    href: "/customer",
+  });
   return NextResponse.json({ claim: result.claim }, { status: 201 });
 }

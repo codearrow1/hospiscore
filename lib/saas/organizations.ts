@@ -11,6 +11,13 @@ export type OrgInput = {
   affiliateId?: string;
   partnerId?: string;
   primaryContact?: { name: string; email: string; phone?: string };
+  /**
+   * Scoped dedup identity for self-serve claim-created orgs (sha256 of the
+   * normalized verified claimant email). Nullable on the DB column + unique,
+   * so it only applies to claim-created organizations and collapses concurrent
+   * redemptions by the same claimant into one organization.
+   */
+  claimantKey?: string;
 };
 
 export type OrgSortField = "createdAt" | "legalName" | "mrr" | "healthScore";
@@ -110,6 +117,7 @@ export async function createOrganization(input: OrgInput) {
       acquisitionCampaign: input.acquisitionCampaign || null,
       affiliateId: input.affiliateId || null,
       partnerId: validPartnerId,
+      claimantKey: input.claimantKey || null,
       contacts: input.primaryContact
         ? {
             create: {

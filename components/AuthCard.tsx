@@ -79,9 +79,7 @@ export default function AuthCard({ onAuthed }: Props) {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(
-          mode === "register" && claimToken
-            ? { name, email, password, claimToken }
-            : { name, email, password },
+          claimToken ? { name, email, password, claimToken } : { name, email, password },
         ),
       });
       const data = await res.json();
@@ -105,9 +103,9 @@ export default function AuthCard({ onAuthed }: Props) {
         Save properties and track your score history across visits.
       </p>
 
-      {isRegister && claimToken && (
+      {claimToken && (
         <p className="mt-3 rounded-lg border border-emerald-300 bg-emerald-50 px-3 py-2 text-xs font-medium text-emerald-800 dark:border-emerald-800 dark:bg-emerald-950/40 dark:text-emerald-200">
-          Claim token attached — creating this account will link it to your affiliate/partner portal identity. Tokens are single-use and expire after 15 minutes.
+          Claim token attached — finishing this step will link your account and continue your property claim. Tokens are single-use and expire.
         </p>
       )}
       {resetToken && (

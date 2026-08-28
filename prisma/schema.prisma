@@ -31,6 +31,12 @@ model Organization {
   franchiseTerritoryId String?
   acquisitionSource    String?
   acquisitionCampaign  String?
+  // Phase G: scoped dedup identity for self-serve claim-created organizations.
+  // sha256 snapshot of the normalized verified claimant email, set ONLY on orgs
+  // created via the canonical claim-redemption path. Null for admin-imported and
+  // all other orgs. The unique index collapses concurrent redemptions by the
+  // same claimant into one organization (orphan-org race fix).
+  claimantKey          String?  @unique
   healthScore          Int? // 0-100
   healthStatus         String? // Healthy|Stable|AtRisk|Critical|Churned
   status               String   @default("active") // active|suspended|cancelled
@@ -208,7 +214,7 @@ model PlanChangeRequest {
   id               String    @id @default(cuid())
   planId           String?
   plan             Plan?     @relation(fields: [planId], references: [id], onDelete: Cascade)
-  /// update|create|archive|deactivate|activate
+  /// update|create|archive|deactivate|activate|subscription_change
   action           String    @default("update")
   requestedByEmail String
   status           String    @default("pending") // pending|approved|rejected|cancelled
@@ -219,10 +225,21 @@ model PlanChangeRequest {
   reviewedByEmail  String?
   reviewedAt       DateTime?
   rejectionReason  String?
+  /// Customer subscription plan-switch target (action="subscription_change").
+  /// These rows carry no plan/version (the switch targets a live subscription).
+  subscriptionId   String?
+  subscription     Subscription? @relation(fields: [subscriptionId], references: [id], onDelete: Cascade)
+  organizationId   String?
+  fromPlanId       String?
+  toPlanId         String?
+  /// Requested billing cycle for the switch (monthly|yearly); null keeps current.
+  billingCycle     String?
   createdAt        DateTime  @default(now())
   updatedAt        DateTime  @updatedAt
 
   @@index([planId, status])
+  @@index([subscriptionId, status])
+  @@index([organizationId, status])
   @@index([status])
 }
 
@@ -259,11 +276,15 @@ model Subscription {
   currentPeriodEnd   DateTime
   trialEndsAt        DateTime?
   cancelAt           DateTime?
+  /// End-of-period (scheduled) cancellation: the subscription stays in its
+  /// current revenue state until `currentPeriodEnd`, then expires as cancelled.
+  cancelAtPeriodEnd  Boolean      @default(false)
   createdAt          DateTime     @default(now())
   updatedAt          DateTime     @updatedAt
 
   invoices             Invoice[]
   affiliateCommissions AffiliateCommission[]
+  planChangeRequests   PlanChangeRequest[]
 
   @@index([organizationId])
   @@index([planId])
