@@ -49,7 +49,7 @@ export const PORTAL_NAV: Record<AppRole, PortalNavItem[]> = {
     { href: "/customer", label: "Dashboard" },
     { href: "/customer/subscription", label: "Subscription" },
     { href: "/customer#usage", label: "Usage" },
-    { href: "/customer#billing", label: "Billing" },
+    { href: "/customer/billing", label: "Billing" },
     { href: "/account", label: "Profile" },
   ],
 };

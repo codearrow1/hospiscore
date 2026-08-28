@@ -3,6 +3,8 @@ import { requireSaasAccess } from "@/lib/marketing/guard";
 import { hasSaasPerm } from "@/lib/saas/roles";
 import { listPayments } from "@/lib/saas/billing";
 import { recordPayment, refundPayment } from "@/lib/saas/gateway";
+import { requiresApproval } from "@/lib/saas/financialApproval";
+import { prisma } from "@/lib/prisma";
 import { clientIp } from "@/lib/marketing/guard";
 
 export const runtime = "nodejs";
@@ -27,8 +29,19 @@ export async function POST(req: NextRequest) {
   // refund flow: { paymentId, action:"refund" }
   if (body.action === "refund" && typeof body.paymentId === "string") {
     if (!hasSaasPerm(guard.user, "REFUND_APPROVE")) return NextResponse.json({ error: "REFUND_APPROVE required" }, { status: 403 });
+    const paymentId = String(body.paymentId);
+    const pay = await prisma.payment.findUnique({ where: { id: paymentId }, select: { amount: true } });
+    if (!pay) return NextResponse.json({ error: "Payment not found" }, { status: 404 });
+    // Server-side four-eyes gate: a refund that the policy requires to be
+    // approved cannot be issued directly.
+    if (await requiresApproval("payment.refund", pay.amount)) {
+      return NextResponse.json(
+        { error: "Four-eyes approval required. Submit a financial approval request first.", action: "financial_approval" },
+        { status: 409 },
+      );
+    }
     try {
-      const p = await refundPayment(String(body.paymentId), guard.user.email, clientIp(req));
+      const p = await refundPayment(paymentId, guard.user.email, clientIp(req));
       return NextResponse.json({ payment: p });
     } catch (e) {
       return NextResponse.json({ error: e instanceof Error ? e.message : "Refund failed" }, { status: 400 });

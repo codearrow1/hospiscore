@@ -6,6 +6,7 @@ import { resolveOrgForUser } from "@/lib/saas/portalAccess";
 import { formatMoney, formatDate } from "@/lib/format";
 import { StatusBadge } from "@/components/ui/Badge";
 import PrintButton from "@/components/saas/PrintButton";
+import PayNowButton from "@/components/customer/PayNowButton";
 
 export const dynamic = "force-dynamic";
 export const runtime = "nodejs";
@@ -115,6 +116,12 @@ export default async function CustomerInvoicePage({ params }: { params: Promise<
           Questions about this invoice? Open a billing ticket from your customer portal.
         </footer>
       </article>
+
+      {invoice.amount - paidCents > 0 && (
+        <div className="mt-4 print:hidden">
+          <PayNowButton invoiceId={invoice.id} amountMinor={Math.max(invoice.amount - paidCents, 0)} currency={invoice.currency} />
+        </div>
+      )}
     </div>
   );
 }

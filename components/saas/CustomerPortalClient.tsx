@@ -336,14 +336,17 @@ export default function CustomerPortalClient({
         <Badge>{healthStatus}</Badge>
       </div>
 
-      {/* Outstanding banner — self-pay honestly gated */}
+      {/* Outstanding banner — self-serve Pay Now surface */}
       {(needsPayment || subAttention) && (
         <div className="rounded-2xl border border-amber-300 bg-amber-50 p-4 dark:border-amber-800 dark:bg-amber-950/40">
            {needsPayment && (
             <div className="flex flex-wrap items-center justify-between gap-2">
               <p className="text-sm font-semibold text-amber-800 dark:text-amber-200">
-                Outstanding balance {formatMoney(outstandingCents, "USD")} — contact billing to settle this invoice.
+                Outstanding balance {formatMoney(outstandingCents, "USD")}.
               </p>
+              <a href="/customer/billing" className="rounded-lg bg-amber-600 px-4 py-1.5 text-sm font-semibold text-white hover:bg-amber-700">
+                Pay now
+              </a>
             </div>
           )}
           {subAttention && (

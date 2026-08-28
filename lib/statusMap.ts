@@ -129,6 +129,16 @@ export const STATUS_MAP: Record<string, DomainMap> = {
     rejected: m("Rejected", "danger"),
     cancelled: m("Cancelled", "neutral"),
   },
+  financialApproval: {
+    pending: m("Pending", "warning"),
+    approved: m("Approved", "success"),
+    executing: m("Executing", "info"),
+    executed: m("Executed", "success"),
+    failed: m("Failed", "danger"),
+    rejected: m("Rejected", "danger"),
+    cancelled: m("Cancelled", "neutral"),
+    expired: m("Expired", "neutral"),
+  },
   featureFlag: {
     on: m("ON", "success"),
     off: m("OFF", "neutral"),

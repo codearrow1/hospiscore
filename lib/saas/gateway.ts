@@ -241,8 +241,7 @@ export async function refundPayment(paymentId: string, actorEmail: string, ip?: 
     if (!pay) throw new Error("Payment not found");
     if (pay.status === "refunded") throw new Error("Already refunded");
     if (pay.status !== "succeeded") throw new Error(`Only succeeded payments are refundable (payment is ${pay.status})`);
-    const updated = await tx.payment.update({ where: { id: paymentId }, data: { status: "refunded" } });
-    await writeSaasAudit({ byEmail: actorEmail, action: "payment.refunded", entity: "payment", entityId: paymentId, detail: `refund ${(pay.amount/100).toFixed(2)}`, ip });
+    await tx.payment.update({ where: { id: paymentId }, data: { status: "refunded" } });
 
     if (pay.invoiceId) {
       const paidAgg = await tx.payment.aggregate({ where: { invoiceId: pay.invoiceId, status: "succeeded" }, _sum: { amount: true } });
@@ -258,8 +257,12 @@ export async function refundPayment(paymentId: string, actorEmail: string, ip?: 
         }
       }
     }
-    return { updated, invoiceId: pay.invoiceId, organizationId: pay.organizationId };
+    // NOTE: do NOT call writeSaasAudit here — it uses the global Prisma client
+    // while this transaction holds the SQLite write lock, which deadlocks
+    // (P1008). The audit is written after commit below.
+    return { amount: pay.amount, invoiceId: pay.invoiceId, organizationId: pay.organizationId };
   }, { maxWait: 20_000, timeout: 60_000 }).then(async (result) => {
+    await writeSaasAudit({ byEmail: actorEmail, action: "payment.refunded", entity: "payment", entityId: paymentId, detail: `refund ${(result.amount/100).toFixed(2)}`, ip });
     if (result.invoiceId) {
       try {
         const inv = await prisma.invoice.findUnique({ where: { id: result.invoiceId }, select: { subscriptionId: true } });
@@ -269,6 +272,6 @@ export async function refundPayment(paymentId: string, actorEmail: string, ip?: 
         }
       } catch (e) { console.error("[gateway] commission reversal failed:", e); }
     }
-    return result.updated;
+    return prisma.payment.findUniqueOrThrow({ where: { id: paymentId } });
   });
 }

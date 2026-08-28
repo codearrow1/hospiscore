@@ -45,10 +45,11 @@ model Organization {
   createdAt            DateTime @default(now())
   updatedAt            DateTime @updatedAt
 
-  contacts             OrgContact[]
-  properties           Property[]
-  propertyClaims       PropertyClaim[]
-  subscriptions        Subscription[]
+    contacts             OrgContact[]
+    properties           Property[]
+    propertyClaims       PropertyClaim[]
+    subscriptions        Subscription[]
+    paymentIntents       PaymentIntent[]
   invoices             Invoice[]
   payments             Payment[]
   usageRecords         UsageRecord[]
@@ -243,6 +244,56 @@ model PlanChangeRequest {
   @@index([status])
 }
 
+/// Four-eyes / dual-approval financial control record (Phase I).
+///
+/// A high-risk financial action (invoice void, payment refund, payout
+/// release, …) that requires a second, independent approver. The requester
+/// and approver are enforced as DIFFERENT users by the framework — this table
+/// holds an immutable SNAPSHOT of what was requested so an approver can never
+/// approve a different/stale amount, currency or target. The canonical
+/// financial service (voidInvoice/refundPayment/updatePayoutStatus) is invoked
+/// only after approval, and remains the single authority for execution.
+model FinancialApproval {
+  id              String    @id @default(cuid())
+  /// invoice.void | payment.refund | payout.release
+  actionType      String
+  /// invoice | payment | payout
+  targetType      String
+  targetId        String
+  amountMinor     Int
+  currency        String    @default("USD")
+  organizationId  String? // where applicable
+  requesterUserId String?
+  requesterEmail  String
+  reviewerUserId  String?
+  reviewerEmail   String?
+  /// pending|approved|executing|executed|failed|rejected|cancelled|expired
+  status          String    @default("pending")
+  reason          String?
+  decisionReason  String?
+  requestedAt     DateTime  @default(now())
+  approvedAt      DateTime?
+  rejectedAt      DateTime?
+  cancelledAt     DateTime?
+  expiredAt       DateTime?
+  executedAt      DateTime?
+  failedAt        DateTime?
+  expiresAt       DateTime?
+  /// Immutable snapshot of the intended action AND the target's recorded
+  /// state at request time, so approval never silently approves a drift.
+  snapshot        Json
+  executionError  String?
+  createdAt       DateTime  @default(now())
+  updatedAt       DateTime  @updatedAt
+
+  @@index([status])
+  @@index([actionType])
+  @@index([targetType, targetId])
+  @@index([requesterEmail])
+  @@index([organizationId])
+  @@index([createdAt])
+}
+
 /// Platform-level toggles (Super Admin only). JSON value keeps future
 /// settings schema-free.
 model SystemSetting {
@@ -308,31 +359,117 @@ model Invoice {
   createdAt      DateTime      @default(now())
   updatedAt      DateTime      @updatedAt
 
-  payments Payment[]
+    payments Payment[]
+    paymentIntents PaymentIntent[]
 
-  @@index([organizationId])
-  @@index([subscriptionId])
-  @@index([status])
-  @@index([createdAt])
-}
+    @@index([organizationId])
+    @@index([subscriptionId])
+    @@index([status])
+    @@index([createdAt])
+  }
 
 model Payment {
-  id             String       @id @default(cuid())
-  organizationId String
-  organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
-  invoiceId      String?
-  invoice        Invoice?     @relation(fields: [invoiceId], references: [id])
-  gateway        String       @default("manual") // stripe|razorpay|manual
-  amount         Int
-  currency       String       @default("USD")
-  status         String       @default("succeeded") // succeeded|failed|pending|refunded
-  failureReason  String?
-  createdAt      DateTime     @default(now())
+    id                String         @id @default(cuid())
+    organizationId    String
+    organization      Organization   @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+    invoiceId         String?
+    invoice           Invoice?       @relation(fields: [invoiceId], references: [id])
+    gateway           String         @default("manual") // provider key: stripe|razorpay|manual|...
+    amount            Int
+    currency          String         @default("USD")
+    status            String         @default("succeeded") // succeeded|failed|pending|refunded|partially_refunded
+    failureReason     String?
+    /// Provider-assigned intent/order reference (PaymentIntent.providerRef).
+    providerRef       String?
+    /// Provider-assigned payment/charge id (reconciliation uniqueness).
+    providerPaymentId String?
+    /// Provider webhook event id that created this payment (idempotency key).
+    webhookEventId    String?
+    /// Exact provider intent that produced this payment.
+    paymentIntentId   String?
+    paymentIntent     PaymentIntent? @relation("PaymentToIntent", fields: [paymentIntentId], references: [id])
+    /// Normalized payment method family (card|upi|wallet|...).
+    method           String?
+    /// Masked method label (e.g. "card •••• 4242") — NEVER a full PAN.
+    methodMasked     String?
+    /// Provider or platform fee in minor units (reconciliation math).
+    feeMinor         Int            @default(0)
+    createdAt        DateTime       @default(now())
 
-  @@index([organizationId])
-  @@index([invoiceId])
-  @@index([status])
-}
+    @@index([organizationId])
+    @@index([invoiceId])
+    @@index([status])
+    @@index([providerRef])
+    @@index([webhookEventId])
+    @@unique([providerPaymentId])
+  }
+
+  /// Transient checkout/intent record — NOT a money ledger. The single source
+  /// of truth for money remains Payment; this only tracks a provider checkout.
+  model PaymentIntent {
+    id               String        @id @default(cuid())
+    organizationId   String
+    organization     Organization  @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+    invoiceId        String?
+    invoice          Invoice?      @relation(fields: [invoiceId], references: [id])
+    provider         String        // provider key
+    amount           Int           // minor units
+    currency         String        @default("USD")
+    /// created|requires_payment|processing|succeeded|failed|cancelled|expired
+    status           String        @default("created")
+    idempotencyKey   String        @unique
+    providerRef      String         @unique
+    checkoutUrl      String?
+    clientToken      String?
+    method           String?
+    methodMasked     String?
+    failureReason    String?
+    expiresAt        DateTime?
+    completedAt      DateTime?
+    /// Canonical Payment created on success (the ledger row) — plain scalar
+    /// pointer (not a Prisma relation) to avoid an extra reciprocal edge.
+    settledPaymentId String?
+    payments         Payment[]     @relation("PaymentToIntent")
+    rawMeta          Json
+    createdAt        DateTime      @default(now())
+    updatedAt        DateTime      @updatedAt
+
+    @@index([organizationId])
+    @@index([invoiceId])
+    @@index([status])
+    @@index([provider])
+  }
+
+  /// Append-only webhook event log — replay/idempotency + audit. Exactly one
+  /// canonical Payment is created per unique provider event.
+  model PaymentWebhookLog {
+    id               String   @id @default(cuid())
+    provider         String
+    eventId          String
+    /// received|verified|reconciled|ignored|failed
+    status           String   @default("received")
+    intentId         String?
+    paymentId        String?
+    raw              Json // sanitized (secrets stripped) provider payload
+    verificationNote String?
+    ip               String?
+    createdAt        DateTime @default(now())
+
+    @@unique([provider, eventId])
+    @@index([provider, status])
+    @@index([createdAt])
+  }
+
+  /// Lightweight provider health ledger (drives the settings health view).
+  model PaymentProviderHealth {
+    providerId    String    @id
+    healthy       Boolean   @default(false)
+    lastCheckedAt DateTime?
+    lastError     String?
+    successCount  Int       @default(0)
+    failureCount  Int       @default(0)
+    updatedAt     DateTime  @updatedAt
+  }
 
 model UsageRecord {
   id             String       @id @default(cuid())

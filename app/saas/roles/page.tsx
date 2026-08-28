@@ -45,6 +45,7 @@ const PERMISSION_LABELS: Record<SaasPermission, string> = {
   FRANCHISE_VIEW: "View Franchises",
   FRANCHISE_MANAGE: "Manage Franchises",
   FRANCHISE_FINANCE: "Franchise Finance",
+  FINANCIAL_APPROVE: "Approve Financial Actions",
   FEATURE_FLAG_MANAGE: "Manage Feature Flags",
   SUPPORT_VIEW: "View Support",
   SUPPORT_MANAGE: "Manage Support",

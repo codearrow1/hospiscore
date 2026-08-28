@@ -69,9 +69,10 @@ describe("saas RBAC", () => {
   });
   it("getRolePermissions returns all perms for super_admin", () => {
     const perms = getRolePermissions("super_admin");
-    expect(perms.length).toBe(28);
+    expect(perms.length).toBe(29);
     expect(perms).toContain("CUSTOMER_MANAGE");
     expect(perms).toContain("SYSTEM_SETTINGS_MANAGE");
+    expect(perms).toContain("FINANCIAL_APPROVE");
   });
   it("getRolePermissions returns scoped perms for analyst", () => {
     const perms = getRolePermissions("analyst");
