@@ -7,7 +7,7 @@ import {
 } from "@/lib/marketing/guard";
 import { setUserRole } from "@/lib/marketing/users";
 import { writeAudit } from "@/lib/marketing/audit";
-import { isMarketingRole } from "@/lib/marketing/roles";
+import { isMarketingRole, roleFor } from "@/lib/marketing/roles";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -33,6 +33,24 @@ export async function PATCH(
   const role = body.role === null || body.role === undefined ? null : String(body.role);
   if (role !== null && !isMarketingRole(role)) {
     return NextResponse.json({ error: "Invalid role" }, { status: 400 });
+  }
+  // Privilege-escalation guard: only an existing Super Admin may assign (or
+  // keep) the Super Admin role, and no non-super-admin may alter their OWN
+  // account's role. Otherwise a marketing_manager/analyst holding
+  // settings.manage could promote themselves to super_admin and thereby the
+  // full SaaS permission set (saasRoleFor fallback).
+  const actorRole = roleFor(guard.user);
+  if (role === "super_admin" && actorRole !== "super_admin") {
+    return NextResponse.json(
+      { error: "Only a Super Admin may assign the Super Admin role" },
+      { status: 403 },
+    );
+  }
+  if (String(id).toLowerCase() === guard.user.id.toLowerCase() && actorRole !== "super_admin") {
+    return NextResponse.json(
+      { error: "You cannot change your own role" },
+      { status: 403 },
+    );
   }
   const updated = await setUserRole(id, role);
   if (!updated) return NextResponse.json({ error: "User not found" }, { status: 404 });

@@ -42,6 +42,12 @@ export async function GET() {
   }
   const user = auth.value.user;
 
+  // Super-admin-only: this endpoint runs heavy diagnostic queries across the
+  // control plane; do not expose it to lower marketing/command roles.
+  if (!hasSaasPerm(user, "SYSTEM_SETTINGS_MANAGE")) {
+    return NextResponse.json({ ok: false, steps, note: "Super-admin capability required" }, { status: 403 });
+  }
+
   // 2. RBAC
   const perms = [
     "CUSTOMER_VIEW",

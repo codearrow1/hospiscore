@@ -497,6 +497,34 @@ describe("[payments-platform]", { timeout: 60_000 }, () => {
     expect(String(res.error)).toContain("Unknown provider");
   });
 
+  test("testProviderConnection sends the REAL (plaintext, not display-masked) secret to the adapter", async () => {
+    // Save a real secret server-side (encrypted at rest) for Stripe.
+    await store.saveProviderConfig(
+      { id: "stripe", label: "Stripe", enabled: true, mode: "test", secrets: { secretKey: "sk_test_realsecret_1234567890abcd" } },
+      "a",
+    );
+
+    // A fake transport that records every outgoing request and answers CONNECTED.
+    const sent: { auth?: string }[] = [];
+    const fake: HttpTransport = async (url, init) => {
+      const h = (init?.headers ?? {}) as Record<string, unknown>;
+      const auth = String((h as Record<string, unknown>)["Authorization"] ?? (h as Record<string, unknown>)["authorization"] ?? "");
+      sent.push({ auth });
+      return { ok: true, status: 200, text: async () => "{}", json: async () => ({}) };
+    };
+
+    const res = await validate.testProviderConnection({ providerId: "stripe", secrets: { secretKey: "sk_test_realsecret_1234567890abcd" }, transport: fake });
+
+    // A CONNECTED result is only reachable when the adapter received a usable
+    // (plaintext) key; under the old bug it received a masked `sk_••••abcd`.
+    expect(res.status).toBe("CONNECTED");
+
+    // The regression guard: the exact secret must reach the adapter, undisplay-masked.
+    expect(sent.length).toBeGreaterThan(0);
+    expect(sent[0].auth).toContain("sk_test_realsecret_1234567890abcd");
+    expect(sent[0].auth).not.toContain("••••");
+  });
+
   // ----- G. Phase K: error taxonomy (pure) -----------------------------
   describe("error taxonomy", () => {
     test("classifyPaymentError maps codes, statuses, and messages", () => {

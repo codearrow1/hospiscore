@@ -11,6 +11,7 @@
  */
 import type { PaymentProviderAdapter } from "./adapter";
 import type { ProviderConfig, CapabilityReport, PaymentMethod, CurrencyCode, CountryCode } from "./types";
+import type { HttpTransport } from "@/lib/saas/adapters/_shared";
 import { canRoutePayment } from "./types";
 import { getProviderConfigs, getLiveProviderConfig } from "./store";
 import { stripeAdapter } from "../adapters/stripe";
@@ -34,20 +35,29 @@ export async function buildAdapter(providerId: string): Promise<PaymentProviderA
   return instantiateAdapter(cfg);
 }
 
-export function instantiateAdapter(cfg: ProviderConfig): PaymentProviderAdapter {
+type AdapterModule = {
+  instance(c: ProviderConfig): PaymentProviderAdapter;
+  newWithTransport(c: ProviderConfig, t: HttpTransport): PaymentProviderAdapter;
+};
+
+function build(cfg: ProviderConfig, adapter: AdapterModule, transport?: HttpTransport): PaymentProviderAdapter {
+  return transport ? adapter.newWithTransport(cfg, transport) : adapter.instance(cfg);
+}
+
+export function instantiateAdapter(cfg: ProviderConfig, transport?: HttpTransport): PaymentProviderAdapter {
   switch (cfg.id) {
-    case "stripe": return stripeAdapter.instance(cfg);
-    case "razorpay": return razorpayAdapter.instance(cfg);
-    case "paypal": return paypalAdapter.instance(cfg);
-    case "adyen": return adyenAdapter.instance(cfg);
-    case "cashfree": return cashfreeAdapter.instance(cfg);
-    case "payu": return payuAdapter.instance(cfg);
-    case "checkout.com": return checkoutComAdapter.instance(cfg);
-    case "square": return squareAdapter.instance(cfg);
-    case "mollie": return mollieAdapter.instance(cfg);
-    case "phonepe": return phonePeAdapter.instance(cfg);
-    case "paytm": return paytmAdapter.instance(cfg);
-    case "easebuzz": return easebuzzAdapter.instance(cfg);
+    case "stripe": return build(cfg, stripeAdapter, transport);
+    case "razorpay": return build(cfg, razorpayAdapter, transport);
+    case "paypal": return build(cfg, paypalAdapter, transport);
+    case "adyen": return build(cfg, adyenAdapter, transport);
+    case "cashfree": return build(cfg, cashfreeAdapter, transport);
+    case "payu": return build(cfg, payuAdapter, transport);
+    case "checkout.com": return build(cfg, checkoutComAdapter, transport);
+    case "square": return build(cfg, squareAdapter, transport);
+    case "mollie": return build(cfg, mollieAdapter, transport);
+    case "phonepe": return build(cfg, phonePeAdapter, transport);
+    case "paytm": return build(cfg, paytmAdapter, transport);
+    case "easebuzz": return build(cfg, easebuzzAdapter, transport);
     default: return genericHmacAdapter.instance(cfg);
   }
 }

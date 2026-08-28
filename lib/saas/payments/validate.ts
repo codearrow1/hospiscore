@@ -8,15 +8,24 @@
  */
 import { instantiateAdapter } from "./factory";
 import { getProviderConfig, getLiveProviderConfig } from "./store";
-import { toMaskedSecret } from "./helpers";
-import type { ProviderCredentials } from "./types";
+import type { MaskedSecret } from "./types";
 import type { ConnectionTestResult } from "./adapter";
 import type { HttpTransport } from "@/lib/saas/adapters/_shared";
 
 /**
- * Test credentials WITHOUT saving. Builds a synthetic config from the entered
- * secrets (encrypted to the same envelope so decryptCredentials reads them),
- * then calls the adapter's testConnection (read-only ping).
+ * Test credentials WITHOUT saving. Builds a live config from the entered (or
+ * previously saved) secrets and calls the adapter's testConnection (read-only
+ * ping).
+ *
+ * The adapter contract is that `getLiveProviderConfig` returns a bundle whose
+ * `.masked` fields carry the DECRYPTED PLAINTEXT secret, so adapters can read
+ * `secretKey.masked` as the live value (see store.decryptCredentials). Any
+ * freshly-entered secret must therefore be placed into the bundle as plaintext
+ * too — NOT display-masked (a masked `sk_live_••••1234` would be sent to the
+ * provider and every connection test would fail with 401).
+ *
+ * The bundle is held transiently in server memory and only passed to the
+ * adapter; it is never serialized to the client (store returns masked views).
  */
 export async function testProviderConnection(opts: {
   providerId: string;
@@ -33,28 +42,38 @@ export async function testProviderConnection(opts: {
   if (!existing) return { status: "FAILED", error: "Unknown provider", reason: "INVALID_REQUEST" };
   const mode = existing.mode ?? "test";
 
-  const entered: ProviderCredentials = {
-    publishableKey: opts.secrets.publishableKey && opts.secrets.publishableKey.length
-      ? opts.secrets.publishableKey.trim()
-      : existing.credentials.publishableKey,
-    secretKey: toMaskedSecret(opts.secrets.secretKey || undefined, existing.credentials.secretKey),
-    token: toMaskedSecret(opts.secrets.token || undefined, existing.credentials.token),
-    webhookSecret: toMaskedSecret(opts.secrets.webhookSecret || undefined, existing.credentials.webhookSecret),
-    extra: {},
-  };
-  // Build a live config the adapter can decrypt.
+  // Build a live config from the decrypted existing values; substitute any
+  // freshly-entered raw secret verbatim so the adapter receives plaintext.
   const config = await getLiveProviderConfig(opts.providerId);
   if (!config) return { status: "FAILED", error: "Provider config missing", reason: "INVALID_REQUEST" };
+
+  const plain = (raw: string | undefined, existingVal?: MaskedSecret): MaskedSecret | undefined => {
+    if (raw !== undefined && raw !== null && String(raw).trim()) {
+      return { set: true, masked: String(raw).trim(), updatedAt: Date.now() };
+    }
+    return existingVal;
+  };
+
   config.credentials = {
-    ...entered,
-    // port existing extra secrets decrypted
+    publishableKey:
+      opts.secrets.publishableKey && opts.secrets.publishableKey.trim().length
+        ? opts.secrets.publishableKey.trim()
+        : config.credentials.publishableKey,
+    secretKey: plain(opts.secrets.secretKey, config.credentials.secretKey),
+    token: plain(opts.secrets.token, config.credentials.token),
+    webhookSecret: plain(opts.secrets.webhookSecret, config.credentials.webhookSecret),
     extra: opts.secrets.extra
-      ? Object.fromEntries(Object.entries(opts.secrets.extra).map(([k, v]) => [k, toMaskedSecret(v)]))
-      : (config.credentials.extra as never),
+      ? Object.fromEntries(
+          Object.entries(opts.secrets.extra).map(([k, v]) => [
+            k,
+            { set: true, masked: String(v).trim(), updatedAt: Date.now() },
+          ]),
+        )
+      : config.credentials.extra,
   };
   config.mode = mode;
 
-  const adapter = instantiateAdapter(config);
+  const adapter = instantiateAdapter(config, opts.transport);
   try {
     const res = await adapter.testConnection(config.credentials);
     return { status: res.status, error: res.error, reason: res.reason };

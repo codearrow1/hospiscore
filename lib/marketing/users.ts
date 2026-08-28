@@ -5,6 +5,7 @@
 
 import { readData, writeData } from "@/lib/db";
 import { isMarketingRole, MARKETING_ROLES } from "./roles";
+import { isSaasRole } from "@/lib/saas/roles";
 
 export interface TeamMember {
   id: string;
@@ -12,6 +13,11 @@ export interface TeamMember {
   email: string;
   role: string | null;
   createdAt: string;
+}
+
+/** Whether a role may be stored on a user: marketing roles OR SaaS-only roles. */
+export function isStorableRole(role: string): boolean {
+  return isMarketingRole(role) || isSaasRole(role);
 }
 
 export async function listUsers(target?: string): Promise<TeamMember[]> {
@@ -26,7 +32,7 @@ export async function setUserRole(
   role: string | null,
   target?: string,
 ): Promise<TeamMember | null> {
-  if (role !== null && !isMarketingRole(role)) throw new Error("Invalid role");
+  if (role !== null && !isStorableRole(role)) throw new Error("Invalid role");
   let out: TeamMember | null = null;
   await writeData(
     (d) => {
