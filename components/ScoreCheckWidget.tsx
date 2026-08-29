@@ -278,7 +278,7 @@ export default function ScoreCheckWidget() {
       <div className="mt-3 flex min-h-5 items-center justify-between text-xs text-zinc-400">
         <span aria-live="polite">
           {loading
-            ? "Searching live data…"
+            ? "Searching…"
             : results !== null
               ? `${results.length} result${results.length === 1 ? "" : "s"} found`
               : "\u00A0"}

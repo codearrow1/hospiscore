@@ -14,6 +14,8 @@
 import { prisma } from "@/lib/prisma";
 import { initSaasDb } from "@/lib/saas/init";
 import { CONFIG } from "@/lib/config";
+import { readFileSync } from "node:fs";
+import { join } from "node:path";
 import { SAAS_ROLES, isSaasRole, getRolePermissions, hasSaasPerm } from "@/lib/saas/roles";
 import { originAllowed, rateLimit } from "@/lib/marketing/guard";
 
@@ -90,6 +92,44 @@ export async function main(): Promise<void> {
     check("prisma query engine responsive", Array.isArray(schema) || schema !== undefined);
   } catch (e) {
     check("prisma query engine responsive", false, (e as Error).message);
+  }
+
+  // 7b. B-3: Invoice/Payment carry a unique caller idempotency key (read-only schema contract)
+  try {
+    const schemaText = readFileSync(join(process.cwd(), "prisma", "schema.prisma"), "utf8");
+    const models = new Map<string, string>();
+    let current: string | null = null;
+    let depth = 0;
+    let buf: string[] = [];
+    const modelDecl = /^\s*model\s+(\w+)\s*\{\s*$/;
+    for (const line of schemaText.split(/\r?\n/)) {
+      if (current === null) {
+        const m = line.match(modelDecl);
+        if (m) {
+          current = m[1];
+          depth = 1;
+          buf = [];
+        }
+      } else {
+        depth += (line.match(/\{/g) ?? []).length;
+        depth -= (line.match(/\}/g) ?? []).length;
+        buf.push(line);
+        if (depth === 0) {
+          models.set(current, buf.join("\n"));
+          current = null;
+        }
+      }
+    }
+    const fieldHasUnique = (model: string, field: string) => {
+      const block = models.get(model);
+      if (!block) return false;
+      const line = block.split(/\r?\n/).find((l) => new RegExp(`^\\s*${field}\\s`).test(l));
+      return line ? /@unique/.test(line) : false;
+    };
+    check("invoice.idempotencyKey unique contract", fieldHasUnique("Invoice", "idempotencyKey") === true);
+    check("payment.idempotencyKey unique contract", fieldHasUnique("Payment", "idempotencyKey") === true);
+  } catch (e) {
+    check("idempotency schema contract readable", false, (e as Error).message);
   }
 
   // 8. (Optional) live HTTP health probe

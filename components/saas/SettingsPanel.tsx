@@ -12,6 +12,7 @@ interface SettingValue {
   min?: number;
   max?: number;
   options?: string[];
+  envManaged?: boolean;
 }
 
 function JsonEditor({
@@ -88,7 +89,7 @@ export default function SettingsPanel({ category }: { category: string }) {
     setFeedback(null);
     try {
       const updates = settings
-        .filter((s) => JSON.stringify(editValues[s.key]) !== JSON.stringify(s.value))
+        .filter((s) => !s.envManaged && JSON.stringify(editValues[s.key]) !== JSON.stringify(s.value))
         .map((s) => ({ key: s.key, value: editValues[s.key] }));
 
       if (updates.length === 0) {
@@ -118,7 +119,7 @@ export default function SettingsPanel({ category }: { category: string }) {
   };
 
   const hasChanges = settings.some(
-    (s) => JSON.stringify(editValues[s.key]) !== JSON.stringify(s.value),
+    (s) => !s.envManaged && JSON.stringify(editValues[s.key]) !== JSON.stringify(s.value),
   );
 
   if (loading) {
@@ -145,18 +146,38 @@ export default function SettingsPanel({ category }: { category: string }) {
 
       <div className="rounded-2xl border border-zinc-200 bg-white dark:border-zinc-800 dark:bg-zinc-900">
         <div className="divide-y divide-zinc-100 dark:divide-zinc-800">
-          {settings.map((s) => (
-            <div key={s.key} className="px-6 py-4">
-              <div className="flex items-center justify-between gap-4">
-                <div className="min-w-0 flex-1">
-                  <label className="block text-sm font-medium">{s.key}</label>
-                  <p className="mt-0.5 text-xs text-zinc-500">{s.description}</p>
-                  <p className="mt-0.5 text-xs text-zinc-400">
-                    Default: <code>{JSON.stringify(s.defaultValue)}</code>
-                  </p>
-                </div>
-                <div className="shrink-0">
-                  {s.type === "boolean" ? (
+          {settings.map((s) => {
+            const envManaged = s.envManaged === true;
+            return (
+              <div key={s.key} className="px-6 py-4">
+                <div className="flex items-center justify-between gap-4">
+                  <div className="min-w-0 flex-1">
+                    <label className="block text-sm font-medium">{s.key}</label>
+                    {envManaged && (
+                      <span className="mt-1 inline-flex rounded-full border border-amber-500/40 bg-amber-50 px-2 py-0.5 text-xs font-medium text-amber-600 dark:border-amber-500/30 dark:bg-amber-950 dark:text-amber-400">
+                        Managed via server environment variable — edit the server env, not here.
+                      </span>
+                    )}
+                    <p className="mt-0.5 text-xs text-zinc-500">{s.description}</p>
+                    <p className="mt-0.5 text-xs text-zinc-400">
+                      Default: <code>{JSON.stringify(s.defaultValue)}</code>
+                    </p>
+                  </div>
+                  <div className={`shrink-0 ${envManaged ? "opacity-70" : ""}`}>
+                    {envManaged ? (
+                      <input
+                        type="text"
+                        value={
+                          s.type === "secret"
+                            ? "Set on server (env)"
+                            : String(editValues[s.key] ?? "")
+                        }
+                        disabled
+                        readOnly
+                        title="Value is read from a server environment variable; changes here do not affect runtime behavior."
+                        className="w-48 rounded-lg border border-zinc-300 bg-zinc-100 px-3 py-1.5 text-sm dark:border-zinc-700 dark:bg-zinc-800 dark:text-zinc-400"
+                      />
+                    ) : s.type === "boolean" ? (
                     <button
                       role="switch"
                       aria-checked={!!editValues[s.key]}
@@ -215,7 +236,8 @@ export default function SettingsPanel({ category }: { category: string }) {
                 </div>
               </div>
             </div>
-          ))}
+            );
+          })}
         </div>
       </div>
 

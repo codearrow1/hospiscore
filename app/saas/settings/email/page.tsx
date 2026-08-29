@@ -18,7 +18,7 @@ export default async function EmailSettingsPage() {
       <div>
         <h1 className="text-2xl font-bold">Email Settings</h1>
         <p className="mt-1 text-sm text-zinc-500">
-          Configure SMTP server settings for email delivery. Changes are audited and take effect immediately.
+          A note on SMTP: outbound email is driven by environment variables configured on the server (SMTP_HOST, SMTP_PORT, SMTP_USER, SMTP_PASS, SMTP_FROM). The fields shown below are stored for reference but do not change runtime delivery — configure them at the host instead.
         </p>
       </div>
 

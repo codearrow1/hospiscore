@@ -128,6 +128,61 @@ async function dbSection(): Promise<void> {
   sections.push(s);
 }
 
+function schemaSection(): void {
+  const s: Section = { title: "Schema / migration integrity", rows: [], hard: true };
+  let hasField = (_model: string, _field: string): boolean => false;
+  let isUnique = (_model: string, _field: string): boolean => false;
+  try {
+    const schemaText = readFileSync(join(ROOT, "prisma", "schema.prisma"), "utf8");
+    // Brace-counting model parser (robust to the schema's inconsistent indentation).
+    const models = new Map<string, string>();
+    const lines = schemaText.split(/\r?\n/);
+    let current: string | null = null;
+    let depth = 0;
+    let buf: string[] = [];
+    const modelDecl = /^\s*model\s+(\w+)\s*\{\s*$/;
+    for (const line of lines) {
+      if (current === null) {
+        const m = line.match(modelDecl);
+        if (m) {
+          current = m[1];
+          depth = 1;
+          buf = [];
+        }
+      } else {
+        depth += (line.match(/\{/g) ?? []).length;
+        depth -= (line.match(/\}/g) ?? []).length;
+        buf.push(line);
+        if (depth === 0) {
+          models.set(current, buf.join("\n"));
+          current = null;
+        }
+      }
+    }
+    hasField = (model, field) => {
+      const block = models.get(model);
+      if (!block) return false;
+      return block.split(/\r?\n/).some((l) => new RegExp(`^\\s*${field}\\s`).test(l));
+    };
+    isUnique = (model, field) => {
+      const block = models.get(model);
+      if (!block) return false;
+      const line = block.split(/\r?\n/).find((l) => new RegExp(`^\\s*${field}\\s`).test(l));
+      return line ? /@unique/.test(line) : false;
+    };
+  } catch (e) {
+    add(s, "read schema.prisma", "FAIL", e instanceof Error ? e.message : "unable to read schema.prisma");
+  }
+  const invoiceKey = hasField("Invoice", "idempotencyKey");
+  const paymentKey = hasField("Payment", "idempotencyKey");
+  add(s, "Invoice.idempotencyKey present", invoiceKey ? "PASS" : "FAIL", invoiceKey ? "caller idempotency key field exists" : "Invoice model missing idempotencyKey (B-3)");
+  add(s, "Payment.idempotencyKey present", paymentKey ? "PASS" : "FAIL", paymentKey ? "caller idempotency key field exists" : "Payment model missing idempotencyKey (B-3)");
+  add(s, "idempotency keys unique", (isUnique("Invoice", "idempotencyKey") && isUnique("Payment", "idempotencyKey")) ? "PASS" : "FAIL", "both keys must be unique to enable caller-side dedup");
+  const migrationDirExists = existsSync(join(ROOT, "prisma", "migrations", "20260829010000_caller_idempotency_key"));
+  add(s, "idempotency migration file", migrationDirExists ? "PASS" : "FAIL", migrationDirExists ? "20260829010000_caller_idempotency_key present" : "migration missing -- B-3 columns would not be applied at deploy");
+  sections.push(s);
+}
+
 function routingSection(): void {
   const s: Section = { title: "Routing / dead links", rows: [], hard: false };
   const loginExists = existsSync(join(ROOT, "app", "login"));
@@ -161,6 +216,42 @@ function hasSecretValue(path: string): boolean {
   return false;
 }
 
+/** High-signal hardcoded-secret patterns likely to indicate a leaked key in a tracked source file. */
+const SECRET_PATTERNS: Array<{ re: RegExp; label: string }> = [
+  { re: /(sk|pk|rk)_live_[A-Za-z0-9]{10,}/, label: "Stripe live key" },
+  { re: /AKIA[0-9A-Z]{16}/, label: "AWS access key" },
+  { re: /AIza[0-9A-Za-z\-_]{20,}/, label: "Google API key" },
+  { re: /ghp_[0-9A-Za-z]{20,}/, label: "GitHub token" },
+  { re: /-----BEGIN (RSA |EC |OPENSSH )?PRIVATE KEY/, label: "private key block" },
+  { re: /xox[baprs]-[0-9A-Za-z\-]{10,}/, label: "Slack token" },
+];
+
+function scanTrackedSecrets(): { label: string; file: string }[] {
+  const hits: { label: string; file: string }[] = [];
+  try {
+    const out = execSync("git ls-files", { cwd: ROOT, stdio: "pipe", encoding: "utf8" }).trim();
+    const files = out.split(/\r?\n/).filter(Boolean).filter((f) => !f.includes("node_modules"));
+    for (const file of files) {
+      if (!/\.(ts|tsx|js|jsx|json|env|toml|ya?ml|py|go|rb|php)$/.test(file)) continue;
+      const full = join(ROOT, file);
+      if (!existsSync(full)) continue;
+      let content: string;
+      try {
+        content = readFileSync(full, "utf8");
+      } catch {
+        continue;
+      }
+      // skip lines that reference these as env-var names or placeholder docs
+      for (const { re, label } of SECRET_PATTERNS) {
+        if (re.test(content)) hits.push({ label, file });
+      }
+    }
+  } catch {
+    // not a git repo / rg unavailable
+  }
+  return hits;
+}
+
 function secretSection(): void {
   const s: Section = { title: "Secrets hygiene", rows: [], hard: true };
   try {
@@ -178,6 +269,12 @@ function secretSection(): void {
     }
   } catch {
     add(s, "no prod env secrets tracked by git", "PASS", "no secret-bearing .env committed");
+  }
+  const sourceHits = scanTrackedSecrets();
+  if (sourceHits.length) {
+    add(s, "no hardcoded secrets in source", "WARN", "high-signal secret pattern(s) detected in tracked files: " + sourceHits.map((h) => h.file + " (" + h.label + ")").join(", ") + " -- confirm these are placeholders/docs, not real keys");
+  } else {
+    add(s, "no hardcoded secrets in source", "PASS", "no high-signal secret patterns matched in tracked source");
   }
   sections.push(s);
 }
@@ -238,6 +335,7 @@ async function main(): Promise<void> {
   envSection();
   await providerSection();
   await dbSection();
+  schemaSection();
   routingSection();
   secretSection();
   prodFlagsSection();

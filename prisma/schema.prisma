@@ -356,6 +356,9 @@ model Invoice {
   currency       String        @default("USD")
   dueAt          DateTime?
   paidAt         DateTime?
+  /// Caller-supplied idempotency key — enables safe retry/duplicate suppression
+  /// of invoice creation. Unique (nullable so legacy/uncalled rows are unaffected).
+  idempotencyKey String?       @unique
   createdAt      DateTime      @default(now())
   updatedAt      DateTime      @updatedAt
 
@@ -394,6 +397,9 @@ model Payment {
     methodMasked     String?
     /// Provider or platform fee in minor units (reconciliation math).
     feeMinor         Int            @default(0)
+    /// Caller-supplied idempotency key — safe duplicate/retry suppression for
+    /// payment recording. Unique (nullable so legacy/uncalled rows are unaffected).
+    idempotencyKey   String?        @unique
     createdAt        DateTime       @default(now())
 
     @@index([organizationId])

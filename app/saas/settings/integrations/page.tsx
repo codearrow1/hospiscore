@@ -18,7 +18,7 @@ export default async function IntegrationsSettingsPage() {
       <div>
         <h1 className="text-2xl font-bold">Integrations</h1>
         <p className="mt-1 text-sm text-zinc-500">
-          API keys and third-party service configuration. Secrets are stored securely.
+          Integration keys and endpoints (Google Places, DeepSeek, Apify, Redis) are read from server environment variables (GOOGLE_PLACES_API_KEY, DEEPSEEK_API_KEY, etc.). Fields below are stored for reference and do not change runtime behavior — configure them at the host.
         </p>
       </div>
 

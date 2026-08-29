@@ -43,7 +43,7 @@ Every critical workflow below is required to be **PASS** before launch.
 | Sub | Create / upgrade / cancel subscription | customer | Self-service **request** → reviewed | State-safe | Org-scoped | Responsive | **PASS** |
 | Invoice | Generate / view / pay invoice | customer / super_admin | Create & Pay Now | Void-safe | Amount from server; currency match | Responsive | **PASS** |
 | Payment | Hosted checkout + webhook settle | customer | Paid once paid | No overpay, no double-pay | Transactional cap; webhook-only settle | Responsive | **PASS** |
-| Payment | Duplicate/refund | finance | Four-eyes refund | Duplicate rejected | `@@unique` keys | — | **PASS** |
+| Payment | Duplicate/refund | finance | Four-eyes refund | Duplicate rejected | `@@unique` keys + caller `idempotencyKey` dedup (B-3) | — | **PASS** |
 | Dunning | Recover failed payment | system | Past-due→dunning→suspend | State-safe | — | — | **PASS** |
 
 ## E. Team, roles, support
@@ -67,7 +67,7 @@ Every critical workflow below is required to be **PASS** before launch.
 | Area | Check | Status |
 |------|-------|--------|
 | Health | `GET /api/health` public liveness | **PASS** (new) |
-| Smoke | `npm run smoke` 14 checks | **PASS** |
+| Smoke | `npm run smoke` 16 checks (incl. idempotency-key schema contract) | **PASS** |
 | Observability | Auth diagnostics + error boundaries | **PASS** |
 | Backup | `PRODUCTION_DATABASE_BACKUP.md` | **PASS** (documented) |
 | Env/Deploy | `PRODUCTION_ENVIRONMENT.md`, `DEPLOY-SAAS.md`, `PRODUCTION_RUNBOOK.md` | **PASS** (documented; values at host) |

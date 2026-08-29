@@ -38,8 +38,17 @@ export async function createInvoice(
 ): Promise<GatewayInvoice> {
   if (input.amount < 0) throw new Error("amount must be >= 0");
   const db = tx ?? prisma;
-  // NOTE: idempotencyKey is accepted for API compatibility but not yet enforced
-  // (no stored key column). Two legitimate identical invoices may coexist.
+
+  // Caller idempotency: a supplied key means "this exact logical operation (as
+  // identified by the caller) has already been initiated". If it already
+  // produced an invoice, return that invoice instead of creating a duplicate —
+  // safe for duplicate request, network retry, timeout, or a concurrent
+  // re-submission with the same key. Different keys always create new invoices.
+  if (input.idempotencyKey) {
+    const existing = await db.invoice.findUnique({ where: { idempotencyKey: input.idempotencyKey } });
+    if (existing) return existing as GatewayInvoice;
+  }
+
   let amount = input.amount;
   let couponApplied: string | null = null;
   if (input.couponCode) {
@@ -54,17 +63,29 @@ export async function createInvoice(
     amount = res.amountDue;
     couponApplied = res.couponId;
   }
-  const inv = await db.invoice.create({
-    data: {
-      organizationId: input.organizationId,
-      subscriptionId: input.subscriptionId || null,
-      amount,
-      currency: input.currency || "USD",
-      type: input.type || "subscription",
-      status: "issued",
-      dueAt: input.dueAt || null,
-    },
-  });
+  let inv;
+  try {
+    inv = await db.invoice.create({
+      data: {
+        organizationId: input.organizationId,
+        subscriptionId: input.subscriptionId || null,
+        amount,
+        currency: input.currency || "USD",
+        type: input.type || "subscription",
+        status: "issued",
+        dueAt: input.dueAt || null,
+        idempotencyKey: input.idempotencyKey ?? null,
+      },
+    });
+  } catch (e) {
+    // A concurrent caller with the SAME idempotency key won the unique-index
+    // race. Fold into the existing invoice rather than failing the retry.
+    if (input.idempotencyKey && (e as { code?: string })?.code === "P2002") {
+      const existing = await db.invoice.findUnique({ where: { idempotencyKey: input.idempotencyKey } });
+      if (existing) return existing as GatewayInvoice;
+    }
+    throw e;
+  }
   await writeSaasAudit({
     byEmail: input.actorEmail,
     action: "invoice.created",
@@ -87,16 +108,21 @@ export async function recordPayment(input: {
   ip?: string;
   idempotencyKey?: string;
 }) {
-  // NOTE: idempotencyKey accepted but not enforced (no stored key column) —
-  // the previous 60s lookalike window silently swallowed real payments.
-  // Currency always matches the invoice's own currency — never settle an
-  // INR invoice against a USD payment total.
+  // Caller idempotency pre-check: if this exact logical operation (caller key)
+  // already produced a payment, return that payment and do NOT re-settle,
+  // re-dun, or re-commission anything — those side-effects already ran once.
+  if (input.idempotencyKey) {
+    const existing = await prisma.payment.findUnique({ where: { idempotencyKey: input.idempotencyKey } });
+    if (existing) return existing;
+  }
   let currency = input.currency || "USD";
   if (!Number.isInteger(input.amount) || input.amount < 0) {
     throw new Error("amount must be a non-negative integer (minor units)");
   }
   let fullySettled = false;
-  const pay = await prisma.$transaction(async (tx) => {
+  let pay: Awaited<ReturnType<typeof prisma.payment.create>> | undefined;
+  try {
+    pay = await prisma.$transaction(async (tx) => {
     if (input.invoiceId) {
       const inv = await tx.invoice.findUnique({ where: { id: input.invoiceId }, select: { amount: true, currency: true, status: true } });
       if (!inv) throw new Error("Invoice not found");
@@ -122,6 +148,7 @@ export async function recordPayment(input: {
         currency,
         gateway: input.gateway || "manual",
         status: input.status || "succeeded",
+        idempotencyKey: input.idempotencyKey ?? null,
       },
     });
     if (input.invoiceId && (input.status || "succeeded") === "succeeded") {
@@ -145,6 +172,17 @@ export async function recordPayment(input: {
     }
     return created;
   }, { maxWait: 20_000, timeout: 60_000 });
+  } catch (e) {
+    // A concurrent caller with the SAME idempotency key won the unique-index
+    // race. Fold into the already-recorded payment (its settlement and
+    // side-effects already ran once) rather than fail the retry.
+    if (input.idempotencyKey && (e as { code?: string })?.code === "P2002") {
+      const existing = await prisma.payment.findUnique({ where: { idempotencyKey: input.idempotencyKey } });
+      if (existing) return existing;
+    }
+    throw e;
+  }
+  if (!pay) throw new Error("Payment not recorded");
   await writeSaasAudit({ byEmail: input.actorEmail, action: "payment.recorded", entity: "payment", entityId: pay.id, detail: `${pay.gateway} ${(pay.amount/100).toFixed(2)} ${pay.status}`, ip: input.ip });
 
   // Dunning hooks (side-effecting emails stay outside the DB transaction).

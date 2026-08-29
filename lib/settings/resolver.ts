@@ -23,27 +23,29 @@ export interface SettingDefinition {
   min?: number;
   max?: number;
   options?: string[];
+  /** When true, the value is read directly from server environment variables at runtime and DB edits do not affect behavior. */
+  envManaged?: boolean;
 }
 
 const SETTING_DEFINITIONS: SettingDefinition[] = [
   // Platform
   { key: "pricing_approval_required", type: "boolean", defaultValue: true, description: "Require approval for pricing changes", category: "platform" },
-  { key: "admin_emails", type: "string", defaultValue: "", envFallback: "ADMIN_EMAILS", description: "Comma-separated admin email addresses", category: "platform" },
-  { key: "sales_email", type: "string", defaultValue: "hello@hospios.app", envFallback: "SALES_EMAIL", description: "Default sales contact email", category: "platform" },
-  { key: "demo_meeting_url", type: "string", defaultValue: "https://meet.hospios.app/", envFallback: "DEMO_MEETING_URL", description: "Demo meeting base URL", category: "platform" },
+  { key: "admin_emails", type: "string", defaultValue: "", envFallback: "ADMIN_EMAILS", description: "Comma-separated admin email addresses", category: "platform", envManaged: true },
+  { key: "sales_email", type: "string", defaultValue: "hello@hospios.app", envFallback: "SALES_EMAIL", description: "Default sales contact email", category: "platform", envManaged: true },
+  { key: "demo_meeting_url", type: "string", defaultValue: "https://meet.hospios.app/", envFallback: "DEMO_MEETING_URL", description: "Demo meeting base URL", category: "platform", envManaged: true },
 
   // Security
-  { key: "session_days", type: "number", defaultValue: 30, envFallback: "APP_SESSION_DAYS", description: "Session lifetime in days", category: "security", min: 1, max: 365 },
-  { key: "public_rate_window_ms", type: "number", defaultValue: 60000, envFallback: "PUBLIC_RATE_WINDOW_MS", description: "Public API rate limit window (ms)", category: "security", min: 1000 },
-  { key: "public_rate_max", type: "number", defaultValue: 10, envFallback: "PUBLIC_RATE_MAX", description: "Max public API requests per window", category: "security", min: 1 },
-  { key: "admin_rate_max", type: "number", defaultValue: 120, envFallback: "ADMIN_RATE_MAX", description: "Max admin API requests per minute", category: "security", min: 1 },
+  { key: "session_days", type: "number", defaultValue: 30, envFallback: "APP_SESSION_DAYS", description: "Session lifetime in days", category: "security", min: 1, max: 365, envManaged: true },
+  { key: "public_rate_window_ms", type: "number", defaultValue: 60000, envFallback: "PUBLIC_RATE_WINDOW_MS", description: "Public API rate limit window (ms)", category: "security", min: 1000, envManaged: true },
+  { key: "public_rate_max", type: "number", defaultValue: 10, envFallback: "PUBLIC_RATE_MAX", description: "Max public API requests per window", category: "security", min: 1, envManaged: true },
+  { key: "admin_rate_max", type: "number", defaultValue: 120, envFallback: "ADMIN_RATE_MAX", description: "Max admin API requests per minute", category: "security", min: 1, envManaged: true },
 
   // Email
-  { key: "smtp_host", type: "string", defaultValue: "", envFallback: "SMTP_HOST", description: "SMTP server hostname", category: "email" },
-  { key: "smtp_port", type: "number", defaultValue: 587, envFallback: "SMTP_PORT", description: "SMTP server port", category: "email", min: 1, max: 65535 },
-  { key: "smtp_user", type: "string", defaultValue: "", envFallback: "SMTP_USER", description: "SMTP username", category: "email" },
-  { key: "smtp_pass", type: "secret", defaultValue: "", envFallback: "SMTP_PASS", description: "SMTP password", category: "email" },
-  { key: "smtp_from", type: "string", defaultValue: "noreply@thebuddharice.online", envFallback: "SMTP_FROM", description: "Sender email address", category: "email" },
+  { key: "smtp_host", type: "string", defaultValue: "", envFallback: "SMTP_HOST", description: "SMTP server hostname", category: "email", envManaged: true },
+  { key: "smtp_port", type: "number", defaultValue: 587, envFallback: "SMTP_PORT", description: "SMTP server port", category: "email", min: 1, max: 65535, envManaged: true },
+  { key: "smtp_user", type: "string", defaultValue: "", envFallback: "SMTP_USER", description: "SMTP username", category: "email", envManaged: true },
+  { key: "smtp_pass", type: "secret", defaultValue: "", envFallback: "SMTP_PASS", description: "SMTP password", category: "email", envManaged: true },
+  { key: "smtp_from", type: "string", defaultValue: "noreply@thebuddharice.online", envFallback: "SMTP_FROM", description: "Sender email address", category: "email", envManaged: true },
 
   // Billing
   { key: "dunning_retry_schedule", type: "json", defaultValue: [1, 3, 5, 7], description: "Dunning retry intervals in days", category: "billing" },
@@ -69,17 +71,17 @@ const SETTING_DEFINITIONS: SettingDefinition[] = [
   { key: "fraud_signal_weights", type: "json", defaultValue: { self_referral: 80, no_conversions: 30, low_conversion: 20, immediate_cancel: 50, ip_concentration: 25 }, description: "Fraud signal weights", category: "affiliate" },
 
   // Integration
-  { key: "google_places_api_key", type: "secret", defaultValue: "", envFallback: "GOOGLE_PLACES_API_KEY", description: "Google Places API key", category: "integration" },
-  { key: "deepseek_api_key", type: "secret", defaultValue: "", envFallback: "DEEPSEEK_API_KEY", description: "DeepSeek API key", category: "integration" },
-  { key: "deepseek_model", type: "string", defaultValue: "deepseek-chat", envFallback: "DEEPSEEK_MODEL", description: "DeepSeek model name", category: "integration" },
-  { key: "deepseek_base_url", type: "string", defaultValue: "https://api.deepseek.com", envFallback: "DEEPSEEK_BASE_URL", description: "DeepSeek API base URL", category: "integration" },
-  { key: "apify_dataset_id", type: "string", defaultValue: "", envFallback: "APIFY_DATASET_ID", description: "Apify dataset ID", category: "integration" },
-  { key: "apify_base_url", type: "string", defaultValue: "https://api.apify.com", envFallback: "APIFY_BASE_URL", description: "Apify API base URL", category: "integration" },
-  { key: "redis_url", type: "secret", defaultValue: "", envFallback: "REDIS_URL", description: "Redis connection URL", category: "integration" },
-  { key: "cache_provider", type: "string", defaultValue: "memory", envFallback: "CACHE_PROVIDER", description: "Cache provider type", category: "integration", options: ["memory", "redis"] },
+  { key: "google_places_api_key", type: "secret", defaultValue: "", envFallback: "GOOGLE_PLACES_API_KEY", description: "Google Places API key", category: "integration", envManaged: true },
+  { key: "deepseek_api_key", type: "secret", defaultValue: "", envFallback: "DEEPSEEK_API_KEY", description: "DeepSeek API key", category: "integration", envManaged: true },
+  { key: "deepseek_model", type: "string", defaultValue: "deepseek-chat", envFallback: "DEEPSEEK_MODEL", description: "DeepSeek model name", category: "integration", envManaged: true },
+  { key: "deepseek_base_url", type: "string", defaultValue: "https://api.deepseek.com", envFallback: "DEEPSEEK_BASE_URL", description: "DeepSeek API base URL", category: "integration", envManaged: true },
+  { key: "apify_dataset_id", type: "string", defaultValue: "", envFallback: "APIFY_DATASET_ID", description: "Apify dataset ID", category: "integration", envManaged: true },
+  { key: "apify_base_url", type: "string", defaultValue: "https://api.apify.com", envFallback: "APIFY_BASE_URL", description: "Apify API base URL", category: "integration", envManaged: true },
+  { key: "redis_url", type: "secret", defaultValue: "", envFallback: "REDIS_URL", description: "Redis connection URL", category: "integration", envManaged: true },
+  { key: "cache_provider", type: "string", defaultValue: "memory", envFallback: "CACHE_PROVIDER", description: "Cache provider type", category: "integration", options: ["memory", "redis"], envManaged: true },
 
   // Analytics
-  { key: "track_views", type: "boolean", defaultValue: true, envFallback: "TRACK_VIEWS", description: "Enable anonymous page view tracking", category: "analytics" },
+  { key: "track_views", type: "boolean", defaultValue: true, envFallback: "TRACK_VIEWS", description: "Enable anonymous page view tracking", category: "analytics", envManaged: true },
 
   // SLA (support)
   { key: "sla_hours_urgent", type: "number", defaultValue: 4, description: "SLA target hours for urgent tickets", category: "platform", min: 1, max: 48 },
@@ -114,6 +116,10 @@ export function getSettingDefinitions(): SettingDefinition[] {
 
 export function getSettingDefinition(key: string): SettingDefinition | undefined {
   return SETTING_DEFINITIONS.find(d => d.key === key);
+}
+
+export function isEnvManagedSetting(key: string): boolean {
+  return getSettingDefinition(key)?.envManaged === true;
 }
 
 /**
