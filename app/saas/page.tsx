@@ -205,7 +205,7 @@ export default async function SaasDashboardPage({
         {canSubs && (
           <>
             {m ? (
-              <SectionCard title={`MRR trend (${range}d)`} className="lg:col-span-2">
+              <SectionCard title={`MRR trend (${range}d)`} className="min-w-0 lg:col-span-2">
                 {m.mrrGrowth.every((d) => d.mrr === 0) ? (
                   <EmptyState title="No MRR yet" body="Create an organization + subscription to see growth." />
                 ) : (
@@ -229,7 +229,7 @@ export default async function SaasDashboardPage({
 
       {canSubs && m && (
         <div className="grid gap-5 lg:grid-cols-2">
-          <SectionCard title="Revenue by plan">
+          <SectionCard title="Revenue by plan" className="min-w-0">
             {m.revenueByPlan.length === 0 ? (
               <EmptyState title="No revenue by plan" />
             ) : (
@@ -241,7 +241,7 @@ export default async function SaasDashboardPage({
             )}
           </SectionCard>
           {churn ? (
-            <SectionCard title="Churn cohort (6mo)">
+            <SectionCard title="Churn cohort (6mo)" className="min-w-0">
               {churn.every((c) => c.lost === 0) ? (
                 <EmptyState title="No churn recorded" body="Cancelled/expired subscriptions appear here by month." />
               ) : (
@@ -262,7 +262,7 @@ export default async function SaasDashboardPage({
       {canSubs && m && (
         <div className="grid gap-5 lg:grid-cols-2">
           {country ? (
-            <SectionCard title="MRR by country (top 8)">
+            <SectionCard title="MRR by country (top 8)" className="min-w-0">
               {country.length === 0 ? (
                 <EmptyState title="No active customers" />
               ) : (
@@ -291,7 +291,7 @@ export default async function SaasDashboardPage({
           ) : (
             <SectionFail label="MRR by country" error={countryResult.status === "rejected" ? countryResult.reason : "Unavailable"} />
           )}
-          <SectionCard title="Customer funnel">
+          <SectionCard title="Customer funnel" className="min-w-0">
             <div className="space-y-2">
               {m.funnel.map((f, i) => (
                 <div key={f.stage}>
