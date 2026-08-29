@@ -206,7 +206,7 @@ export default async function BillingPage({
         canRefund={canRefund}
         page={page}
         pageCount={pageCount}
-        hrefFor={(patch) => qs(baseParams, patch)}
+        baseParams={baseParams}
       />
     </div>
   );

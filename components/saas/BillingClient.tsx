@@ -40,7 +40,7 @@ function fmtDue(iso: string): string {
 
 export default function BillingClient({
   tab, invoices, payments, statuses, currentStatus, currentQuery, currentOrg,
-  orgs, canManage, canRefund, page, pageCount, hrefFor,
+  orgs, canManage, canRefund, page, pageCount, baseParams,
 }: {
   tab: "invoices" | "payments";
   invoices: InvoiceView[];
@@ -54,10 +54,20 @@ export default function BillingClient({
   canRefund: boolean;
   page: number;
   pageCount: number;
-  hrefFor: (patch: Record<string, string | undefined>) => string;
+  baseParams: { tab: string; status: string; q: string; org: string };
 }) {
   const router = useRouter();
   const toast = useToast();
+
+  const hrefFor = (patch: Record<string, string | undefined>): string => {
+    const p = new URLSearchParams();
+    const merged = { ...baseParams, ...patch };
+    for (const [k, v] of Object.entries(merged)) {
+      if (v && !(k === "page" && v === "1")) p.set(k, v);
+    }
+    const s = p.toString();
+    return s ? `/saas/billing?${s}` : "/saas/billing";
+  };
   const [detail, setDetail] = useState<InvoiceView | null>(null);
   const [voiding, setVoiding] = useState<InvoiceView | null>(null);
   const [refunding, setRefunding] = useState<PaymentView | null>(null);
