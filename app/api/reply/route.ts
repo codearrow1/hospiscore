@@ -1,5 +1,6 @@
-import { NextResponse } from "next/server";
+import { NextRequest, NextResponse } from "next/server";
 import { replyDraft } from "@/lib/reply";
+import { originAllowed, rateLimit, clientIp } from "@/lib/marketing/guard";
 import type { PlatformKey } from "@/lib/types";
 
 export const runtime = "nodejs";
@@ -10,7 +11,15 @@ export const dynamic = "force-dynamic";
  * Body: { propertyName, review: { text, platform, rating, author? } }
  * Returns: { reply, source, status }
  */
-export async function POST(request: Request) {
+export async function POST(request: NextRequest) {
+  if (!originAllowed(request)) {
+    return NextResponse.json({ error: "Rejected" }, { status: 403 });
+  }
+  // LLM-backed endpoint: aggressive per-client throttling to guard cost.
+  if (!rateLimit(`reply:${clientIp(request)}`, 20, 60_000)) {
+    return NextResponse.json({ error: "Slow down" }, { status: 429 });
+  }
+
   let body: {
     propertyName?: string;
     review?: Record<string, unknown>;

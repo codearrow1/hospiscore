@@ -647,4 +647,57 @@ describe("[payments-platform]", { timeout: 60_000 }, () => {
     }
     expect((await prisma.paymentIntent.findUniqueOrThrow({ where: { id: stale.id } })).status).toBe("expired");
   });
+
+  test("O-16: test→live flip requires explicit activation acknowledgment", async () => {
+    await store.saveProviderConfig({ id: "stripe", label: "Stripe", enabled: true, mode: "test" }, "a");
+    const flipLive = () =>
+      store.saveProviderConfig({ id: "stripe", label: "Stripe", enabled: true, mode: "live" }, "a");
+    await expect(flipLive()).rejects.toThrow(/confirmLiveActivation/);
+
+    const saved = await store.saveProviderConfig(
+      { id: "stripe", label: "Stripe", enabled: true, mode: "live", confirmLiveActivation: true },
+      "a",
+    );
+    expect(saved.mode).toBe("live");
+  });
+
+  test("O-16: unmuted test→live flip is rejected even when provider already ready", async () => {
+    await store.saveProviderConfig({ id: "stripe", label: "Stripe", enabled: true, isDefault: true, currencies: ["INR"], mode: "test", secrets: { secretKey: "sk_livegate", webhookSecret: "whsec_livegate" } }, "a");
+    await store.setProviderStatus("stripe", "ready", "a");
+    await expect(
+      store.saveProviderConfig({ id: "stripe", label: "Stripe", enabled: true, isDefault: true, currencies: ["INR"], mode: "live" }, "a"),
+    ).rejects.toThrow(/confirmLiveActivation/);
+  });
+
+  test("O-19: browser-supplied external returnUrl is sanitized to an internal path", async () => {
+    await saveReady({ id: "stripe", label: "Stripe", enabled: true, isDefault: true, currencies: ["USD"], mode: "live", confirmLiveActivation: true, secrets: { secretKey: "sk_r", webhookSecret: "whsec_r" } });
+    const org = await prisma.organization.create({ data: { legalName: "ReturnUrl Org", country: "US" } });
+    const inv = await prisma.invoice.create({ data: { organizationId: org.id, amount: 5000, status: "issued", type: "subscription", currency: "USD", dueAt: new Date(Date.now() + 7 * 86_400_000) } });
+
+    let sentBody = "";
+    const originalFetch = globalThis.fetch;
+    const stub = async (_url: string | URL | Request, init?: RequestInit) => {
+      sentBody = String(init?.body ?? "");
+      return {
+        ok: true,
+        status: 200,
+        text: async () => JSON.stringify({}),
+        json: async () => ({ id: "cs_ret", url: "https://checkout.stripe.com/c/pay/ret" }),
+      } as unknown as Response;
+    };
+    globalThis.fetch = stub as typeof fetch;
+    try {
+      const intent = await intents.createPaymentIntent({
+        organizationId: org.id,
+        invoiceId: inv.id,
+        actorEmail: "a@b",
+        returnUrl: "https://evil.example/phish",
+      });
+      expect(intent.checkoutUrl).toBeTruthy();
+      const params = new URLSearchParams(sentBody);
+      expect(params.get("success_url")).toBe("/customer/checkout/" + intent.intentId);
+    } finally {
+      globalThis.fetch = originalFetch;
+    }
+  });
 });

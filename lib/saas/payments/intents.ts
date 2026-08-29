@@ -9,6 +9,7 @@
 import { randomUUID } from "node:crypto";
 import { prisma } from "@/lib/prisma";
 import { writeSaasAudit } from "@/lib/saas/audit";
+import { safeNext } from "@/lib/client/safeNext";
 import { resolveProvider, anyProviderEnabled } from "./factory";
 import { canRoutePayment } from "./types";
 import type { PaymentCheckout } from "./types";
@@ -122,6 +123,11 @@ export async function createPaymentIntent(input: CreateIntentInput): Promise<Int
 
   let checkout: PaymentCheckout;
   try {
+    // O-19: never forward a browser-supplied URL verbatim. Sanitize through
+    // safeNext (internal path only) so shared checkout links cannot redirect
+    // a payer to an external site (open-redirect via success_url/return_url).
+    const safeReturnUrl = safeNext(input.returnUrl) ?? `/customer/checkout/${intent.id}`;
+    const safeCancelUrl = safeNext(input.cancelUrl) ?? `/customer/billing`;
     checkout = await adapter.createCheckout({
       intentId: intent.id,
       organizationId: input.organizationId,
@@ -132,8 +138,8 @@ export async function createPaymentIntent(input: CreateIntentInput): Promise<Int
       // Deterministic server-derived success URL — the provider always returns
       // to the checkout status page, which never trusts the browser and only
       // reports paid once a verified webhook reconciles the payment.
-      returnUrl: input.returnUrl || `/customer/checkout/${intent.id}`,
-      cancelUrl: input.cancelUrl || `/customer/billing`,
+      returnUrl: safeReturnUrl,
+      cancelUrl: safeCancelUrl,
       idempotencyKey,
     });
   } catch (e) {

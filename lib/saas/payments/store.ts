@@ -175,6 +175,8 @@ export interface SaveProviderInput {
   isDefault?: boolean;
   priority?: number;
   mode?: "test" | "live";
+  /** Explicit acknowledgment required to flip a provider from test → live (O-16). */
+  confirmLiveActivation?: boolean;
   countries?: CountryCode[];
   currencies?: CurrencyCode[];
   methods?: PaymentMethod[];
@@ -196,6 +198,15 @@ export async function saveProviderConfig(input: SaveProviderInput, actorEmail: s
   if (!meta) throw new Error(`Unknown provider "${input.id}"`);
   const current = await getRawProviderConfigs();
   const prev = current[input.id];
+
+  // O-16: explicit TEST → LIVE activation gate. A provider whose credentials
+  // were verified in test mode must NOT silently start routing live funds just
+  // because `mode` is flipped. Require an explicit acknowledgment flag.
+  if (input.mode === "live" && prev?.mode !== "live" && !input.confirmLiveActivation) {
+    throw new Error(
+      `Provider "${input.id}" cannot switch to live mode without explicit activation. Set confirmLiveActivation to acknowledge this moves real-money routing online (O-16).`,
+    );
+  }
 
   // Resolve the incoming secret updates into encrypted MaskedSecret slots,
   // preserving existing values when no new raw value was supplied.

@@ -23,7 +23,7 @@ const INDIA_API = "https://test.in.payu.in";
 
 export class PayUAdapter extends PaymentProviderAdapter {
   readonly providerId = "payu";
-  protected readonly capabilities = ["hosted_checkout", "refund", "multi_currency", "webhook", "test_mode"] as const;
+  protected readonly capabilities = ["hosted_checkout", "multi_currency", "webhook", "test_mode"] as const;
 
   constructor(cfg: ProviderConfig, private http: HttpTransport = defaultHttp) {
     super(cfg);

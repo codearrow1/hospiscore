@@ -156,7 +156,7 @@ const apifyProvider: ReviewProvider = {
   async fetchSignals(): Promise<ReviewResult> {
     // TODO(integration): call your scheduled Apify dataset's latest run via
     // the Apify API returns and reduce rows to per-platform signals here.
-    return { sources: [], platforms: {}, live: true };
+    return { sources: [], platforms: {}, live: false };
   },
 };
 

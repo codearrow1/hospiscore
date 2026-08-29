@@ -55,6 +55,7 @@ export async function POST(req: NextRequest) {
       isDefault: typeof body.isDefault === "boolean" ? body.isDefault : undefined,
       priority: typeof body.priority === "number" ? body.priority : undefined,
       mode: body.mode === "live" || body.mode === "test" ? body.mode : undefined,
+      confirmLiveActivation: body.confirmLiveActivation === true,
       countries: Array.isArray(body.countries) ? (body.countries as string[]) : undefined,
       currencies: Array.isArray(body.currencies) ? (body.currencies as string[]) : undefined,
       methods: Array.isArray(body.methods) ? (body.methods as never) : undefined,

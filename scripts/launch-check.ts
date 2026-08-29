@@ -16,6 +16,7 @@ import { existsSync, readFileSync } from "node:fs";
 import { join } from "node:path";
 import { execSync } from "node:child_process";
 import { getRawProviderConfigs, getProviderConfigs } from "@/lib/saas/payments/store";
+import { CONFIG } from "@/lib/config";
 
 const ROOT = process.cwd();
 const SITE_ORIGIN = "https://thebuddharice.online";
@@ -197,6 +198,35 @@ function prodFlagsSection(): void {
   }
   const enabled = demoSeed === "1";
   add(s, "demo seeding disabled in production", enabled ? "FAIL" : "PASS", enabled ? ".env.production sets ALLOW_DEMO_SEED=1 (would seed demo/superadmin accounts in prod)" : "ALLOW_DEMO_SEED != 1 in .env.production");
+
+  // O-17: in production the AES-grade payment secret must come from
+  // PAYMENT_ENC_KEY, NOT the deterministic demo-key fallback in crypto.ts.
+  const inProd = process.env.NODE_ENV === "production";
+  const encKeySet = Boolean((process.env.PAYMENT_ENC_KEY ?? "").trim());
+  add(
+    s,
+    "PAYMENT_ENC_KEY required in production",
+    inProd && !encKeySet ? "FAIL" : "PASS",
+    inProd
+      ? encKeySet
+        ? "PAYMENT_ENC_KEY set (no demo-key fallback)"
+        : "PAYMENT_ENC_KEY unset in production -- crypto.ts would silently fall back to the deterministic demo key (O-17)"
+      : "NODE_ENV != production (informational; set PAYMENT_ENC_KEY at the live host)",
+  );
+
+  // O-20: a misconfigured prod deploy must not silently serve demo/placeholder
+  // review + property data. Live mode requires a Google Places key (CONFIG.live).
+  add(
+    s,
+    "live (non-demo) data mode in production",
+    inProd && !CONFIG.live ? "FAIL" : "PASS",
+    inProd
+      ? CONFIG.live
+        ? "GOOGLE_PLACES_API_KEY present -- live property/review path enabled"
+        : "demo data mode active in production (GOOGLE_PLACES_API_KEY empty) -- real users would see demo data (O-20)"
+      : "NODE_ENV != production (informational; confirm GOOGLE_PLACES_API_KEY on the live host)",
+  );
+
   sections.push(s);
 }
 

@@ -125,7 +125,7 @@ const payu: MatrixProvider = {
   id: "payu", label: "PayU", family: "fiat", tier: 1, implemented: true, wired: true, sandbox: true,
   countries: [IN], currencies: [INR],
   methods: ["card", "netbanking", "upi"],
-  capabilities: ["hosted_checkout", "refund", "webhook", "test_mode"],
+  capabilities: ["hosted_checkout", "webhook", "test_mode"],
   requiredCredentials: ["extra.merchant_key", "secretKey", "extra.merchant_hash"],
 };
 
