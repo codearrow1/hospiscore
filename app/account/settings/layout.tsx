@@ -14,7 +14,7 @@ export default async function AccountLayout({
   children: React.ReactNode;
 }) {
   const user = await getCurrentUser();
-  if (!user) redirect("/login");
+  if (!user) redirect("/account?next=/account/settings");
 
   return (
     <div className="flex min-h-screen flex-col">

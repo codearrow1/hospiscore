@@ -9,7 +9,7 @@ export const runtime = "nodejs";
 
 export default async function ClaimsPage() {
   const user = await getCurrentUser();
-  if (!user) redirect("/login");
+  if (!user) redirect("/account?next=/saas/claims");
 
   const canView = hasSaasPerm(user, "PROPERTY_VIEW");
   const canDecide = hasSaasPerm(user, "PROPERTY_MANAGE");

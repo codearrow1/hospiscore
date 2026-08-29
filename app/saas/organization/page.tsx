@@ -11,7 +11,7 @@ export const runtime = "nodejs";
 
 export default async function OrganizationSettingsPage() {
   const user = await getCurrentUser();
-  if (!user) redirect("/login");
+  if (!user) redirect("/account?next=/saas/organization");
 
   if (!hasSaasPerm(user, "SYSTEM_SETTINGS_MANAGE") && !hasSaasPerm(user, "CUSTOMER_MANAGE")) {
     return (

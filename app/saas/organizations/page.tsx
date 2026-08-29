@@ -14,7 +14,7 @@ export default async function OrganizationsPage({
   searchParams: Promise<{ new?: string }>;
 }) {
   const user = await getCurrentUser();
-  if (!user) redirect("/login");
+  if (!user) redirect("/account?next=/saas/organizations");
 
   const sp = await searchParams;
   const autoOpen = sp?.new === "1";

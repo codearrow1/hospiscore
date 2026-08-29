@@ -9,7 +9,7 @@ export const runtime = "nodejs";
 
 export default async function OnboardingPage() {
   const user = await getCurrentUser();
-  if (!user) redirect("/login");
+  if (!user) redirect("/account?next=/saas/onboarding");
 
   if (!hasSaasPerm(user, "PROPERTY_MANAGE")) {
     return (

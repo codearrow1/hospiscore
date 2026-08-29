@@ -55,7 +55,7 @@ const PERMISSION_LABELS: Record<SaasPermission, string> = {
 
 export default async function RolesPage() {
   const user = await getCurrentUser();
-  if (!user) redirect("/login");
+  if (!user) redirect("/account?next=/saas/roles");
 
   if (!hasSaasPerm(user, "SYSTEM_SETTINGS_MANAGE")) {
     return (

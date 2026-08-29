@@ -9,7 +9,7 @@ export const runtime = "nodejs";
 
 export default async function PropertiesPage() {
   const user = await getCurrentUser();
-  if (!user) redirect("/login");
+  if (!user) redirect("/account?next=/saas/properties");
 
   if (!hasSaasPerm(user, "PROPERTY_VIEW")) {
     return (

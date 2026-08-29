@@ -9,7 +9,7 @@ export const metadata = {
 
 export default async function ProfilePage() {
   const user = await getCurrentUser();
-  if (!user) redirect("/login");
+  if (!user) redirect("/account?next=/account/settings/profile");
 
   return (
     <div className="space-y-6">

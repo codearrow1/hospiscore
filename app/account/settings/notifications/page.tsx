@@ -9,7 +9,7 @@ export const metadata = {
 
 export default async function NotificationsPage() {
   const user = await getCurrentUser();
-  if (!user) redirect("/login");
+  if (!user) redirect("/account?next=/account/settings/notifications");
 
   return (
     <div className="space-y-6">

@@ -9,7 +9,7 @@ export const runtime = "nodejs";
 
 export default async function TeamPage() {
   const user = await getCurrentUser();
-  if (!user) redirect("/login");
+  if (!user) redirect("/account?next=/saas/team");
 
   if (!hasSaasPerm(user, "SYSTEM_SETTINGS_MANAGE")) {
     return (

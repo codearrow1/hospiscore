@@ -15,6 +15,7 @@
     "launch:check": "tsx scripts/launch-check.ts",
     "sandbox:payments": "tsx scripts/payment-sandbox.ts",
     "alerts": "tsx scripts/alerts.ts",
+    "smoke": "tsx scripts/smoke.ts",
     "seed:marketing-demo": "tsx scripts/seedMarketingDemo.ts",
     "seed:demo-month": "tsx scripts/seed-demo-month.ts"
   },
