@@ -1,30 +1,26 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getCurrentUser } from "@/lib/sessionCookie";
 import { originAllowed, clientIp, rateLimit } from "@/lib/marketing/guard";
-import { findAffiliateForUser, findPartnerForUser } from "@/lib/saas/portalLinks";
-import { getAffiliateByEmail } from "@/lib/saas/affiliates";
-import { prisma } from "@/lib/prisma";
+import { findAffiliateForUser, findOrgContactForUser, findPartnerForUser } from "@/lib/saas/portalLinks";
 import { getChecklist, completeStep, isOnboardingKind } from "@/lib/saas/onboarding";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 
-/** Resolve the caller's onboarding subject from their portal identity. */
-async function resolveSubject(user: { id: string; email: string }): Promise<{ kind: "customer" | "affiliate" | "partner"; subjectId: string } | null> {
-  const contact = await prisma.orgContact.findFirst({
-    where: { email: user.email, organization: { status: { not: "cancelled" } } },
-    orderBy: { isPrimary: "desc" },
-    select: { organizationId: true },
-  });
+/**
+ * Resolve the caller's onboarding subject from their portal identity.
+ *
+ * Identity binding is explicit (S-01): we resolve via portal-link KV bindings /
+ * the relational userId column only, never a raw email match. An attacker
+ * registering an unverified email equal to a public OrgContact / Affiliate /
+ * Partner email must NOT inherit that identity's portal data.
+ */
+async function resolveSubject(user: { id: string }): Promise<{ kind: "customer" | "affiliate" | "partner"; subjectId: string } | null> {
+  const contact = await findOrgContactForUser(user.id).catch(() => null);
   if (contact) return { kind: "customer", subjectId: contact.organizationId };
-  // Same fallbacks the portal pages use so checklists match what the user sees.
-  let aff: { id: string } | null = await findAffiliateForUser(user.id).catch(() => null);
-  if (!aff) aff = await getAffiliateByEmail(user.email).then((a) => (a ? { id: a.id } : null)).catch(() => null);
+  const aff = await findAffiliateForUser(user.id).catch(() => null);
   if (aff) return { kind: "affiliate", subjectId: aff.id };
-  let partner: { id: string } | null = await findPartnerForUser(user.id).catch(() => null);
-  if (!partner) {
-    partner = await prisma.partner.findFirst({ where: { email: user.email }, select: { id: true } });
-  }
+  const partner = await findPartnerForUser(user.id).catch(() => null);
   if (partner) return { kind: "partner", subjectId: partner.id };
   return null;
 }

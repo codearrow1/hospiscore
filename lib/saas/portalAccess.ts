@@ -4,8 +4,7 @@
  * Returns null when the user has no customer identity.
  */
 import { getCurrentUser } from "@/lib/sessionCookie";
-import { prisma } from "@/lib/prisma";
-import { getPortalBinding } from "@/lib/saas/portalLinks";
+import { findOrgContactForUser } from "@/lib/saas/portalLinks";
 
 export interface ResolvedOrg {
   organizationId: string;
@@ -13,21 +12,19 @@ export interface ResolvedOrg {
   isPrimary: boolean;
 }
 
+/**
+ * Resolve the org a signed-in user may operate in.
+ *
+ * Identity binding is explicit (S-01): a user is a customer only when they are
+ * bound to an OrgContact through a portal-link KV record (minted via a one-time
+ * admin claim token). We intentionally never fall back to a raw email match —
+ * an attacker registering an unverified email that equals a public OrgContact
+ * email must NOT inherit that customer's data / org scope.
+ */
 export async function resolveOrgForUser(user: { id: string; email: string }): Promise<ResolvedOrg | null> {
-  const b = await getPortalBinding(user.id).catch(() => null);
-  if (b?.kind === "org_contact") {
-    const c = await prisma.orgContact.findFirst({
-      where: { id: b.refId },
-      select: { id: true, organizationId: true, isPrimary: true },
-    });
-    if (c) return { organizationId: c.organizationId, contactId: c.id, isPrimary: c.isPrimary };
-  }
-  const byEmail = await prisma.orgContact.findFirst({
-    where: { email: user.email.toLowerCase(), organization: { status: { not: "cancelled" } } },
-    orderBy: { isPrimary: "desc" },
-    select: { id: true, organizationId: true, isPrimary: true },
-  });
-  return byEmail ? { organizationId: byEmail.organizationId, contactId: byEmail.id, isPrimary: byEmail.isPrimary } : null;
+  const contact = await findOrgContactForUser(user.id).catch(() => null);
+  if (!contact) return null;
+  return { organizationId: contact.organizationId, contactId: contact.id, isPrimary: contact.isPrimary };
 }
 
 /** Session + org in one call for customer API routes. */

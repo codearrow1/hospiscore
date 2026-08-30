@@ -273,12 +273,51 @@ export async function voidInvoice(invoiceId: string, actorEmail: string, ip?: st
   return prisma.invoice.findUniqueOrThrow({ where: { id: invoiceId } });
 }
 
+/**
+ * Locate the live provider adapter for a payment, IF it was settled through a
+ * configured gateway and carries a provider-side reference. Returns null for
+ * manual/offline payments or when the provider is not currently configured —
+ * callers can then treat the refund as a local bookkeeping-only operation.
+ */
+async function resolveRefundAdapter(
+  pay: { gateway: string | null; providerRef: string | null },
+): Promise<{ refund: (input: { providerRef: string; amountMinor: number; currency: string; reason?: string }) => Promise<{ ok: boolean; refundedAmountMinor?: number; providerRefundId?: string | null }> } | null> {
+  const gateway = pay.gateway?.toLowerCase();
+  if (!gateway || gateway === "manual" || !pay.providerRef) return null;
+  try {
+    const { buildAdapter } = await import("@/lib/saas/payments/factory");
+    return await buildAdapter(gateway);
+  } catch {
+    // Provider not (currently) configured — refund cannot reach the gateway
+    // anyway; treat as a manual/offline refund.
+    return null;
+  }
+}
+
 export async function refundPayment(paymentId: string, actorEmail: string, ip?: string) {
   return prisma.$transaction(async (tx) => {
     const pay = await tx.payment.findUnique({ where: { id: paymentId } });
     if (!pay) throw new Error("Payment not found");
     if (pay.status === "refunded") throw new Error("Already refunded");
     if (pay.status !== "succeeded") throw new Error(`Only succeeded payments are refundable (payment is ${pay.status})`);
+
+    // Full refund through the real gateway before touching local books, so a
+    // provider failure aborts the whole refund instead of desyncing the ledger
+    // (money marked returned that was never returned). Manual/offline payments
+    // (gateway "manual" or no provider configured) are local-only by nature.
+    const adapter = await resolveRefundAdapter(pay);
+    if (adapter) {
+      const res = await adapter.refund({
+        providerRef: pay.providerRef!,
+        amountMinor: pay.amount,
+        currency: pay.currency,
+        reason: "SaaS admin refund",
+      }).catch((e: unknown) => {
+        throw new Error(`Refund failed at the payment provider: ${e instanceof Error ? e.message : "provider error"}`);
+      });
+      if (!res?.ok) throw new Error("Refund was not accepted by the payment provider");
+    }
+
     await tx.payment.update({ where: { id: paymentId }, data: { status: "refunded" } });
 
     if (pay.invoiceId) {

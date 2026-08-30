@@ -4,7 +4,7 @@ import { hasSaasPerm } from "@/lib/saas/roles";
 import { writeSaasAudit } from "@/lib/saas/audit";
 import { initSaasDb } from "@/lib/saas/init";
 import { prisma } from "@/lib/prisma";
-import { FRAUD_STATUSES, FRAUD_RESOLUTIONS } from "@/lib/saas/fraud";
+import { FRAUD_STATUSES, FRAUD_RESOLUTIONS, resolveFraudCase } from "@/lib/saas/fraud";
 
 export async function GET(req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   await initSaasDb().catch(() => {});
@@ -45,21 +45,22 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id
 
   let fraudCase;
   try {
-    fraudCase = await prisma.affiliateFraudCase.update({
-      where: { id },
-      data: {
-        status,
-        resolution,
-        resolutionNote,
-        resolvedByEmail: user.email,
-        resolvedAt: new Date(),
-      },
+    // Route through the fraud engine so a "resolved" case ACTUALLY applies its
+    // enforcement action (suspension / termination / commission hold). A plain
+    // status update previously recorded the outcome but never touched the
+    // affiliate or its commissions — making resolutions cosmetic.
+    fraudCase = await resolveFraudCase({
+      id,
+      status: status as "open" | "investigating" | "resolved" | "dismissed",
+      resolution: resolution as "no_action" | "warning" | "commission_hold" | "account_suspend" | "account_terminate" | undefined,
+      resolutionNote,
+      resolvedByEmail: user.email,
     });
   } catch (e) {
     return NextResponse.json({ error: e instanceof Error ? e.message : "Update failed" }, { status: 400 });
   }
 
-  await writeSaasAudit({ byEmail: user.email, action: "affiliate_fraud.resolved", entity: "affiliateFraudCase", entityId: fraudCase.id, ip: clientIp(req) });
+  await writeSaasAudit({ byEmail: user.email, action: "affiliate_fraud.resolved", entity: "affiliateFraudCase", entityId: fraudCase.id, detail: `status=${status} resolution=${resolution ?? "none"}`, ip: clientIp(req) });
 
   return NextResponse.json({ fraudCase });
 }

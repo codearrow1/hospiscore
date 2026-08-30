@@ -10,9 +10,10 @@ export const dynamic = "force-dynamic";
 /**
  * Team management for the customer portal (Phase 7).
  *
- * Invites create OrgContact rows scoped to the caller's organization.
- * Identity binding happens automatically when the invitee registers with the
- * same email or redeems a claim token minted by an admin.
+ * Invites create OrgContact rows scoped to the caller's organization. Only the
+ * org's primary contact (owner) may invite or set team roles. A new team
+ * member's portal identity is linked only through an explicit binding (S-01)
+ * — never by raw email — so access is confirmed by the owning team before use.
  */
 
 const ROLES = ["owner", "billing", "tech"];
@@ -37,6 +38,13 @@ export async function POST(req: NextRequest) {
   if (!access.ok) return NextResponse.json({ error: access.error }, { status: access.status });
   if (!rateLimit(`custteam:${access.user.id}`, 10, 60_000)) {
     return NextResponse.json({ error: "Too many requests" }, { status: 429 });
+  }
+
+  // Only the org's primary contact (owner) may invite team members or assign
+  // roles. Without this, any member — including a `tech` seat — could invite a
+  // new `owner` and escalate to full ownership of the org.
+  if (!access.org.isPrimary) {
+    return NextResponse.json({ error: "Only the primary contact can invite team members" }, { status: 403 });
   }
 
   let body: Record<string, unknown>;
@@ -82,7 +90,7 @@ export async function POST(req: NextRequest) {
       to: email,
       subject: `You've been added to a team on HospiOS`,
       html: `<p>You've been added as <strong>${role}</strong> on the HospiOS customer portal${orgName?.legalName ? ` (${orgName.legalName})` : ""}.</p>
-<p><a href="${portalUrl}">Open the portal</a> and sign in or create an account with this email address. Your team access will bind automatically.</p>`,
+<p><a href="${portalUrl}">Open the portal</a> and sign in or create an account with this email address. A member of your team will confirm your portal access before your account is linked.</p>`,
     });
   } catch {
     // Mail failure is non-fatal.

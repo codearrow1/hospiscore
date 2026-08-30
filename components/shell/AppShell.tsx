@@ -319,8 +319,8 @@ function ShellFrame({
 
             <NotificationBell />
 
-            <a
-              href="/docs"
+            <Link
+              href="/knowledge-base"
               target="_blank"
               rel="noreferrer"
               aria-label="Help and documentation"
@@ -330,7 +330,7 @@ function ShellFrame({
                 <circle cx="12" cy="12" r="10" />
                 <path d="M9.09 9a3 3 0 0 1 5.83 1c0 2-3 3-3 3m.08 4h.01" />
               </svg>
-            </a>
+            </Link>
 
             <div ref={menuRef} className="relative">
               <button
