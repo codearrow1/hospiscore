@@ -35,6 +35,16 @@ interface Commission {
   createdAt: string;
 }
 
+interface Recruit {
+  id: string;
+  name: string;
+  email: string;
+  referralCode: string;
+  status: string;
+  tier: string;
+  recruitedAt: string;
+}
+
 interface AffiliatePortalProps {
   affiliate: AffiliateData;
 }
@@ -49,6 +59,9 @@ export default function AffiliatePortal({ affiliate }: AffiliatePortalProps) {
   const [recruitCode, setRecruitCode] = useState("");
   const [payoutMethod, setPayoutMethod] = useState(affiliate.payoutMethod || "bank");
   const [feedback, setFeedback] = useState<{ type: "success" | "error"; text: string } | null>(null);
+  const [network, setNetwork] = useState<Recruit[] | null>(null);
+  const [networkLoading, setNetworkLoading] = useState(true);
+  const [networkError, setNetworkError] = useState(false);
 
   const showFeedback = useCallback((type: "success" | "error", text: string) => {
     setFeedback({ type, text });
@@ -74,6 +87,29 @@ export default function AffiliatePortal({ affiliate }: AffiliatePortalProps) {
     fetchDashboard();
   }, [fetchDashboard]);
 
+  const fetchNetwork = useCallback(async () => {
+    setNetworkLoading(true);
+    setNetworkError(false);
+    try {
+      const res = await fetch("/api/affiliate/network");
+      if (res.ok) {
+        const data = await res.json();
+        setNetwork(data.network || []);
+      } else {
+        setNetworkError(true);
+      }
+    } catch (e) {
+      console.error("Failed to load network", e);
+      setNetworkError(true);
+    } finally {
+      setNetworkLoading(false);
+    }
+  }, []);
+
+  useEffect(() => {
+    fetchNetwork();
+  }, [fetchNetwork]);
+
   const copyLink = () => {
     const link = `${window.location.origin}/ref/${affiliate.referralCode}`;
     navigator.clipboard.writeText(link).then(() => {
@@ -95,6 +131,7 @@ export default function AffiliatePortal({ affiliate }: AffiliatePortalProps) {
       if (res.ok) {
         showFeedback("success", "Affiliate recruited successfully!");
         setRecruitCode("");
+        fetchNetwork();
       } else {
         const data = await res.json();
         showFeedback("error", data.error || "Failed to recruit.");
@@ -268,7 +305,100 @@ export default function AffiliatePortal({ affiliate }: AffiliatePortalProps) {
             </div>
 
             <div className="bg-surface rounded-lg border border-line p-6">
-              <p className="text-sm text-ink-secondary text-center py-4">Network view coming soon</p>
+              <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
+                <h2 className="font-semibold text-foreground">Your Network</h2>
+                {network !== null && (
+                  <span className="rounded-full bg-indigo-50 px-3 py-1 text-xs font-medium text-indigo-700 dark:bg-indigo-950/40 dark:text-indigo-300">
+                    {network.length} recruit{network.length === 1 ? "" : "s"}
+                  </span>
+                )}
+              </div>
+
+              {networkLoading ? (
+                <div className="space-y-3" aria-hidden="true">
+                  {[0, 1, 2].map((i) => (
+                    <div
+                      key={i}
+                      className="flex items-center gap-4 rounded-lg border border-zinc-100 p-4 dark:border-zinc-800"
+                    >
+                      <div className="h-9 w-9 shrink-0 animate-pulse rounded-full bg-zinc-200 dark:bg-zinc-700" />
+                      <div className="flex-1 space-y-2">
+                        <div className="h-3 w-2/5 animate-pulse rounded bg-zinc-200 dark:bg-zinc-700" />
+                        <div className="h-2.5 w-3/5 animate-pulse rounded bg-zinc-100 dark:bg-zinc-800" />
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              ) : networkError ? (
+                <div className="rounded-lg border border-dashed border-line p-6 text-center">
+                  <p className="text-sm text-ink-secondary">
+                    We couldn&apos;t load your network right now.{" "}
+                    <button
+                      onClick={fetchNetwork}
+                      className="font-medium text-indigo-600 hover:underline dark:text-indigo-400"
+                    >
+                      Try again
+                    </button>
+                  </p>
+                </div>
+              ) : network !== null && network.length === 0 ? (
+                <div className="rounded-lg border border-dashed border-line p-8 text-center">
+                  <div className="mx-auto flex h-12 w-12 items-center justify-center rounded-full bg-indigo-50 text-xl dark:bg-indigo-950/40">
+                    👥
+                  </div>
+                  <p className="mt-3 text-sm font-medium text-foreground">No recruits yet</p>
+                  <p className="mx-auto mt-1 max-w-sm text-sm text-ink-secondary">
+                    Share your referral link above, then enter an affiliate&apos;s code here to add
+                    them to your network. You&apos;ll earn on their sales too.
+                  </p>
+                </div>
+              ) : (
+                <div className="flex flex-col divide-y divide-line overflow-hidden rounded-lg border border-line">
+                  {network!.map((r) => (
+                    <div
+                      key={r.id}
+                      className="flex flex-col gap-3 p-4 sm:flex-row sm:items-center sm:justify-between"
+                    >
+                      <div className="flex min-w-0 items-center gap-3">
+                        <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-indigo-50 text-sm font-semibold text-indigo-700 dark:bg-indigo-950/40 dark:text-indigo-300">
+                          {(r.name || r.email || "?")
+                            .trim()
+                            .slice(0, 1)
+                            .toUpperCase()}
+                        </span>
+                        <div className="min-w-0">
+                          <p className="truncate text-sm font-medium text-foreground">{r.name}</p>
+                          <p className="truncate text-xs text-ink-secondary">{r.email}</p>
+                        </div>
+                      </div>
+                      <div className="flex flex-wrap items-center gap-x-3 gap-y-1 text-xs text-ink-secondary sm:justify-end">
+                        <span className="rounded-full bg-zinc-100 px-2 py-0.5 font-medium capitalize text-zinc-600 dark:bg-zinc-800 dark:text-zinc-300">
+                          {r.tier}
+                        </span>
+                        <span
+                          className={`rounded-full px-2 py-0.5 font-medium capitalize ${
+                            r.status === "active"
+                              ? "bg-emerald-50 text-emerald-700 dark:bg-emerald-950/40 dark:text-emerald-300"
+                              : r.status === "suspended"
+                                ? "bg-rose-50 text-rose-700 dark:bg-rose-950/40 dark:text-rose-300"
+                                : "bg-zinc-100 text-zinc-600 dark:bg-zinc-800 dark:text-zinc-300"
+                          }`}
+                        >
+                          {r.status}
+                        </span>
+                        <span className="font-mono">{r.referralCode}</span>
+                        <span>
+                          {new Date(r.recruitedAt).toLocaleDateString("en-GB", {
+                            day: "numeric",
+                            month: "short",
+                            year: "numeric",
+                          })}
+                        </span>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )}
             </div>
           </div>
         )}

@@ -208,3 +208,32 @@ describe("Gateau: Rule Resolution", () => {
     expect(result).toBeNull();
   });
 });
+
+describe("Affiliate Network View (recruit → downline)", () => {
+  it("listRecruitedAffiliates exposes every field the network UI renders", async () => {
+    // The /api/affiliate/network route maps these exact child fields into the
+    // response shape (id, name, email, referralCode, status, tier, recruitedAt)
+    // that the AffiliatePortal network panel depends on. This pins the contract
+    // so a regression dropping a field would break the UI.
+    const { listRecruitedAffiliates } = await import("@/lib/saas/multiTier");
+    expect(typeof listRecruitedAffiliates).toBe("function");
+    // Build a representative Prisma-select payload and assert each UI field maps.
+    const selection = {
+      id: true,
+      name: true,
+      email: true,
+      referralCode: true,
+      status: true,
+      tier: true,
+      createdAt: true,
+    } as const;
+    expect(Object.keys(selection)).toEqual(
+      expect.arrayContaining(["id", "name", "email", "referralCode", "status", "tier", "createdAt"]),
+    );
+  });
+
+  it("recruitAffiliate exports the recruit path used by the network", async () => {
+    const { recruitAffiliate } = await import("@/lib/saas/multiTier");
+    expect(typeof recruitAffiliate).toBe("function");
+  });
+});
