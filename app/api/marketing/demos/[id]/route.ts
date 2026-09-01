@@ -54,6 +54,7 @@ export async function PATCH(
           : undefined,
       durationMin: num(body.durationMin),
       status: (typeof body.status === "string" ? body.status : undefined) as never,
+      demoType: s(body.demoType),
       assignedTo: s(body.assignedTo),
       meetingUrl: s(body.meetingUrl),
       notes: s(body.notes),

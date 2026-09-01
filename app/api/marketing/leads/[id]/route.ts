@@ -5,10 +5,11 @@ import {
   clientIp,
   rateLimit,
 } from "@/lib/marketing/guard";
-import { getLead, updateLead, deleteLead, convertLead } from "@/lib/marketing/leads";
+import { getLead, updateLead, deleteLead, convertLead, type LeadPatch } from "@/lib/marketing/leads";
 import { eventsForLead } from "@/lib/marketing/events";
 import { writeAudit } from "@/lib/marketing/audit";
 import { canAccessLead, hasCapability } from "@/lib/marketing/roles";
+import { isPriority } from "@/lib/marketing/stages";
 import type { AuthUser } from "@/lib/auth";
 
 export const runtime = "nodejs";
@@ -58,7 +59,7 @@ export async function PATCH(
   } catch {
     return NextResponse.json({ error: "Invalid JSON" }, { status: 400 });
   }
-  const patch = {
+  const patch: LeadPatch = {
     name: s(body.name),
     email: s(body.email),
     phone: s(body.phone),
@@ -77,6 +78,10 @@ export async function PATCH(
     lostReason: s(body.lostReason),
     note: s(body.note),
   };
+  // Priority is optional and explicit: only touch it when the client sends
+  // a valid value (or "" to clear). Absent → leave untouched.
+  if (isPriority(body.priority)) patch.priority = body.priority;
+  else if (body.priority === "") patch.priority = undefined;
   const existing = await getLead(id);
   // 404 (not 403) so reps can't probe which lead ids exist.
   if (!existing || !canAccessLead(auth.user, existing)) {

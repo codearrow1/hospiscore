@@ -93,6 +93,8 @@ export interface MarketingLead {
   estimatedValue: number;
   /** ISO 4217 code of the country profile used for the estimate. */
   estimatedValueCurrency?: string;
+  /** Sales priority (optional; absent = unprioritized, never fabricated). */
+  priority?: "high" | "medium" | "low";
   demoId?: string;
   trialStartedAt?: string;
   lostReason?: string;
@@ -151,6 +153,8 @@ export interface DemoBooking {
   /** Demo length in minutes. */
   durationMin: number;
   status: DemoStatus;
+  /** Optional free-form demo type label (e.g. product walkthrough, onboarding). */
+  demoType?: string;
   assignedTo?: string;
   meetingUrl?: string;
   phone?: string;

@@ -173,6 +173,87 @@ No push / no deploy / no GitHub ruleset change / no live-provider activation was
 
 ---
 
+## 11. Phase 44 addendum — production provisioning / deploy / live acceptance
+
+The Phase 44 brief (PROVISION → DEPLOY → VERIFY → HARDEN ONLY IF NECESSARY → ACCEPT LAUNCH) was
+executed up to the infrastructure boundary:
+
+- **Phases 1–3 (repo) — DONE, GREEN.** HEAD confirmed `9eefac5` (`feat: final pre-launch closure …
+  idempotency, settings truthfulness, score honesty, gates`), branch
+  `release/financial-hardening-2026-08-24`, working tree clean, in sync with origin. Final gates
+  rerun from `9eefac5`: typecheck PASS · lint PASS · tests **624/624 (52 files)** PASS
+  (`--no-file-parallelism`) · build PASS · smoke **16/16** PASS · launch:check **FAIL 0**. No
+  uncommitted launch fixes.
+- **Phase 4 – env preparation — assessment complete.** Local env files contain **no real
+  production secrets** (dev/temp `DATABASE_URL` only; all production keys are PRESENT-EMPTY or
+  absent, which is expected — they live on hPanel, not in git). No hPanel CLI / SSH host / deploy
+  API exists in this environment.
+- **Phases 5–42 (provision/deploy/verify) — BLOCKED at the infrastructure boundary.** No access to
+  Hostinger/hPanel/thebuddharice.online, so no truthful live deploy, durable-DB check, backup,
+  migration, `/api/health`, live workflow smoke, security scan, monitoring, cron, or email test can
+  be performed or claimed. Per the brief's controlling rule, this agent **stopped and reported**
+  instead of inventing evidence.
+- **Phase 46 – docs updated.** Added `docs/PRODUCTION-SMOKE-RESULTS.md` (live boarding checklist;
+  all live rows `PENDING-DEPLOY`), and recorded this outcome in `LAUNCH-BLOCKERS.md` (L-20 remains
+  OPEN/NOT VERIFIED) and this file.
+
+**Truthful current status (Phase 44):**
+```
+Repo side: CONDITIONAL / REPO-READY (all repo gates GREEN at 9eefac5; docs current)
+Live side: BLOCKED (host access) — deployment & live acceptance unperformed, unverified
+```
+Live `LAUNCH READY` is **not** claimed. It can only be claimed by the deployment owner after a real
+deploy of `9eefac5` is health-verified against production (see `docs/PRODUCTION-SMOKE-RESULTS.md`).
+
+---
+
+## 12. Phase 45 addendum — final production launch blocker closure (docs)
+
+The final closure wrote the complete executable production handoff and reconciled every blocker. All
+doc changes are **documentation-only**; release code `9eefac5` is untouched (no commit/push/deploy).
+
+**New docs (all repo-side, evidence-based):**
+- `docs/PRODUCTION-ENVIRONMENT-MATRIX.md` — full env contract (purpose/required/used-by/secret/safe
+  example/failure behavior).
+- `docs/HOSTINGER-DEPLOYMENT-CONTRACT.md` — repo evidence vs. host requirements + host verification
+  checklist.
+- `docs/PRODUCTION-DATABASE-CHECKLIST.md` — 9-step deterministic DB sequence, migration posture,
+  rollback, do-nots.
+- `docs/PRODUCTION-CRON.md` — 6 cron endpoints inventory + Hostinger crontab + auth/safety.
+- `docs/PAYMENT-PRODUCTION-READINESS.md` — provider catalog + per-provider `NOT CONFIGURED` posture +
+  TEST→LIVE gate.
+- `docs/EMAIL-COMMUNICATION-READINESS.md` — transports, message classes, host actions.
+- `docs/PRODUCTION-SMOKE-PLAYBOOK.md` — health contract, minimal gate, full smoke surface, critical
+  negatives, monitoring.
+- `docs/PWA-DEVICE-LAUNCH-CHECK.md` — manifest/sw caching safety + viewport host-verification.
+- `docs/OBSERVABILITY.md` — health/log/alert contract.
+- `docs/BACKUP-RECOVERY.md` — SQLite backup/restore sequence + do-nots.
+- `docs/PRODUCTION-SMOKE-RESULTS.md` (rewritten Phase 11) — explicit live-state matrix.
+- `docs/FINAL-PRODUCTION-ACCEPTANCE.md` — requirement/evidence/status/owner/action with
+  REPOSITORY-VERIFIED vs HOST-VERIFIED vs BUSINESS-APPROVAL separation.
+
+**Reconciled docs:** `LAUNCH_BLOCKERS.md` (Phase 45 classification: P0/P1 repo = 0, all open items
+HOST-PROVISIONED / BUSINESS-DECISION / POST-LAUNCH / N/A), `LAUNCH_ACCEPTANCE_MATRIX.md` (§G now
+references the new docs), `PRODUCTION-HANDOFF.md` (rewritten as executable runbook).
+`FINAL-LAUNCH-CLOSURE.md` (this section).
+
+**Security re-scan (Phase 13 re-run, target routes):** every auth/mutation route confirmed guarded —
+tenant `requireCustomerOrg` + `originAllowed` (CSRF) + `rateLimit` on `/api/customer/claims/*`;
+session `getCurrentUser` on `/api/saved` + `/api/affiliate/recruit`; host-validated `originAllowed`
++ `rateLimit` on `/api/marketing/reply`, `/api/marketing/track`, `/api/report`, `/api/portals/
+onboarding`. Only the three accepted-deferred routes (`/api/affiliate/track`, `/api/demo`,
+`/api/properties/claim/start`) lack `originAllowed` — P2, documented, non-blocking. **No secret
+literals, no private keys, no cross-tenant read.**
+
+**Final status (this closure):**
+```
+Repo side: REPO-READY  (all repo gates GREEN at 9eefac5; complete executed handoff written)
+Live side: BLOCKED (host access) — real deploy + live acceptance unperformed, unverified
+```
+Live `LIVE-VERIFIED` / `LAUNCH READY` / `LIVE-VERIFIED` is **not** claimed.
+
+---
+
 ## 10. Definition of done (this closure)
 
 All 43 phases are resolved to either **DONE** (repo-side, gated) or classified

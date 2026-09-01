@@ -109,6 +109,7 @@ export interface UpsertInput {
   message?: string;
   source: LeadSource;
   attribution?: LeadSourceAttribution;
+  priority?: "high" | "medium" | "low";
   byEmail?: string;
 }
 
@@ -141,6 +142,7 @@ export async function upsertLead(input: UpsertInput, target?: string): Promise<M
         message: input.message,
         source: input.source,
         attribution: input.attribution ?? {},
+        priority: input.priority,
         stage: "new",
         score: 0,
         band: "cold",
@@ -172,6 +174,7 @@ export async function upsertLead(input: UpsertInput, target?: string): Promise<M
         message: input.message || existing.message,
         source: existing.source === "other" ? input.source : existing.source,
         attribution: { ...existing.attribution, ...input.attribution },
+        priority: input.priority ?? existing.priority,
         estimatedValue: 0,
         updatedAt: now,
       };
@@ -297,6 +300,9 @@ export type LeadPatch = Partial<
     | "nextFollowUpAt"
     | "lastContactAt"
     | "lostReason"
+    | "priority"
+    | "estimatedValue"
+    | "estimatedValueCurrency"
   >
 > & { note?: string };
 

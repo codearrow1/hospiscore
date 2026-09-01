@@ -53,6 +53,12 @@ export interface LeadDetailShape {
   convertedCustomerId?: string;
   createdAt: string;
   updatedAt: string;
+  // Real temporal/deal signals from leadsView (computed server-side).
+  dealAgeDays: number;
+  daysInStage: number;
+  stale: boolean;
+  followUpStatus: "none" | "overdue" | "due" | "later";
+  demoStatus: "none" | "scheduled" | "completed" | "no_show" | "cancelled";
 }
 
 export interface EventLite {
@@ -314,12 +320,27 @@ export default function LeadWorkspace({
     <div className="grid gap-5 lg:grid-cols-3">
       <div className="space-y-5 lg:col-span-2">
         <SectionCard title={`${lead.name} · ${lead.email}`}>
-          <div className="mb-4 flex flex-wrap items-center gap-2">
+          <div className="mb-3 flex flex-wrap items-center gap-2">
             <Badge className={STAGE_STYLES[lead.stage as keyof typeof STAGE_STYLES] ?? STAGE_STYLES.new}>{STAGE_LABELS[lead.stage as keyof typeof STAGE_LABELS] ?? lead.stage}</Badge>
             <Badge className="bg-indigo-100 text-indigo-700 dark:bg-indigo-950 dark:text-indigo-300">{lead.score} · {lead.band.replace("_", " ")}</Badge>
             <Badge>source: {lead.source.replace(/_/g, " ")}</Badge>
             {lead.convertedCustomerId && <Badge className="bg-emerald-100 text-emerald-700 dark:bg-emerald-950 dark:text-emerald-300">customer ✓</Badge>}
+            {lead.demoStatus !== "none" && (
+              <Badge className="bg-sky-100 text-sky-700 dark:bg-sky-950 dark:text-sky-300">demo: {lead.demoStatus.replace("_", " ")}</Badge>
+            )}
+            {lead.stale && <Badge className="bg-orange-100 text-orange-700 dark:bg-orange-950 dark:text-orange-300">stale</Badge>}
+            {lead.followUpStatus === "overdue" && <Badge className="bg-red-100 text-red-700 dark:bg-red-950 dark:text-red-300">follow-up overdue</Badge>}
+            {lead.followUpStatus === "due" && <Badge className="bg-amber-100 text-amber-700 dark:bg-amber-950 dark:text-amber-300">follow-up due</Badge>}
           </div>
+          <p className="mb-3 text-xs text-zinc-400">
+            Lead age: <span className="font-medium text-zinc-600 dark:text-zinc-300">{lead.dealAgeDays} days</span>
+            <span aria-hidden="true"> · </span>
+            {lead.daysInStage === 0 ? "just updated" : `${lead.daysInStage} days in this stage`}
+            <span aria-hidden="true"> · </span>
+            <a href={`/marketing-admin/pipeline?stage=${lead.stage}`} className="font-medium text-indigo-600 hover:underline dark:text-indigo-400">
+              View in pipeline →
+            </a>
+          </p>
 
           {canWrite && (
             <div className="mb-4 grid gap-3 sm:grid-cols-2">

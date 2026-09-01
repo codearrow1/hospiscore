@@ -20,6 +20,7 @@ export {
 export { ToastProvider, useToast, type ToastKind } from "./Toast";
 export { AccessibleModal } from "./AccessibleModal";
 export { ConfirmDialog, type ConfirmAction } from "./ConfirmDialog";
+export { FilterSheet } from "./FilterSheet";
 export {
   Pagination,
   ChipRow,

@@ -73,6 +73,7 @@ export async function POST(req: NextRequest) {
       startAt: new Date(startAt).toISOString(),
       durationMin: num(body.durationMin) ?? 45,
       status: s(body.status) as never,
+      demoType: s(body.demoType),
       assignedTo: s(body.assignedTo),
       meetingUrl: s(body.meetingUrl),
       notes: s(body.notes),

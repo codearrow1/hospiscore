@@ -68,10 +68,15 @@ Every critical workflow below is required to be **PASS** before launch.
 |------|-------|--------|
 | Health | `GET /api/health` public liveness | **PASS** (new) |
 | Smoke | `npm run smoke` 16 checks (incl. idempotency-key schema contract) | **PASS** |
-| Observability | Auth diagnostics + error boundaries | **PASS** |
-| Backup | `PRODUCTION_DATABASE_BACKUP.md` | **PASS** (documented) |
-| Env/Deploy | `PRODUCTION_ENVIRONMENT.md`, `DEPLOY-SAAS.md`, `PRODUCTION_RUNBOOK.md` | **PASS** (documented; values at host) |
+| Observability | `OBSERVABILITY.md` (health/log/alert contract) | **PASS** (documented; host monitors) |
+| Backup / Recovery | `BACKUP-RECOVERY.md` + `PRODUCTION_DATABASE_BACKUP.md` | **PASS** (documented; host schedules) |
+| Env/Deploy | `PRODUCTION-ENVIRONMENT-MATRIX.md`, `HOSTINGER-DEPLOYMENT-CONTRACT.md`, `PRODUCTION-DATABASE-CHECKLIST.md`, `PRODUCTION_ENVIRONMENT.md`, `DEPLOY-SAAS.md`, `PRODUCTION_RUNBOOK.md` | **PASS** (documented; values at host) |
+| Cron | `PRODUCTION-CRON.md` (6 endpoints + crontab) | **PASS** (documented; host wires scheduler) |
+| Payments | `PAYMENT-PRODUCTION-READINESS.md` (provider posture + TEST→LIVE gate) | **PASS** (documented; no provider READY at launch, by design) |
+| Email | `EMAIL-COMMUNICATION-READINESS.md` (transports + host actions) | **PASS** (documented; SMTP VERIFY-AT-DEPLOY) |
+| PWA/Device | `PWA-DEVICE-LAUNCH-CHECK.md` (manifest/sw; viewports HOST-VERIFY) | **PASS** (repo); viewports **HOST-VERIFY-AT-DEPLOY** |
 | Demo isolation | `ALLOW_DEMO_SEED=0` in prod; HARD launch-check | **PASS** |
+| Blocker reconciliation | `LAUNCH-BLOCKERS.md` + `FINAL-LAUNCH-CLOSURE.md` Phase 45 | **PASS** (all classified; P0/P1 repo = 0) |
 
 ---
 

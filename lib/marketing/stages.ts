@@ -35,6 +35,12 @@ export const STAGE_ORDER: readonly LeadStage[] = [
   "lost",
 ];
 
+/** Active pipeline stages (excludes terminal outcomes). */
+export const ACTIVE_STAGES: readonly LeadStage[] = STAGE_ORDER.slice(0, -2);
+
+/** Terminal outcome stages. */
+export const OUTCOME_STAGES: readonly LeadStage[] = ["won", "lost"] as const;
+
 /** Badge/text styles per stage (dark-theme aware, matches marketing palette). */
 export const STAGE_STYLES: Record<LeadStage, string> = {
   new: "bg-zinc-100 text-zinc-600 dark:bg-zinc-800 dark:text-zinc-300",
@@ -48,6 +54,41 @@ export const STAGE_STYLES: Record<LeadStage, string> = {
   won: "bg-emerald-50 text-emerald-700 dark:bg-emerald-950 dark:text-emerald-300",
   lost: "bg-red-50 text-red-700 dark:bg-red-950 dark:text-red-300",
 };
+
+/** Colored dot per stage used for the header indicator (never color-only). */
+export const STAGE_DOT: Record<LeadStage, string> = {
+  new: "bg-zinc-400",
+  qualified: "bg-sky-500",
+  contacted: "bg-indigo-500",
+  demo_booked: "bg-violet-500",
+  demo_completed: "bg-fuchsia-500",
+  trial: "bg-cyan-500",
+  proposal: "bg-amber-500",
+  negotiation: "bg-orange-500",
+  won: "bg-emerald-500",
+  lost: "bg-red-500",
+};
+
+/** Sales priority labels (optional per-lead; never fabricated). */
+export const PRIORITIES = ["high", "medium", "low"] as const;
+export type Priority = (typeof PRIORITIES)[number];
+
+export const PRIORITY_LABELS: Record<Priority, string> = {
+  high: "High",
+  medium: "Medium",
+  low: "Low",
+};
+
+/** Restrained indicator styles — tone + a leading dot so it reads without color. */
+export const PRIORITY_STYLES: Record<Priority, string> = {
+  high: "bg-red-50 text-red-700 ring-1 ring-inset ring-red-200 dark:bg-red-950/50 dark:text-red-300 dark:ring-red-900",
+  medium: "bg-amber-50 text-amber-700 ring-1 ring-inset ring-amber-200 dark:bg-amber-950/50 dark:text-amber-300 dark:ring-amber-900",
+  low: "bg-zinc-100 text-zinc-600 ring-1 ring-inset ring-zinc-200 dark:bg-zinc-800/60 dark:text-zinc-300 dark:ring-zinc-700",
+};
+
+export function isPriority(v: unknown): v is Priority {
+  return typeof v === "string" && (PRIORITIES as readonly string[]).includes(v);
+}
 
 export const LOST_REASONS = [
   "budget",

@@ -65,6 +65,22 @@ export type Capability =
   | "settings.manage" // roles, automation toggles, webhooks
   | "audit.read";
 
+/** Every capability name, for deriving a user's effective capability list. */
+export const MARKETING_CAPABILITIES: readonly Capability[] = [
+  "access",
+  "leads.read",
+  "leads.write",
+  "leads.manage",
+  "demos.manage",
+  "campaigns.manage",
+  "forms.manage",
+  "content.manage",
+  "pricing.manage",
+  "analytics.read",
+  "settings.manage",
+  "audit.read",
+];
+
 export const ROLE_CAPABILITIES: Record<
   MarketingRole,
   ReadonlySet<Capability>

@@ -8,7 +8,7 @@ import {
 import { ensureMarketingStore } from "@/lib/marketing/seed";
 import { listLeads, filterLeads, upsertLead } from "@/lib/marketing/leads";
 import { writeAudit } from "@/lib/marketing/audit";
-import { isLeadStage } from "@/lib/marketing/stages";
+import { isLeadStage, isPriority } from "@/lib/marketing/stages";
 import { hasCapability } from "@/lib/marketing/roles";
 import type { LeadSource } from "@/lib/marketing/types";
 
@@ -73,6 +73,7 @@ export async function POST(req: NextRequest) {
       planInterest: str(body.planInterest),
       message: str(body.message),
       source,
+      priority: isPriority(body.priority) ? body.priority : undefined,
       attribution: {
         source,
         pagePath: str(body.pagePath),
