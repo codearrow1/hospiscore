@@ -4,6 +4,7 @@ import { findProperty } from "@/lib/data";
 import { computeScore } from "@/lib/scoring";
 import { getCurrentUser } from "@/lib/sessionCookie";
 import Header from "@/components/Header";
+import PropertyScoreHistory from "@/components/PropertyScoreHistory";
 
 function recommendations(
   components: { key: string; label: string; score: number }[],
@@ -151,10 +152,7 @@ export default async function DashboardPage({
           </div>
         </div>
 
-        <div className="mt-8 rounded-2xl border border-dashed border-zinc-300 p-5 text-center text-sm text-zinc-500 dark:border-zinc-700 dark:text-zinc-400">
-          In production this panel adds: response-rate tracking, weekly score alerts,
-          sentiment analysis and competitor benchmarking.
-        </div>
+        <PropertyScoreHistory propertyId={prop.slug} />
       </main>
     </div>
   );

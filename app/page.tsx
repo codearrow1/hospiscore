@@ -28,6 +28,7 @@ import Testimonials from "@/components/marketing/Testimonials";
 import Footer from "@/components/marketing/Footer";
 import { FAQS } from "@/lib/faq";
 import { SITE_DESCRIPTION, SITE_NAME, SITE_TAGLINE, SITE_URL, ogImage } from "@/lib/site";
+import { scoreCoverageNote } from "@/lib/marketingCopy";
 
 export const metadata: Metadata = {
   title: `${SITE_NAME} — ${SITE_TAGLINE}`,
@@ -374,8 +375,7 @@ export default function Home() {
               </p>
               <PropertySearch />
               <p className="mt-3 text-center text-xs text-zinc-500">
-                No sign-up needed. Scores cover Google, Booking.com, TripAdvisor,
-                Expedia, Airbnb and more.
+                {scoreCoverageNote()}
               </p>
             </div>
           </div>
