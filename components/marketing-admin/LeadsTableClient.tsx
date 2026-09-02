@@ -8,6 +8,7 @@ import { LeadFilters, type LeadFilterState } from "./LeadFilters";
 import { BulkStageBar, NewLeadModal, RevenueRow, type LeadRowLite } from "./LeadTable";
 import { EmptyState, btnGhost } from "./ui";
 import SavedViews from "./SavedViews";
+import { buildLeadsHref } from "@/lib/marketing/links";
 
 const COLUMN_KEY = "marketing.leadColumns";
 
@@ -47,7 +48,6 @@ export default function LeadsTableClient({
   bandOptions,
   stageOptions,
   exportHref,
-  href,
   currentFilters,
   kpis,
   funnel,
@@ -68,7 +68,6 @@ export default function LeadsTableClient({
   bandOptions: string[];
   stageOptions: { value: string; label: string }[];
   exportHref: string;
-  href: (patch: Record<string, string>) => string;
   currentFilters: {
     q: string;
     stage: string;
@@ -136,6 +135,9 @@ export default function LeadsTableClient({
     band: currentFilters.band || "all",
     owner: currentFilters.owner,
   };
+
+  const href = (patch: Record<string, string>) =>
+    buildLeadsHref(currentFilters, { sort, dir, page, perPage }, patch);
 
   const pageHref = (p: number) => {
     const merged = new URLSearchParams(sp.toString());

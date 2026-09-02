@@ -135,39 +135,6 @@ export default async function DemosPage({
   const totalPages = Math.max(1, Math.ceil(sorted.length / perPage));
   const safePage = Math.min(page, totalPages);
 
-  const href = (patch: Record<string, string | undefined>) => {
-    const merged = {
-      view,
-      ...(week ? { week } : {}),
-      q,
-      status,
-      owner,
-      period,
-      country,
-      stage,
-      source,
-      demoType,
-      followUp: followUp ? "1" : "",
-      sort,
-      dir,
-      page: String(safePage),
-      perPage: String(perPage),
-      ...patch,
-    };
-    const p = new URLSearchParams();
-    const defaults: Record<string, string> = {
-      view: "week", q: "", status: "", owner: "", period: "", country: "",
-      stage: "", source: "", demoType: "", followUp: "", sort: "startAt", dir: "asc", page: "1", perPage: "20",
-    };
-    for (const [k, v] of Object.entries(merged)) {
-      if (!v || v === defaults[k]) continue;
-      p.set(k, v);
-    }
-    const filterKeys = ["q", "status", "owner", "period", "country", "stage", "source", "demoType", "followUp"];
-    if (filterKeys.some((k) => k in patch)) p.delete("page");
-    return p.toString() ? `/marketing-admin/demos?${p}` : "/marketing-admin/demos";
-  };
-
   const ownerOptions = users.map((u) => ({ email: u.email, name: u.name }));
   const statuses = DEMO_STATUSES.map((s) => ({ value: s, label: s.replace(/_/g, " ") }));
   const periods = [
@@ -202,7 +169,6 @@ export default async function DemosPage({
       rowsCount={rows.length}
       currentFilters={{ q, status, owner, period, country, stage, source, demoType, followUp: followUp ? "1" : "" }}
       options={{ ownerOptions, statuses, periods, stageOptions, sourceOptions: activeSources, countryOptions, demoTypeOptions }}
-      href={href}
     />
   );
 }

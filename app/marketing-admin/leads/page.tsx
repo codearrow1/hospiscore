@@ -99,24 +99,6 @@ export default async function LeadsPage({
   const funnel = funnelOf(allRows, PIPELINE_STAGES);
   const openValue = openValueByCurrency(allRows);
 
-  const href = (patch: Record<string, string | undefined>) => {
-    const merged = { stage, source, country, plan, band, owner, sort, dir, page: String(safePage), perPage: String(perPage), q, ...patch };
-    const p = new URLSearchParams();
-    const defaults: Record<string, string> = {
-      stage: "all", source: "all", band: "all", owner: "", country: "", plan: "",
-      sort: "updatedAt", dir: "desc", page: "1", perPage: "20", q: "",
-    };
-    for (const [k, v] of Object.entries(merged)) {
-      if (!v) continue;
-      if (v === defaults[k]) continue;
-      p.set(k, v);
-    }
-    // Changing any filter resets to page 1.
-    const filterKeys = ["stage", "source", "country", "plan", "band", "owner", "q"];
-    if (filterKeys.some((k) => k in patch)) p.delete("page");
-    return p.toString() ? `/marketing-admin/leads?${p}` : "/marketing-admin/leads";
-  };
-
   const exportHref = `/api/marketing/export?${new URLSearchParams({
     ...(q ? { q } : {}),
     ...(stage !== "all" ? { stage } : {}),
@@ -151,7 +133,6 @@ export default async function LeadsPage({
       bandOptions={bandOptions}
       stageOptions={stageOptions}
       exportHref={exportHref}
-      href={href}
       currentFilters={{
         q, stage, source, country, plan, band, owner,
       }}

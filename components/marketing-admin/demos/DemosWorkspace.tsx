@@ -13,6 +13,7 @@ import { DemoList } from "./DemoList";
 import { DemoDetailDrawer } from "./DemoDetailDrawer";
 import { BookDemoModal } from "./BookDemoModal";
 import { shortDay } from "./demoUi";
+import { buildDemosHref } from "@/lib/marketing/links";
 
 const WEEK_MS = 7 * 86_400_000;
 
@@ -31,7 +32,6 @@ export function DemosWorkspace({
   rowsCount,
   currentFilters,
   options,
-  href,
 }: {
   demos: DemoRow[];
   kpis: DemoKpis;
@@ -47,7 +47,6 @@ export function DemosWorkspace({
   rowsCount: number;
   currentFilters: DemosFilterState;
   options: DemosFilterOptions;
-  href: (patch: Record<string, string | undefined>) => string;
 }) {
   const router = useRouter();
   const [now, setNow] = useState(() => Date.now());
@@ -86,6 +85,9 @@ export function DemosWorkspace({
   }, [weekStart, now]);
 
   const listRows = useMemo(() => demos.slice((page - 1) * perPage, page * perPage), [demos, page, perPage]);
+
+  const href = (patch: Record<string, string | undefined>) =>
+    buildDemosHref(currentFilters, { view, week: weekStart, sort, dir, page, perPage }, patch);
 
   const selected = selectedId ? demos.find((d) => d.id === selectedId) ?? null : null;
 
