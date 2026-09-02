@@ -11,7 +11,7 @@ import UiMock, { type UiMockVariant } from "./UiMock";
 
 type TourStep = {
   id: string;
-  icon: "dashboard" | "frontdesk" | "housekeeping" | "revenue" | "guest" | "calendar";
+  icon: "dashboard" | "frontdesk" | "housekeeping" | "revenue" | "guest" | "calendar" | "coins" | "ai" | "megaphone";
   label: string;
   title: string;
   body: string;
@@ -74,6 +74,33 @@ const STEPS: TourStep[] = [
     bullets: ["Drag-and-drop reservations", "Multi-property stay grid", "Channel & source colour coding"],
     mock: "calendar",
   },
+  {
+    id: "finance",
+    icon: "coins",
+    title: "Finance & night audit",
+    label: "Finance",
+    body: "Folios, GST invoices, cash and settlement reconcile in one screen, with a single-pass night audit and tax reports.",
+    bullets: ["Guest folio & GST invoices", "Advances, deposits & refunds", "Night audit & tax reports"],
+    mock: "revenue",
+  },
+  {
+    id: "ai",
+    icon: "ai",
+    title: "AI concierge & automation",
+    label: "AI",
+    body: "An AI concierge drafts replies, reads guest sentiment and suggests pricing — turning repeated busywork into one touch.",
+    bullets: ["AI concierge & chat replies", "Guest sentiment review", "AI pricing recommendations"],
+    mock: "guest",
+  },
+  {
+    id: "marketing",
+    icon: "megaphone",
+    title: "Marketing & loyalty",
+    label: "Marketing",
+    body: "Coupons, gift cards, membership plans and channel campaigns that grow direct bookings and repeat stays.",
+    bullets: ["Coupons, gift cards & packages", "Loyalty points & memberships", "Email, WhatsApp & SMS campaigns"],
+    mock: "dashboard",
+  },
 ];
 
 const DOT: Record<TourStep["icon"], string> = {
@@ -83,6 +110,9 @@ const DOT: Record<TourStep["icon"], string> = {
   revenue: "bg-amber-400",
   guest: "bg-violet-400",
   calendar: "bg-rose-400",
+  coins: "bg-teal-400",
+  ai: "bg-fuchsia-400",
+  megaphone: "bg-orange-400",
 };
 
 export default function ProductTour() {

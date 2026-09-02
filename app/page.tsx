@@ -12,6 +12,11 @@ import ModuleGrid from "@/components/marketing/ModuleGrid";
 import CoreTools from "@/components/marketing/CoreTools";
 import RealtimeFeed from "@/components/marketing/RealtimeFeed";
 import ProductTour from "@/components/marketing/ProductTour";
+import HeroPreview from "@/components/marketing/HeroPreview";
+import Ecosystem from "@/components/marketing/Ecosystem";
+import PropertyTypes from "@/components/marketing/PropertyTypes";
+import BeforeAfter from "@/components/marketing/BeforeAfter";
+import TrackCta from "@/components/marketing/TrackCta";
 import Security from "@/components/marketing/Security";
 import Reveal from "@/components/marketing/Reveal";
 import CountUp from "@/components/marketing/CountUp";
@@ -222,19 +227,30 @@ export default function Home() {
               </p>
 
               <div className="mt-8 flex flex-wrap items-center gap-4 animate-fade-up" style={{ animationDelay: "240ms" }}>
-                <Link
+                <TrackCta
                   href="/demo"
+                  event="demo_cta"
+                  meta="hero-primary"
                   className="btn-shine inline-flex items-center rounded-xl bg-indigo-600 px-6 py-3 text-sm font-semibold text-white shadow-sm transition hover:bg-indigo-700"
                 >
                   Book a demo
-                </Link>
-                <a
+                </TrackCta>
+                <TrackCta
                   href="#check-score"
+                  event="score_cta"
+                  meta="hero-secondary"
                   className="glow-border inline-flex items-center gap-2 rounded-xl border border-zinc-700 px-6 py-3 text-sm font-semibold text-zinc-200 transition hover:border-indigo-400 hover:text-indigo-300"
                 >
                   Check your free score
                   <Icon name="star" className="h-4 w-4 text-amber-400" />
-                </a>
+                </TrackCta>
+                <Link
+                  href="#platform"
+                  className="link-underline inline-flex items-center gap-1.5 text-sm font-semibold text-zinc-400 transition hover:text-indigo-300"
+                >
+                  Explore the platform
+                  <Icon name="trend" className="h-4 w-4" />
+                </Link>
               </div>
 
               <ul className="mt-8 flex flex-wrap gap-2 animate-fade-up" aria-label="Modules" style={{ animationDelay: "320ms" }}>
@@ -279,53 +295,9 @@ export default function Home() {
                 }}
               />
 
-              <div className="relative overflow-hidden rounded-3xl border border-zinc-700/70 bg-zinc-900 shadow-2xl shadow-black/60">
-                <div className="flex items-center gap-2 border-b border-zinc-800 bg-zinc-900/90 px-4 py-2.5">
-                  <span className="h-2.5 w-2.5 rounded-full bg-rose-500/80" aria-hidden="true" />
-                  <span className="h-2.5 w-2.5 rounded-full bg-amber-500/80" aria-hidden="true" />
-                  <span className="h-2.5 w-2.5 rounded-full bg-emerald-500/80" aria-hidden="true" />
-                  <span className="mx-auto flex items-center gap-1.5 rounded-md bg-zinc-800 px-3 py-1 text-[10px] font-medium text-zinc-400">
-                    <Icon name="globe" className="h-3 w-3" />
-                    Your property · Front Desk
-                  </span>
-                  <span className="w-6" aria-hidden="true" />
-                </div>
+              <HeroPreview />
 
-                <div className="relative aspect-[4/3] w-full">
-                  <Image
-                    src="https://images.unsplash.com/photo-1520250497591-112f2f40a3f4?auto=format&fit=crop&w=1400&q=80"
-                    alt="Resort pool at dusk — a property managed with HospiOS"
-                    fill
-                    priority
-                    sizes="(max-width: 1024px) 100vw, 50vw"
-                    className="hero-zoom object-cover"
-                  />
-                  <div
-                    aria-hidden="true"
-                    className="absolute inset-0 bg-gradient-to-t from-zinc-950/95 via-zinc-950/25 to-zinc-950/5"
-                  />
-                  <div className="absolute left-4 top-4 flex items-center gap-2">
-                    <span className="inline-flex items-center gap-1.5 rounded-full border border-emerald-400/30 bg-zinc-950/70 px-2.5 py-1 text-[10px] font-semibold text-emerald-300 backdrop-blur">
-                      <span className="pulse-dot" aria-hidden="true" />
-                      Live data
-                    </span>
-                    <span className="rounded-full border border-zinc-700 bg-zinc-950/70 px-2.5 py-1 text-[10px] font-semibold text-zinc-200 backdrop-blur">
-                      84 · Good
-                    </span>
-                  </div>
-                  <div className="absolute inset-x-4 bottom-4 flex items-end justify-between gap-3">
-                    <div className="min-w-0">
-                      <p className="text-sm font-bold text-white">Your property</p>
-                      <p className="text-xs text-zinc-300">Live across 8 channels</p>
-                    </div>
-                    <span className="shrink-0 rounded-lg bg-emerald-500 px-2 py-1 text-xs font-bold text-zinc-950">
-                      ▲ +3 this week
-                    </span>
-                  </div>
-                </div>
-              </div>
-
-              <div className="absolute -bottom-7 -left-5 hidden w-44 rounded-2xl border border-zinc-700 bg-zinc-900/95 p-3.5 shadow-xl shadow-black/50 backdrop-blur animate-float-slow sm:block">
+              <div className="absolute -bottom-6 -left-5 hidden w-44 rounded-2xl border border-zinc-700 bg-zinc-900/95 p-3.5 shadow-xl shadow-black/50 backdrop-blur animate-float-slow sm:block">
                 <p className="text-[10px] font-semibold uppercase tracking-wide text-zinc-400">
                   Tonight&apos;s occupancy
                 </p>
@@ -343,25 +315,12 @@ export default function Home() {
                 </div>
               </div>
 
-              <div className="absolute -top-5 -right-3 hidden w-56 rounded-2xl border border-zinc-700 bg-zinc-900/95 p-3.5 shadow-xl shadow-black/50 backdrop-blur toast-in sm:block">
-                <p className="text-[10px] font-semibold uppercase tracking-wide text-zinc-400">
-                  New booking
-                </p>
-                <p className="mt-0.5 text-xs font-semibold text-zinc-100">
-                  Deluxe King · 2 nights
-                </p>
-                <p className="mt-0.5 flex items-center gap-1.5 text-[11px] text-zinc-400">
-                  <span className="pulse-dot" aria-hidden="true" />
-                  Direct booking · $487 · 20:14
-                </p>
-              </div>
-
-              <div className="absolute -bottom-4 right-8 hidden rounded-xl border border-indigo-900 bg-indigo-950/90 px-3.5 py-2.5 shadow-lg shadow-indigo-950/40 backdrop-blur animate-float sm:block">
+              <div className="absolute -top-5 -right-3 hidden rounded-xl border border-indigo-900 bg-indigo-950/90 px-3.5 py-2.5 shadow-lg shadow-indigo-950/40 backdrop-blur animate-float sm:block">
                 <p className="text-[10px] font-semibold uppercase tracking-wide text-indigo-300">
-                  AI reply draft
+                  UI preview
                 </p>
-                <p className="mt-0.5 text-xs text-indigo-100">
-                  “Thank you for the lovely review…”
+                <p className="mt-0.5 text-xs font-semibold text-indigo-100">
+                  Explore the screens your team will use
                 </p>
               </div>
             </div>
@@ -426,6 +385,24 @@ export default function Home() {
           </div>
         </section>
 
+        {/* ───────────────────────── Property types ───────────────────────── */}
+        <section id="solutions-home" className="border-b border-zinc-800 bg-zinc-900/40 py-20">
+          <div className="mx-auto w-full max-w-6xl px-4 sm:px-6">
+            <Reveal>
+              <SectionHeading
+                eyebrow="Built for your property"
+                title="One platform, shaped for every kind of stay"
+                subtitle="From a 12-bed hostel to a 200-key group portfolio — HospiOS adapts to how you actually run things."
+              />
+            </Reveal>
+            <Reveal delay={120}>
+              <div className="mt-12">
+                <PropertyTypes />
+              </div>
+            </Reveal>
+          </div>
+        </section>
+
         {/* ───────────────────────── Core tools ───────────────────────── */}
         <section className="mx-auto w-full max-w-6xl scroll-mt-20 px-4 py-20 sm:px-6">
           <Reveal>
@@ -475,6 +452,24 @@ export default function Home() {
           </div>
         </section>
 
+        {/* ───────────────────────── Ecosystem ───────────────────────── */}
+        <section className="border-b border-zinc-800 bg-zinc-900/40 py-20">
+          <div className="mx-auto w-full max-w-6xl px-4 sm:px-6">
+            <Reveal>
+              <SectionHeading
+                eyebrow="One platform"
+                title="Everything in your property, connected"
+                subtitle="A single core drives seven operating areas — front desk, guests, F&B, back-of-house, finance, growth and enterprise. Tap any orbit to see the real modules."
+              />
+            </Reveal>
+            <Reveal delay={120}>
+              <div className="mt-12">
+                <Ecosystem />
+              </div>
+            </Reveal>
+          </div>
+        </section>
+
         {/* ───────────────────────── Real-time feed ───────────────────────── */}
         <section className="mx-auto w-full max-w-6xl px-4 py-20 sm:px-6">
           <div className="grid items-center gap-12 lg:grid-cols-2">
@@ -518,7 +513,7 @@ export default function Home() {
               <SectionHeading
                 eyebrow="Product tour"
                 title="See the platform, room by room"
-                subtitle="Click through the screens your team will actually use — dashboard, front desk, housekeeping, revenue, guests and the stay calendar."
+                subtitle="Click through the screens your team will actually use — dashboard, front desk, housekeeping, revenue, guests, finance, AI and marketing."
               />
             </Reveal>
             <Reveal delay={120}>
@@ -571,6 +566,24 @@ export default function Home() {
                 </div>
               </Reveal>
             ))}
+          </div>
+        </section>
+
+        {/* ───────────────────────── Before / After ───────────────────────── */}
+        <section className="border-y border-zinc-800 bg-zinc-900/40 py-20">
+          <div className="mx-auto w-full max-w-6xl px-4 sm:px-6">
+            <Reveal>
+              <SectionHeading
+                eyebrow="The difference"
+                title="Before scattered tools. After HospiOS."
+                subtitle="See what changes when every part of the property runs on one connected platform."
+              />
+            </Reveal>
+            <Reveal delay={120}>
+              <div className="mt-12">
+                <BeforeAfter />
+              </div>
+            </Reveal>
           </div>
         </section>
 

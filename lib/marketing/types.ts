@@ -237,6 +237,23 @@ export interface PageView {
 }
 
 /**
+ * Privacy-light named conversion event (no cookie, no raw PII).
+ * Mirrors the page-view philosophy: session-keyed, optional small meta, no
+ * fingerprint/IP. Kept in a separate store array so it never changes the shape
+ * of page views or the operational data model.
+ */
+export interface MarketingEvent {
+  id: string;
+  /** Event name, e.g. "demo_cta", "score_submit". */
+  name: string;
+  /** Optional short context (page path, cta label). Truncated on write. */
+  meta?: string;
+  at: string;
+  country?: string;
+  session: string;
+}
+
+/**
  * Record of a marketing lead converting to a paid customer. The conversion
  * preserves all marketing attribution; operational PMS records are NOT created
  * here — that stays the job of the onboarding/billing pipeline.
