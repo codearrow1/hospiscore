@@ -87,7 +87,7 @@ export function DemoList({
                     {[d.leadEmail, d.leadCompany, d.leadProperty].filter(Boolean).join(" · ") || "—"}
                   </span>
                 </td>
-                <td className="whitespace-nowrap px-4 py-3 tabular-nums text-zinc-600 dark:text-zinc-300">
+                <td className="whitespace-nowrap px-4 py-3 tabular-nums text-zinc-600 dark:text-zinc-300" suppressHydrationWarning>
                   {dateTimeOf(d.startAt)}
                 </td>
                 <td className="whitespace-nowrap px-4 py-3 text-xs text-zinc-500">{d.demoType || "—"}</td>
@@ -99,7 +99,7 @@ export function DemoList({
                 </td>
                 <td className="px-4 py-3">
                   {d.status === "completed" || d.status === "no_show" ? (
-                    <span className="inline-flex items-center gap-1.5 rounded-full bg-amber-100 px-2 py-0.5 text-[11px] font-semibold text-amber-700 dark:bg-amber-950/70 dark:text-amber-300">
+                    <span className="inline-flex items-center gap-1.5 rounded-full bg-amber-100 px-2 py-0.5 text-[11px] font-semibold text-amber-700 dark:bg-amber-950/70 dark:text-amber-300" suppressHydrationWarning>
                       <svg aria-hidden="true" className="h-3 w-3" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2}>
                         <path d="M12 7v6m0 3h.01M10.3 3.9 2 18a2 2 0 0 0 1.7 3h16.6a2 2 0 0 0 1.7-3L13.7 3.9a2 2 0 0 0-3.4 0Z" />
                       </svg>

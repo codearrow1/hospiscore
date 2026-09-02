@@ -36,7 +36,7 @@ export function DemoAgenda({
 
   return (
     <div className="space-y-3">
-      <div className="rounded-2xl border border-line bg-surface px-4 py-2.5 text-sm text-zinc-500 dark:text-zinc-400">
+      <div className="rounded-2xl border border-line bg-surface px-4 py-2.5 text-sm text-zinc-500 dark:text-zinc-400" suppressHydrationWarning>
         <span className="font-semibold text-zinc-800 dark:text-zinc-100">Week agenda</span> · {dayLabel(week[0].day)} –{" "}
         {dayLabel(week[6].day)} · {activeCount} scheduled
       </div>
@@ -47,7 +47,7 @@ export function DemoAgenda({
       ) : (
         week.map(({ day, items, isToday }) => (
           <section key={isoDay(day)} className="overflow-hidden rounded-2xl border border-line bg-surface">
-            <div className={`flex items-center justify-between px-4 py-2 ${isToday ? "bg-brand-soft" : "bg-surface-subtle"}`}>
+            <div className={`flex items-center justify-between px-4 py-2 ${isToday ? "bg-brand-soft" : "bg-surface-subtle"}`} suppressHydrationWarning>
               <h2 className={`text-xs font-bold uppercase tracking-wide ${isToday ? "text-brand dark:text-indigo-300" : "text-zinc-500"}`}>
                 {isToday ? "Today" : day.toLocaleDateString("en-US", { weekday: "long" })} · {day.getDate()}
               </h2>
@@ -64,7 +64,7 @@ export function DemoAgenda({
                     onClick={() => onOpen(d.id)}
                     className="flex w-full items-center gap-3 px-4 py-3 text-left transition hover:bg-surface-subtle"
                   >
-                    <span className="w-14 shrink-0 text-xs font-bold tabular-nums text-zinc-700 dark:text-zinc-200">
+                    <span className="w-14 shrink-0 text-xs font-bold tabular-nums text-zinc-700 dark:text-zinc-200" suppressHydrationWarning>
                       {timeOf(d.startAt)}
                     </span>
                     <span className="min-w-0 flex-1">

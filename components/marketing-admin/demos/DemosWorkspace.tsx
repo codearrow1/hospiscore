@@ -155,7 +155,7 @@ export function DemosWorkspace({
           {view !== "list" && (
             <div className="flex items-center gap-1.5 text-xs">
               <a href={href({ week: isoDay(new Date(anchor.getTime() - WEEK_MS)) })} className={btnGhost} aria-label="Previous week">←</a>
-              <a href={href({ week: undefined })} title="Jump to current week" className="rounded-lg px-2 py-1.5 font-semibold text-zinc-600 hover:bg-surface-subtle dark:text-zinc-300">
+              <a href={href({ week: undefined })} title="Jump to current week" className="rounded-lg px-2 py-1.5 font-semibold text-zinc-600 hover:bg-surface-subtle dark:text-zinc-300" suppressHydrationWarning>
                 {weekRange}
               </a>
               <a href={href({ week: isoDay(new Date(anchor.getTime() + WEEK_MS)) })} className={btnGhost} aria-label="Next week">→</a>

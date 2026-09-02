@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { startOfWeek, isoDay, type DemoRow } from "@/lib/marketing/demosView";
 import { timeOf, dayLabel, STATUS_ACCENT } from "./demoUi";
 
@@ -36,6 +36,11 @@ export function DemoCalendarWeek({
   onOpen: (id: string) => void;
   now: number;
 }) {
+  const [mounted, setMounted] = useState(false);
+  useEffect(() => {
+    setMounted(true);
+  }, []);
+
   const anchor = useMemo(() => {
     if (weekStart) {
       const p = new Date(`${weekStart}T00:00:00`);
@@ -81,6 +86,7 @@ export function DemoCalendarWeek({
             return (
               <div
                 key={d.getTime()}
+                suppressHydrationWarning
                 className={`flex-1 border-l border-line px-2 py-2 text-center ${isToday ? "bg-brand-soft" : ""}`}
               >
                 <p className={`text-[11px] font-bold uppercase tracking-wide ${isToday ? "text-brand dark:text-indigo-300" : "text-zinc-400"}`}>
@@ -116,7 +122,7 @@ export function DemoCalendarWeek({
             const isToday = isoDay(day) === todayKey;
             const startMs = dayStartMs(day);
             return (
-              <div key={day.getTime()} className={`relative flex-1 border-l border-line ${isToday ? "bg-brand-soft/40" : ""}`} style={{ height: GRID_H }}>
+              <div key={day.getTime()} suppressHydrationWarning className={`relative flex-1 border-l border-line ${isToday ? "bg-brand-soft/40" : ""}`} style={{ height: GRID_H }}>
                 {/* Hour gridlines */}
                 {HOURS.map((h) => (
                   <div
@@ -125,7 +131,7 @@ export function DemoCalendarWeek({
                     style={{ top: (h - FIRST_HOUR) * HOUR_H }}
                   />
                 ))}
-                {isToday && nowMinutes >= 0 && nowMinutes <= (LAST_HOUR - FIRST_HOUR) * 60 && (
+                {mounted && isToday && nowMinutes >= 0 && nowMinutes <= (LAST_HOUR - FIRST_HOUR) * 60 && (
                   <div
                     className="pointer-events-none absolute left-0 right-0 z-10"
                     style={{ top: nowMinutes * (HOUR_H / 60) }}
@@ -147,7 +153,7 @@ export function DemoCalendarWeek({
                       style={{ top, height }}
                       className={`absolute left-1 right-1 z-[5] flex cursor-pointer flex-col overflow-hidden rounded-lg border-l-4 bg-white px-2 py-1 text-left shadow-sm transition hover:shadow-md dark:bg-zinc-900 ${accent.border}`}
                     >
-                      <span className="text-[11px] font-bold tabular-nums text-zinc-600 dark:text-zinc-300">
+                      <span className="text-[11px] font-bold tabular-nums text-zinc-600 dark:text-zinc-300" suppressHydrationWarning>
                         {timeOf(d.startAt)}
                       </span>
                       <span className="truncate text-xs font-semibold text-zinc-800 dark:text-zinc-100">{d.leadName}</span>
@@ -173,7 +179,7 @@ export function DemoCalendarWeek({
           No demos this week in the current view.
         </p>
       )}
-      <p className="sr-only">{dayLabel(new Date(now))}</p>
+      <p className="sr-only" suppressHydrationWarning>{dayLabel(new Date(now))}</p>
     </div>
   );
 }
