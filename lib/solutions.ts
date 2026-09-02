@@ -2,8 +2,53 @@ import type { IconName } from "@/components/marketing/icons";
 
 /**
  * Marketing solution pages (property types). Rich content for the
- * /solutions/[slug] pages and the solutions strip on the home page.
+ * /solutions/[slug] pages, the home-page property showcase, and the solutions
+ * strip. Single canonical source — other components consume this, never copy it.
  */
+
+export type PropertyAccent =
+  | "indigo"
+  | "teal"
+  | "magenta"
+  | "orange"
+  | "blue"
+  | "emerald"
+  | "amber"
+  | "sky";
+
+/** Map a semantic property accent to Tailwind classes (badge / glow / active). */
+export const ACCENT_TEXT: Record<PropertyAccent, string> = {
+  indigo: "text-indigo-300",
+  teal: "text-teal-300",
+  magenta: "text-fuchsia-300",
+  orange: "text-orange-300",
+  blue: "text-sky-300",
+  emerald: "text-emerald-300",
+  amber: "text-amber-300",
+  sky: "text-cyan-300",
+};
+
+export const ACCENT_BG: Record<PropertyAccent, string> = {
+  indigo: "bg-indigo-500/15",
+  teal: "bg-teal-500/15",
+  magenta: "bg-fuchsia-500/15",
+  orange: "bg-orange-500/15",
+  blue: "bg-sky-500/15",
+  emerald: "bg-emerald-500/15",
+  amber: "bg-amber-500/15",
+  sky: "bg-cyan-500/15",
+};
+
+export const ACCENT_GLOW: Record<PropertyAccent, string> = {
+  indigo: "via-indigo-500/20",
+  teal: "via-teal-500/20",
+  magenta: "via-fuchsia-500/20",
+  orange: "via-orange-500/20",
+  blue: "via-sky-500/20",
+  emerald: "via-emerald-500/20",
+  amber: "via-amber-500/20",
+  sky: "via-cyan-500/20",
+};
 
 export interface Solution {
   slug: string;
@@ -12,6 +57,20 @@ export interface Solution {
   headline: string;
   intro: string;
   icon: IconName;
+  /** Photographic visual for the home-page showcase (curated Unsplash source). */
+  image: string;
+  /** Image alt text (human-written, descriptive of the property type). */
+  imageAlt: string;
+  /** Semantic accent used for badge, glow, active state + CTA highlight. */
+  accent: PropertyAccent;
+  /** Who this property type is for — one short line. */
+  audience: string;
+  /** Primary value proposition — how HospiOS is different for this property. */
+  value: string;
+  /** 3–4 human-facing capabilities (not the raw module chip list). */
+  capabilities: string[];
+  /** Contextual primary CTA label (e.g. "Run Your Hostel"). */
+  cta: string;
   stats: { value: string; label: string }[];
   challenges: { title: string; body: string }[];
   moduleIds: string[];
@@ -27,6 +86,20 @@ export const SOLUTIONS: Solution[] = [
     intro:
       "From check-in to night audit, HospiOS keeps front desk, housekeeping, restaurant, and accounting moving together in real time — no spreadsheets, no duplicate entry.",
     icon: "building",
+    image:
+      "https://images.unsplash.com/photo-1566073771259-6a8506099945?auto=format&fit=crop&w=1600&q=80",
+    imageAlt:
+      "Premium hotel lobby with warm lighting and a check-in desk",
+    accent: "indigo",
+    audience: "City and business hotels with several departments",
+    value: "Keep front desk, housekeeping, reservations and finance connected in real time.",
+    capabilities: [
+      "Front desk & room board",
+      "Reservations & OTA sync",
+      "Housekeeping handoffs",
+      "Finance & night audit",
+    ],
+    cta: "Explore Hotel PMS",
     stats: [
       { value: "All-in-one", label: "departments on one system" },
       { value: "14+", label: "OTAs synced in real time" },
@@ -62,6 +135,19 @@ export const SOLUTIONS: Solution[] = [
     intro:
       "HospiOS gives multi-property groups a central command center — shared users, consolidated reporting, central CRM and inventory — with property-specific pricing and branding across brands, countries and currencies.",
     icon: "network",
+    image:
+      "https://images.unsplash.com/photo-1449824913935-59a10b8d2000?auto=format&fit=crop&w=1600&q=80",
+    imageAlt: "City skyline skyline at dusk, a hotel portfolio",
+    accent: "sky",
+    audience: "Multi-property groups and branded portfolios",
+    value: "One dashboard for every property, brand and team — consolidated control across the whole group.",
+    capabilities: [
+      "Central visibility & switching",
+      "Consolidated reporting",
+      "Shared users & central CRM",
+      "Multi-currency finance",
+    ],
+    cta: "Manage Your Portfolio",
     stats: [
       { value: "Central", label: "visibility across the group" },
       { value: "Any size", label: "property portfolio" },
@@ -97,6 +183,19 @@ export const SOLUTIONS: Solution[] = [
     intro:
       "Sell beds or entire dorms, handle group and seasonal bookings, and keep common-area revenue in one lightweight system built for high-volume, low-margin operations.",
     icon: "users",
+    image:
+      "https://images.unsplash.com/photo-1520869562399-e772f042f422?auto=format&fit=crop&w=1600&q=80",
+    imageAlt: "Bright, social hostel common area with young travellers",
+    accent: "blue",
+    audience: "High-volume, budget and community-led hostels",
+    value: "Manage beds, dorms, private rooms and group stays without switching systems.",
+    capabilities: [
+      "Bed-level inventory",
+      "Fast group check-in",
+      "Common-area POS",
+      "24/7 self-service",
+    ],
+    cta: "Run Your Hostel",
     stats: [
       { value: "Fast", label: "group check-in" },
       { value: "Bed-level", label: "inventory & availability" },
@@ -132,6 +231,19 @@ export const SOLUTIONS: Solution[] = [
     intro:
       "Manage villas, cabins and holiday homes with digital check-in, automated messaging, smart pricing, and clean owner reporting — all from your phone.",
     icon: "key",
+    image:
+      "https://images.unsplash.com/photo-1512917774080-9991f1c4c750?auto=format&fit=crop&w=1600&q=80",
+    imageAlt: "Modern vacation rental villa with a pool at dusk",
+    accent: "orange",
+    audience: "Villas, cabins and holiday-home owners",
+    value: "Short-let power without a front desk — check-in, messaging and pricing from your phone.",
+    capabilities: [
+      "Digital check-in",
+      "Automated guest messaging",
+      "Smart pricing",
+      "Clean owner reporting",
+    ],
+    cta: "Manage Your Rentals",
     stats: [
       { value: "Fewer", label: "owner calls & emails" },
       { value: "Digital", label: "check-in on arrival" },
@@ -167,6 +279,19 @@ export const SOLUTIONS: Solution[] = [
     intro:
       "Small hotel, big standards. Boutique properties get the same front desk, housekeeping, POS and revenue tools as the large chains — tuned to a lean, service-obsessed team.",
     icon: "sparkle",
+    image:
+      "https://images.unsplash.com/photo-1586023492125-27b2c045efd7?auto=format&fit=crop&w=1600&q=80",
+    imageAlt: "Design-led boutique hotel room with statement fixtures",
+    accent: "magenta",
+    audience: "Small, design-led and service-obsessed hotels",
+    value: "The character of boutique with the power of enterprise — big-chain tools for a lean team.",
+    capabilities: [
+      "Personal guest profiles",
+      "Direct booking engine",
+      "Packages & upsell",
+      "Revenue & POS",
+    ],
+    cta: "Run Your Boutique Property",
     stats: [
       { value: "Less", label: "time at the desk" },
       { value: "Upsell-ready", label: "packages & offers" },
@@ -202,6 +327,19 @@ export const SOLUTIONS: Solution[] = [
     intro:
       "Resorts juggle rooms and villas, multiple restaurants, spas, pools, activities and group events. HospiOS keeps all of it — and every folio — moving together in real time.",
     icon: "building",
+    image:
+      "https://images.unsplash.com/photo-1520250497591-112f2f40a3f4?auto=format&fit=crop&w=1600&q=80",
+    imageAlt: "Tropical resort pool and loungers in warm light",
+    accent: "teal",
+    audience: "Resorts juggling rooms, villas, dining and activities",
+    value: "Coordinate rooms, dining, activities and guest experiences from one platform.",
+    capabilities: [
+      "Multi-outlet folio billing",
+      "Group & events blocks",
+      "Restaurant & F&B POS",
+      "One-pass night audit",
+    ],
+    cta: "Explore Resort Operations",
     stats: [
       { value: "Single", label: "folio for every outlet" },
       { value: "One pass", label: "night audit & settlement" },
@@ -237,6 +375,19 @@ export const SOLUTIONS: Solution[] = [
     intro:
       "The easiest way to manage a few rooms well. HospiOS handles bookings, housekeeping, guest messages and the online presence score — so you can stay guest-facing.",
     icon: "guest",
+    image:
+      "https://images.unsplash.com/photo-1595576508898-0ad5c879a061?auto=format&fit=crop&w=1600&q=80",
+    imageAlt: "Intimate, warm guest bedroom in a small bed and breakfast",
+    accent: "amber",
+    audience: "Owner-operators with a handful of rooms",
+    value: "Simple enough to run over breakfast — bookings, housekeeping and messages handled for you.",
+    capabilities: [
+      "Effortless booking engine",
+      "Automated guest messages",
+      "Housekeeping on a small team",
+      "Free presence score",
+    ],
+    cta: "Simplify Your B&B",
     stats: [
       { value: "Fast", label: "setup to go live" },
       { value: "24/7", label: "automated guest messages" },
@@ -272,6 +423,19 @@ export const SOLUTIONS: Solution[] = [
     intro:
       "Serviced apartments blend hotel service with apartment flexibility. Automate extended-stay pricing, monthly invoicing and housekeeping — and let guests check in from their phone.",
     icon: "key",
+    image:
+      "https://images.unsplash.com/photo-1505691938895-1758d7feb511?auto=format&fit=crop&w=1600&q=80",
+    imageAlt: "Bright modern serviced apartment living space",
+    accent: "emerald",
+    audience: "Corporate and long-stay apartment operators",
+    value: "Long-stay comfort, short-stay efficiency — automate extended stays without a front desk.",
+    capabilities: [
+      "Digital check-in",
+      "Long-stay rate plans",
+      "Monthly invoicing",
+      "Self-service access",
+    ],
+    cta: "Manage Extended Stays",
     stats: [
       { value: "Faster", label: "guest check-in" },
       { value: "Long-stay", label: "rate plans & invoicing" },
@@ -307,6 +471,19 @@ export const SOLUTIONS: Solution[] = [
     intro:
       "Day-use, transit and flexible stays are a growing revenue line. HospiOS supports hourly rate plans, block-based availability and smart overbooking protection across your channels.",
     icon: "calendar",
+    image:
+      "https://images.unsplash.com/photo-1582719478250-c89cae4dc85b?auto=format&fit=crop&w=1600&q=80",
+    imageAlt: "Modern hotel room ready for a short-stay turnaround",
+    accent: "sky",
+    audience: "Properties selling day-use and flexible stays",
+    value: "Sell the hours, not just the nights — slot-based inventory for hourly revenue.",
+    capabilities: [
+      "Hourly rate plans",
+      "Slot-based availability",
+      "Per-channel rules",
+      "Quick-turn housekeeping",
+    ],
+    cta: "Explore Flexible Stays",
     stats: [
       { value: "New", label: "day-use revenue line" },
       { value: "Hourly", label: "blocks & arrival windows" },
@@ -342,6 +519,19 @@ export const SOLUTIONS: Solution[] = [
     intro:
       "Glamping pods, tiny houses, floating rooms and pop-up stays are redefining hospitality. HospiOS's flexible room types and configurable rates handle formats traditional PMS tools can't.",
     icon: "sparkle",
+    image:
+      "https://images.unsplash.com/photo-1521783988139-89397d761dce?auto=format&fit=crop&w=1600&q=80",
+    imageAlt: "Glamping tent with a view, a flexible accommodation format",
+    accent: "magenta",
+    audience: "Glamping, tiny-house and pop-up stay operators",
+    value: "New formats deserve modern software — flexible room types for concepts traditional PMS can't handle.",
+    capabilities: [
+      "Flexible room types",
+      "Fast concept launch",
+      "Remote guest self-service",
+      "14+ OTA channels",
+    ],
+    cta: "Launch Your Concept",
     stats: [
       { value: "Flexible", label: "room & concept types" },
       { value: "Fast", label: "concept launch" },
@@ -373,4 +563,24 @@ export const SOLUTIONS: Solution[] = [
 
 export function getSolution(slug: string): Solution | undefined {
   return SOLUTIONS.find((s) => s.slug === slug);
+}
+
+/**
+ * The 8 core property types featured on the homepage showcase. A curated subset
+ * of SOLUTIONS (single source); expand via SOLUTIONS, not here, so taxonomy
+ * never diverges.
+ */
+export const SHOWCASE_SOLUTIONS: string[] = [
+  "hotels",
+  "groups",
+  "hostels",
+  "vacation-rentals",
+  "boutique-hotels",
+  "resorts",
+  "bed-and-breakfast",
+  "serviced-apartments",
+];
+
+export function getShowcaseSolutions(): Solution[] {
+  return SHOWCASE_SOLUTIONS.map((slug) => getSolution(slug)!).filter(Boolean);
 }

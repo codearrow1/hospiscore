@@ -12,9 +12,9 @@ import ModuleGrid from "@/components/marketing/ModuleGrid";
 import CoreTools from "@/components/marketing/CoreTools";
 import RealtimeFeed from "@/components/marketing/RealtimeFeed";
 import ProductTour from "@/components/marketing/ProductTour";
-import HeroPreview from "@/components/marketing/HeroPreview";
+import HeroDashboard from "@/components/marketing/HeroDashboard";
 import Ecosystem from "@/components/marketing/Ecosystem";
-import PropertyTypes from "@/components/marketing/PropertyTypes";
+import PropertyTypeShowcase from "@/components/marketing/PropertyTypeShowcase";
 import BeforeAfter from "@/components/marketing/BeforeAfter";
 import TrackCta from "@/components/marketing/TrackCta";
 import Security from "@/components/marketing/Security";
@@ -23,10 +23,10 @@ import CountUp from "@/components/marketing/CountUp";
 import RotatingWords from "@/components/marketing/RotatingWords";
 import Marquee from "@/components/marketing/Marquee";
 import SectionHeading from "@/components/marketing/SectionHeading";
-import SolutionsStrip from "@/components/marketing/SolutionsStrip";
-import IntegrationBar from "@/components/marketing/IntegrationBar";
+import EcosystemShowcase from "@/components/marketing/EcosystemShowcase";
 import Support from "@/components/marketing/Support";
 import Showcase from "@/components/marketing/Showcase";
+import ScoreIntelligence from "@/components/marketing/ScoreIntelligence";
 import Pricing from "@/components/marketing/Pricing";
 import Faq from "@/components/marketing/Faq";
 import Testimonials from "@/components/marketing/Testimonials";
@@ -198,7 +198,8 @@ export default function Home() {
         <section className="relative overflow-hidden border-b border-zinc-800 bg-zinc-950">
           <div aria-hidden="true" className="bg-grid pointer-events-none absolute inset-0" />
           <div aria-hidden="true" className="pointer-events-none absolute -top-40 left-1/2 h-[480px] w-[900px] -translate-x-1/2 rounded-full bg-gradient-to-br from-indigo-900/40 via-violet-900/25 to-transparent blur-3xl animate-glow" />
-          <div className="relative mx-auto grid w-full max-w-6xl items-center gap-12 px-4 pb-16 pt-20 sm:px-6 lg:grid-cols-2 lg:pb-20 lg:pt-24">
+          <div aria-hidden="true" className="pointer-events-none absolute -right-24 top-1/4 hidden h-[420px] w-[420px] rounded-full bg-gradient-to-tr from-violet-700/20 via-sky-600/10 to-transparent blur-3xl lg:block" />
+          <div className="relative mx-auto grid w-full max-w-7xl items-center gap-8 px-4 pb-16 pt-8 sm:px-6 lg:grid-cols-[0.85fr_1.15fr] lg:gap-12 lg:pb-20 lg:pt-14">
             <div>
               <div className="animate-fade-up" style={{ animationDelay: "0ms" }}>
                 <span className="inline-flex items-center gap-2 rounded-full border border-indigo-900 bg-indigo-950 px-3 py-1 text-xs font-medium text-indigo-300">
@@ -231,7 +232,7 @@ export default function Home() {
                   href="/demo"
                   event="demo_cta"
                   meta="hero-primary"
-                  className="btn-shine inline-flex items-center rounded-xl bg-indigo-600 px-6 py-3 text-sm font-semibold text-white shadow-sm transition hover:bg-indigo-700"
+                  className="btn-shine inline-flex items-center rounded-xl bg-indigo-600 px-6 py-3 text-sm font-semibold text-white shadow-lg shadow-indigo-600/30 transition-all duration-200 hover:-translate-y-0.5 hover:bg-indigo-500 hover:shadow-xl hover:shadow-indigo-500/30 active:translate-y-0 active:scale-[0.98] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-indigo-400"
                 >
                   Book a demo
                 </TrackCta>
@@ -239,14 +240,14 @@ export default function Home() {
                   href="#check-score"
                   event="score_cta"
                   meta="hero-secondary"
-                  className="glow-border inline-flex items-center gap-2 rounded-xl border border-zinc-700 px-6 py-3 text-sm font-semibold text-zinc-200 transition hover:border-indigo-400 hover:text-indigo-300"
+                  className="glow-border inline-flex items-center gap-2 rounded-xl border border-zinc-700 px-6 py-3 text-sm font-semibold text-zinc-200 transition-all duration-200 hover:-translate-y-0.5 hover:border-indigo-400 hover:text-indigo-300 active:translate-y-0 active:scale-[0.98] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-indigo-400"
                 >
                   Check your free score
                   <Icon name="star" className="h-4 w-4 text-amber-400" />
                 </TrackCta>
                 <Link
                   href="#platform"
-                  className="link-underline inline-flex items-center gap-1.5 text-sm font-semibold text-zinc-400 transition hover:text-indigo-300"
+                  className="link-underline inline-flex items-center gap-1.5 text-sm font-semibold text-zinc-400 transition-all duration-200 hover:text-indigo-300 active:text-indigo-400 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-indigo-400"
                 >
                   Explore the platform
                   <Icon name="trend" className="h-4 w-4" />
@@ -281,48 +282,8 @@ export default function Home() {
               </div>
             </div>
 
-            <div className="relative animate-fade-up" style={{ animationDelay: "200ms" }}>
-              <div
-                aria-hidden="true"
-                className="pointer-events-none absolute -inset-8 rounded-[2.5rem] bg-gradient-to-tr from-indigo-600/25 via-violet-600/10 to-sky-500/20 blur-3xl"
-              />
-              <div
-                aria-hidden="true"
-                className="pointer-events-none absolute -right-12 -top-12 h-64 w-64 animate-spin-slower rounded-full opacity-60 blur-2xl"
-                style={{
-                  background:
-                    "conic-gradient(from 0deg, transparent, rgba(99,102,241,0.35), rgba(56,189,248,0.25), transparent)",
-                }}
-              />
-
-              <HeroPreview />
-
-              <div className="absolute -bottom-6 -left-5 hidden w-44 rounded-2xl border border-zinc-700 bg-zinc-900/95 p-3.5 shadow-xl shadow-black/50 backdrop-blur animate-float-slow sm:block">
-                <p className="text-[10px] font-semibold uppercase tracking-wide text-zinc-400">
-                  Tonight&apos;s occupancy
-                </p>
-                <p className="mt-1 text-lg font-bold tabular-nums text-zinc-50">
-                  78% <span className="text-xs font-semibold text-emerald-400">▲ +12%</span>
-                </p>
-                <div className="mt-2 flex h-8 items-end gap-1" aria-hidden="true">
-                  {[35, 55, 42, 70, 62, 85, 78].map((h, i) => (
-                    <div
-                      key={i}
-                      className="bar-grow flex-1 rounded-sm bg-indigo-500/70"
-                      style={{ height: `${h}%`, animationDelay: `${0.15 * i + 0.3}s` }}
-                    />
-                  ))}
-                </div>
-              </div>
-
-              <div className="absolute -top-5 -right-3 hidden rounded-xl border border-indigo-900 bg-indigo-950/90 px-3.5 py-2.5 shadow-lg shadow-indigo-950/40 backdrop-blur animate-float sm:block">
-                <p className="text-[10px] font-semibold uppercase tracking-wide text-indigo-300">
-                  UI preview
-                </p>
-                <p className="mt-0.5 text-xs font-semibold text-indigo-100">
-                  Explore the screens your team will use
-                </p>
-              </div>
+            <div className="relative animate-fade-in">
+              <HeroDashboard />
             </div>
           </div>
 
@@ -390,14 +351,14 @@ export default function Home() {
           <div className="mx-auto w-full max-w-6xl px-4 sm:px-6">
             <Reveal>
               <SectionHeading
-                eyebrow="Built for your property"
-                title="One platform, shaped for every kind of stay"
-                subtitle="From a 12-bed hostel to a 200-key group portfolio — HospiOS adapts to how you actually run things."
+                eyebrow="Built for hospitality"
+                title="One platform, every kind of property"
+                subtitle="Whether you run a city hotel, boutique retreat, hostel, villa or an entire portfolio — HospiOS adapts to how you operate."
               />
             </Reveal>
             <Reveal delay={120}>
               <div className="mt-12">
-                <PropertyTypes />
+                <PropertyTypeShowcase />
               </div>
             </Reveal>
           </div>
@@ -536,6 +497,11 @@ export default function Home() {
             </Reveal>
             <Reveal delay={120}>
               <div className="mt-12">
+                <ScoreIntelligence />
+              </div>
+            </Reveal>
+            <Reveal delay={120}>
+              <div className="mt-20">
                 <Showcase />
               </div>
             </Reveal>
@@ -584,33 +550,6 @@ export default function Home() {
                 <BeforeAfter />
               </div>
             </Reveal>
-          </div>
-        </section>
-
-        {/* ───────────────────────── Solutions ───────────────────────── */}
-        <section className="border-y border-zinc-800 bg-zinc-900/40 py-20">
-          <div className="mx-auto w-full max-w-6xl px-4 sm:px-6">
-            <Reveal>
-              <SectionHeading
-                eyebrow="Solutions"
-                title="Built for every kind of property"
-                subtitle="From a 12-bed hostel to a 200-key group portfolio — HospiOS shapes itself around how you actually run things."
-              />
-            </Reveal>
-            <Reveal delay={120}>
-              <div className="mt-12">
-                <SolutionsStrip />
-              </div>
-            </Reveal>
-            <div className="mt-8 text-center">
-              <Link
-                href="/solutions"
-                className="btn-arrow inline-flex items-center gap-2 rounded-xl border border-zinc-700 px-6 py-3 text-sm font-semibold text-zinc-200 transition hover:border-indigo-400 hover:text-indigo-300"
-              >
-                Explore all solutions
-                <Icon name="trend" className="h-4 w-4" />
-              </Link>
-            </div>
           </div>
         </section>
 
@@ -730,12 +669,12 @@ export default function Home() {
               <SectionHeading
                 eyebrow="Integrations"
                 title="Works with the tools you already use"
-                subtitle="OTAs, payment gateways, calendars, hardware and accounting — connected through one API-first platform."
+                subtitle="Whatever your property already uses, HospiOS connects it — OTAs, payment gateways, calendars, hardware and accounting, through one API-first platform."
               />
             </Reveal>
             <Reveal delay={120}>
               <div className="mt-12">
-                <IntegrationBar />
+                <EcosystemShowcase />
               </div>
             </Reveal>
           </div>

@@ -11,7 +11,23 @@ export type PublicEventName =
   | "demo_cta"
   | "score_cta"
   | "score_submit"
-  | "pricing_view";
+  | "pricing_view"
+  | "property_type_view"
+  | "property_type_select"
+  | "property_type_cta"
+  | "property_type_score_click"
+  | "property_type_solution_click"
+  | "score_section_view"
+  | "score_category_hover"
+  | "score_category_open"
+  | "score_report_click"
+  | "score_demo_click"
+  | "integration_section_view"
+  | "integration_category_select"
+  | "integration_logo_hover"
+  | "integration_logo_click"
+  | "integration_request_click"
+  | "integration_demo_click";
 
 /**
  * Resolve a stable-per-tab session id from sessionStorage, else create one.

@@ -272,6 +272,57 @@ body {
   animation: glow-pulse 6s ease-in-out infinite;
 }
 
+/* ── Property-type showcase motion ── */
+@keyframes content-in {
+  from {
+    opacity: 0;
+    transform: translateY(12px);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+
+@keyframes pill-in {
+  from {
+    opacity: 0;
+    transform: translateY(8px);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+
+@keyframes image-in {
+  from {
+    opacity: 0;
+    transform: scale(1.04);
+  }
+  to {
+    opacity: 1;
+    transform: scale(1);
+  }
+}
+
+/* Keyed content swap: remount per property so text/pills replay subtly. */
+.content-swap {
+  animation: content-in 0.5s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+.animate-content {
+  animation: content-in 0.5s cubic-bezier(0.16, 1, 0.3, 1) both;
+}
+
+.pill-in {
+  animation: pill-in 0.4s ease-out both;
+}
+
+.crossfade-in {
+  animation: image-in 0.55s ease-out;
+}
+
 /* Skeleton shimmer for UI placeholders */
 .shimmer {
   background: linear-gradient(
@@ -749,6 +800,10 @@ a {
   .pulse-dot,
   .hero-zoom,
   .bar-grow,
+  .content-swap,
+  .animate-content,
+  .pill-in,
+  .crossfade-in,
   .toast-in,
   .mobile-menu-enter,
   .mobile-menu-exit,

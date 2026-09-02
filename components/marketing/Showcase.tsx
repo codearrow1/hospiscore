@@ -1,11 +1,11 @@
 import type { ScoreComponent } from "@/lib/types";
-import ScoreGauge from "@/components/ScoreGauge";
 import ScoreRadar from "@/components/ScoreRadar";
 import TiltCard from "@/components/marketing/TiltCard";
 
 /**
- * Product deep-dive rows. Static sample data so the marketing page renders
- * without fetching anything.
+ * Product deep-dive rows (the follow-on feature rows beneath the score offer).
+ * Static sample data so the marketing page renders without fetching anything.
+ * The primary "One score" offer now lives in ScoreIntelligence.
  */
 
 const SAMPLE_COMPONENTS: ScoreComponent[] = [
@@ -25,13 +25,6 @@ const SAMPLE_COMPONENTS: ScoreComponent[] = [
 ];
 
 const ROWS = [
-  {
-    eyebrow: "One score",
-    title: "Your entire online reputation, in a single 0–100 score",
-    body: "HospiOS pulls ratings, volume, recency and response rates from every channel you list on — Google, Booking.com, TripAdvisor, Expedia, Airbnb and more — and blends them into one honest, industry-weighted score you can track over time.",
-    bullets: ["13 weighted signals, tuned for hospitality", "Missing data never penalizes you", "Live peer benchmarking against your market"],
-    visual: "gauge",
-  },
   {
     eyebrow: "Reviews, understood",
     title: "Read the signal behind every review",
@@ -80,7 +73,6 @@ export default function Showcase() {
 
           <TiltCard className="glow-border group/visual flex items-center justify-center rounded-3xl border border-zinc-200 bg-gradient-to-br from-zinc-50 to-zinc-100/50 p-8 transition duration-500 hover:shadow-2xl hover:shadow-indigo-500/10 dark:border-zinc-800 dark:from-zinc-900 dark:to-zinc-950">
             <div className="tilt-inner transition-transform duration-500 group-hover/visual:scale-[1.04]">
-              {row.visual === "gauge" && <ScoreGauge score={80} size={200} />}
               {row.visual === "radar" && <ScoreRadar components={SAMPLE_COMPONENTS} size={300} />}
             {row.visual === "feed" && (
               <div className="w-full max-w-sm space-y-3">
