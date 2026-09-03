@@ -1,172 +1,751 @@
-# HospiScore — Hospitality OS
+# HospiOS
 
-Web app for property owners to check their property's **online presence score**, computed from reviews and visibility across Booking.com, Google, TripAdvisor, Expedia and Airbnb.
+> The operating platform for the global hospitality technology ecosystem.
 
-## Features
+HospiOS is a global hospitality SaaS platform designed to connect hospitality businesses with a unified commercial, administrative and technology ecosystem.
 
-- **Search** any property (name, city, country) and get a 0–100 score with a grade (Poor / Fair / Good / Excellent)
-- **Score breakdown** across six weighted signals: rating quality, review volume, review velocity, response rate, platform spread, online presence
-- **Per-platform review stats** with normalized ratings across mixed scales (1–5 and 1–10)
-- **Owner claim flow** (simulated verification) unlocking a **prioritized action plan** dashboard
-- Deterministic, unit-tested scoring engine — easy to swap demo data for live APIs
+This repository contains the **HospiOS SaaS Platform, Marketing Website and SaaS Control Plane**.
 
-## Quick start
+It does **not** define or document the main operational PMS application.
+
+---
+
+# What HospiOS Includes
+
+The repository is organized around two major public/product layers and the SaaS management platform surrounding them.
+
+## 1. Marketing Website
+
+The public website is responsible for:
+
+- product marketing
+- hospitality solutions
+- property-type positioning
+- pricing
+- resources
+- integrations
+- lead generation
+- demo requests
+- property score
+- property intelligence
+- contact and conversion flows
+
+Typical public capabilities include:
+
+- Homepage
+- Platform
+- Solutions
+- Pricing
+- Resources
+- Property Score
+- Property Intelligence
+- Demo booking
+- Contact
+- Property discovery
+- Property claim
+- SaaS onboarding entry points
+
+---
+
+# 2. Property Intelligence & Acquisition
+
+HospiOS includes a property intelligence and acquisition engine intended to turn hospitality businesses into qualified SaaS opportunities.
+
+Typical lifecycle:
+
+```text
+Property Discovery
+        ↓
+Property Intelligence
+        ↓
+Property Score
+        ↓
+Lead
+        ↓
+Report
+        ↓
+Property Claim
+        ↓
+Verification
+        ↓
+Organization
+        ↓
+Onboarding
+        ↓
+Plan Recommendation
+        ↓
+Subscription
+```
+
+The system is designed to preserve property history and attribution throughout the lifecycle.
+
+---
+
+# 3. SaaS Control Plane
+
+The SaaS Control Plane is the commercial and administrative core of HospiOS.
+
+It includes:
+
+### Organizations
+
+* organization management
+* property relationships
+* ownership
+* organization lifecycle
+
+### Properties
+
+* property discovery
+* import
+* Google Places enrichment
+* claim workflow
+* verification
+* property lifecycle
+
+### Users & Access
+
+* users
+* memberships
+* roles
+* permissions
+* authentication
+* tenant access
+
+### Plans
+
+* plan management
+* pricing
+* feature entitlements
+* plan approvals
+
+### Subscriptions
+
+* subscription lifecycle
+* trials
+* renewals
+* plan changes
+* cancellation
+* suspension
+* expiration
+* proration
+
+### Billing
+
+* invoices
+* invoice lines
+* payments
+* refunds
+* voids
+* dunning
+* coupons
+* usage billing
+
+### Payment Infrastructure
+
+Provider-neutral payment architecture supporting multiple providers.
+
+The system is designed to support:
+
+* provider configuration
+* credentials
+* connection testing
+* provider capabilities
+* routing
+* refunds
+* webhook processing
+* idempotency
+* provider status
+
+Live provider activation remains explicitly controlled.
+
+### Affiliates
+
+* affiliate applications
+* attribution
+* referral links
+* campaigns
+* recurring commissions
+* deferred commissions
+* multi-tier recruitment
+* commission overrides
+* fraud controls
+* payouts
+
+### CRM / Growth
+
+* leads
+* demos
+* pipeline
+* campaigns
+* attribution
+* sales workflows
+* conversion tracking
+
+### Partners
+
+* partner management
+* partner relationships
+* attribution
+* commercial workflows
+
+### Franchise
+
+* franchise relationships
+* property/group relationships
+* commercial management
+
+### Analytics
+
+* SaaS KPIs
+* MRR
+* ARR
+* customer metrics
+* funnel
+* customer health
+* financial monitoring
+* growth analytics
+
+### Platform Administration
+
+* settings
+* integrations
+* audit
+* approvals
+* notifications
+* operational controls
+
+---
+
+# Architecture Overview
+
+```text
+                         ┌─────────────────────────┐
+                         │      MARKETING WEB      │
+                         │                         │
+                         │ Homepage                │
+                         │ Solutions               │
+                         │ Pricing                 │
+                         │ Resources               │
+                         │ Property Score          │
+                         │ Demo / Lead Generation  │
+                         └────────────┬────────────┘
+                                      │
+                                      ▼
+                         ┌─────────────────────────┐
+                         │  PROPERTY INTELLIGENCE  │
+                         │                         │
+                         │ Discovery               │
+                         │ Scoring                 │
+                         │ Reports                 │
+                         │ Lead Capture            │
+                         │ Attribution             │
+                         └────────────┬────────────┘
+                                      │
+                                      ▼
+                         ┌─────────────────────────┐
+                         │ CLAIM / ONBOARDING       │
+                         │                         │
+                         │ Claim                   │
+                         │ Verification            │
+                         │ Organization            │
+                         │ Property                 │
+                         │ Plan Recommendation     │
+                         └────────────┬────────────┘
+                                      │
+                                      ▼
+┌─────────────────────────────────────────────────────────────────────┐
+│                        HOSPIOS SAAS CONTROL PLANE                    │
+│                                                                     │
+│ Organizations   Properties   Users/RBAC   Plans   Subscriptions    │
+│                                                                     │
+│ Billing   Invoices   Payments   Refunds   Dunning   Coupons         │
+│                                                                     │
+│ Affiliates   Campaigns   Leads   Demos   Pipeline   Partners        │
+│                                                                     │
+│ Franchise   Analytics   Settings   Audit   Integrations             │
+│                                                                     │
+└──────────────────────────────┬──────────────────────────────────────┘
+                               │
+                               ▼
+                    ┌────────────────────────┐
+                    │     DOMAIN SERVICES     │
+                    │                        │
+                    │ auth                   │
+                    │ RBAC                   │
+                    │ tenancy                │
+                    │ billing                │
+                    │ payments               │
+                    │ subscriptions          │
+                    │ affiliates             │
+                    │ attribution             │
+                    │ property intelligence  │
+                    │ notifications          │
+                    └────────────┬───────────┘
+                                 │
+                                 ▼
+                    ┌────────────────────────┐
+                    │       PRISMA ORM       │
+                    └────────────┬───────────┘
+                                 │
+                                 ▼
+                    ┌────────────────────────┐
+                    │       DATABASE         │
+                    └────────────────────────┘
+```
+
+---
+
+# Architecture Principles
+
+## Server-side authorization
+
+Authentication alone is not sufficient.
+
+Every protected mutation must enforce:
+
+```text
+Authentication
+       ↓
+Authorization
+       ↓
+Tenant Scope
+       ↓
+Validation
+       ↓
+Business Rules
+       ↓
+Database
+```
+
+UI-level hiding is never considered a security boundary.
+
+---
+
+# Multi-Tenant Model
+
+The commercial platform follows the conceptual hierarchy:
+
+```text
+Platform
+   ↓
+Organization
+   ↓
+Property
+   ↓
+Membership / Users / Business Data
+```
+
+A request must not be able to escape its permitted organization/property context.
+
+Client-provided IDs must never automatically be treated as trusted ownership.
+
+---
+
+# Financial Architecture
+
+Financial functionality is treated as a domain rather than simple CRUD.
+
+Important properties:
+
+* transactional writes
+* idempotency
+* database constraints
+* concurrency protection
+* auditability
+* explicit state transitions
+* accurate currency handling
+
+Financial flows include:
+
+```text
+Plan
+ ↓
+Subscription
+ ↓
+Invoice
+ ↓
+Payment
+ ↓
+Settlement
+ ↓
+Dunning / Renewal
+```
+
+Related financial domains include:
+
+* refunds
+* voids
+* coupons
+* commissions
+* payouts
+* usage billing
+
+---
+
+# Payment Architecture
+
+The payment layer is provider-neutral.
+
+Conceptually:
+
+```text
+Payment Request
+       ↓
+Provider Resolver
+       ↓
+Provider Adapter
+       ↓
+External Gateway
+       ↓
+Webhook / Callback
+       ↓
+Canonical Payment State
+```
+
+Providers should not leak provider-specific logic into the rest of the business domain.
+
+---
+
+# Affiliate Architecture
+
+The affiliate system is designed around a persistent attribution chain:
+
+```text
+Affiliate
+ ↓
+Referral
+ ↓
+Property / Lead
+ ↓
+Claim
+ ↓
+Organization
+ ↓
+Subscription
+ ↓
+Commission
+ ↓
+Eligibility
+ ↓
+Payout
+```
+
+The system supports:
+
+* first/last attribution where configured
+* campaign attribution
+* recurring commission
+* deferred commission
+* affiliate recruitment
+* multi-tier overrides
+* fraud detection
+* payout settlement
+
+Business policies that require owner decisions must not be guessed by developers.
+
+---
+
+# Technology Stack
+
+## Frontend
+
+* Next.js
+* React
+* TypeScript
+* Tailwind CSS / project design system
+* Server Components
+* Client Components
+* responsive UI
+* PWA support
+
+## Backend
+
+* Next.js App Router
+* Next.js API Routes
+* TypeScript
+* domain/service modules
+* server-side authorization
+
+## ORM
+
+* Prisma
+
+## Database
+
+The application uses Prisma-backed persistence with environment-dependent deployment storage.
+
+Schema changes must use versioned migrations.
+
+Production schema evolution must never use:
 
 ```bash
-npm install
-npm run dev
+prisma db push
 ```
 
-Open http://localhost:3000. Search for a city like `Lisbon`, `Paris` or `Byron Bay`.
+## Authentication
 
-## Scripts
+* session-based authentication
+* server-side session validation
+* RBAC
+* tenant scoping
 
-| Command              | Purpose                         |
-| -------------------- | ------------------------------- |
-| `npm run dev`        | Start dev server                |
-| `npm run build`      | Production build                |
-| `npm run start`      | Run production build            |
-| `npm run lint`       | ESLint                          |
-| `npm run typecheck`  | TypeScript check (`tsc --noEmit`) |
-| `npm test`           | Vitest unit tests               |
-| `npm run snapshot`   | Score snapshot worker (daily trends) |
+## Integrations
 
-## Architecture
+The architecture supports integration adapters for areas such as:
 
-```
-app/page.tsx                          Home + search
-app/api/search/route.ts               GET /api/search?q=   (server-side search + scoring)
-app/api/properties/[id]/route.ts      GET /api/properties/:id  (full score JSON)
-app/properties/[slug]/page.tsx        Score page (SSG via generateStaticParams)
-app/property/[id]/page.tsx            Live-property score page (dynamic)
-app/properties/[slug]/claim/page.tsx  Owner claim flow
-app/properties/[slug]/dashboard/page.tsx  Verified-owner action plan
-lib/scoring.ts                        Pure scoring engine (weights, normalization, grades)
-lib/config.ts                         Env-driven runtime config (demo vs live)
-lib/cache.ts                          TTL cache (memory default, optional Redis)
-lib/scoreHistory.ts                   File-based score snapshots (trends)
-lib/resolver.ts                       Orchestrates Places + review providers into scored results
-lib/providers/google.ts               Google Places API (search + place details)
-lib/providers/reviews.ts              Review-provider interface (demo, stayapi, apify)
-lib/client/maps-loader.ts             Client-side Places Autocomplete loader
-lib/data.ts                           Seeded demo properties
-lib/types.ts                          Shared types
-lib/{scoring,resolver,cache,scoreHistory}.test.ts   Vitest tests
-scripts/snapshot.ts                   Daily score-snapshot worker
-components/                           ScoreGauge, ScoreBreakdown, ScoreTrend, PlatformRatings, Search, ClaimForm
-```
+* payment providers
+* Google Places
+* email
+* communication
+* calendars
+* OTA/distribution
+* accounting
+* APIs
+* webhooks
+* external services
 
-## Scoring model
+## Testing
 
-Score = Σ (component × weight) → 0–100:
+* Vitest
+* TypeScript compiler
+* ESLint
+* production build validation
+* integration tests
+* browser/runtime verification
 
-| Component         | Weight |
-| ----------------- | ------ |
-| Rating quality    | 30%    |
-| Review volume     | 20%    |
-| Review velocity   | 15%    |
-| Response rate     | 10%    |
-| Platform spread   | 10%    |
-| Online presence   | 15%    |
+## Deployment
 
-Tune constants in `lib/scoring.ts` (`WEIGHTS`, `TARGETS`). Grades: 85+ Excellent, 70–84 Good, 50–69 Fair, <50 Poor.
+The current production environment uses:
 
-## Going live — wiring real data
+* GitHub
+* Hostinger
+* Next.js
+* Node.js
+* Prisma migrations
+* environment-managed production secrets
 
-The app ships in **demo mode** (seeded properties, no network). To power it with
-real data, provide keys in `.env.local` (see `.env.example`). The architecture
-is provider-based, so the scoring engine is untouched — only the source changes.
+The exact production deployment contract belongs in the deployment documentation rather than application code.
 
-### 1. Google Places API (property search + Google signals)
+---
 
-1. Get a key: Google Cloud Console → **APIs & Services → Credentials** → create an
-   API key. Restrict it to your app's domain in production.
-2. Enable **"Places API (New)"** for that project.
-3. Set `GOOGLE_PLACES_API_KEY` in `.env.local`.
-4. That's it — the app flips to live mode:
-   - Search (`/api/search?q=…`) now calls Places Text Search and maps each
-     result (rating, review count, website) plus Google presence heuristics into
-     scoring signals.
-   - Each live result links to `/property/place:<placeId>`, a dynamic page that
-     resolves full details server-side.
-   - No key / provider outage → automatic fallback to demo data.
+# Important Repository Boundaries
 
-   Cost notes: Places Text Search ~$32/1k requests, Place Details ~$17/1k.
-   The resolver enriches only the top 5 results per query to control spend.
+This repository contains:
 
-### 2. Review-data provider (OTA reviews)
-
-Google alone only gives you its own rating. For Booking/TripAdvisor/Expedia/Airbnb
-signals choose a provider and set:
-
-```
-REVIEW_PROVIDER=stayapi        # or "demo" | "apify"
-REVIEW_BASE_URL=https://...
-REVIEW_API_KEY=...
+```text
+Marketing Website
++
+Property Intelligence
++
+Lead / Growth Platform
++
+SaaS Control Plane
 ```
 
-| Provider | What it gives you | Notes |
-| -------- | ----------------- | ----- |
-| `demo` (default) | OTA signals from the seeded dataset | Offline, useful for matching demo properties |
-| `stayapi` | Managed Booking/TripAdvisor/Expedia/Airbnb reviews via API | Clean JSON, webhooks, response-gap stats. Add the expected shape to `lib/providers/reviews.ts` |
-| `apify` | Scheduled scrapers for TripAdvisor/Booking/Google Maps | Cheaper at volume, but you own scheduling + parsing |
+The following is deliberately outside this architecture document:
 
-Implementing a new provider = adding an object matching the `ReviewProvider`
-interface and registering it in `getReviewProvider()`. Every live provider
-automatically falls back to demo on failure.
-
-### 3. Filling the "unknown" presence signals
-
-Google Places doesn't expose social activity or directory listings. `presence`
-fields that can't be sourced are set to neutral/unknown defaults in
-`lib/resolver.ts`. For verified (claimed) owners these should come from your PMS
-or a reputation vendor — that's the natural integration point.
-
-### 4. Places Autocomplete widget (client)
-
-Set a **separate** client-safe key to get a native dropdown as you type:
-
-```
-NEXT_PUBLIC_GOOGLE_MAPS_API_KEY=...
+```text
+Main Operational PMS Application
 ```
 
-This key must be restricted to your app origin (never reuse the server key).
-Enable **"Maps JavaScript API"**. Without it, search silently falls back to the
-plain text box. Selecting a prediction loads that exact place's score.
+The operational PMS domain may integrate with HospiOS commercially, but its internal product architecture should not be mixed into the SaaS Control Plane architecture.
 
-### 5. Caching (save Places quota)
+---
 
-Places lookups are cached behind `lib/cache.ts`:
+# Development Flow
 
+Recommended flow:
+
+```text
+Issue
+ ↓
+Architecture Review
+ ↓
+Implementation
+ ↓
+Unit Test
+ ↓
+Integration Test
+ ↓
+Typecheck
+ ↓
+Lint
+ ↓
+Production Build
+ ↓
+Review
+ ↓
+PR
+ ↓
+Merge
+ ↓
+Deploy
+ ↓
+Live Verification
 ```
-CACHE_PROVIDER=memory      # default, zero-config in-memory TTL cache
-# or Redis:
-CACHE_PROVIDER=redis
-REDIS_URL=redis://localhost:6379
-# (requires: npm i redis)
+
+---
+
+# Quality Gates
+
+Before a pull request is considered ready:
+
+```bash
+npx tsc --noEmit
+npm run lint
+npx vitest run
+npm run build
+npm run launch:check
+npm run smoke
 ```
 
-Place Details cache 24h, Text Search 1h. `CACHE_DISABLED=1` bypasses for
-debugging.
+Financial, security and tenancy changes should receive additional focused tests.
 
-### 6. Score history + snapshot worker
+---
 
-`npm run snapshot` recomputes and persists every property's score as a JSON
-snapshot (default `<project>/var/scores`, override with `SCORE_HISTORY_DIR`).
-The property page shows a **score-trend sparkline** once ≥2 snapshots exist.
+# Security Rules
 
-Schedule it daily (e.g. cron):
+Never commit:
 
+* passwords
+* API keys
+* private keys
+* payment credentials
+* encryption keys
+* production database credentials
+* webhook secrets
+* session secrets
+
+Use:
+
+```text
+.env
+.env.local
+.env.production
 ```
-0 2 * * * cd /path/to/app && npm run snapshot >> var/snapshot.log 2>&1
+
+for local/host configuration as appropriate.
+
+Only safe placeholders belong in:
+
+```text
+.env.example
 ```
 
-In production, snapshot your claimed/live portfolio (from your DB) instead of
-the demo dataset.
+---
 
-### 7. Production hardening
+# Database Rules
 
-- Store claimed-property verification (GBP API) and review-response tracking in
-  Postgres.
-- Replace `FileScoreStore` with a Postgres implementation behind the same
-  `ScoreHistoryStore` interface (`lib/scoreHistory.ts`).
+Never:
+
+```bash
+prisma db push
+```
+
+against production.
+
+Use:
+
+```text
+schema change
+→ migration
+→ local validation
+→ migration validation
+→ deployment
+```
+
+Migrations must be additive and reviewable unless a destructive migration is explicitly approved.
+
+---
+
+# Contribution Rules
+
+Before changing a business domain:
+
+1. Locate the canonical service.
+2. Locate the canonical database model.
+3. Locate existing permissions.
+4. Locate existing audit behavior.
+5. Locate existing tests.
+6. Extend rather than duplicate.
+
+Do not put business logic in presentation components when a domain/service layer already exists.
+
+---
+
+# Pull Requests
+
+A good PR should state:
+
+### What changed
+
+### Why it changed
+
+### Files/domains affected
+
+### Security impact
+
+### Database impact
+
+### Migration impact
+
+### Tests
+
+### Deployment considerations
+
+### Backward compatibility
+
+---
+
+# Architecture Documentation
+
+Detailed architecture documentation belongs in:
+
+```text
+docs/
+```
+
+Suggested documents:
+
+* ARCHITECTURE.md
+* SAAS-MANAGEMENT-ARCHITECTURE.md
+* SAAS-RBAC-MATRIX.md
+* SAAS-DATA-FLOW.md
+* SAAS-FINANCIAL-INVARIANTS.md
+* SAAS-INTEGRATIONS.md
+* PROPERTY-INTELLIGENCE-ENGINE.md
+* MARKETING-ARCHITECTURE.md
+* DEPLOYMENT.md
+* CONTRIBUTING.md
+
+---
+
+# Project Philosophy
+
+HospiOS should remain:
+
+* modular
+* multi-tenant
+* auditable
+* secure
+* provider-neutral
+* internationally scalable
+* API-first
+* strongly typed
+* testable
+* observable
+
+Most importantly:
+
+**The UI should reflect what the backend actually supports.**
+
+No fake success states.
+
+No fake integrations.
+
+No fake metrics.
+
+No fabricated production data.
+
+No hidden security bypasses.
