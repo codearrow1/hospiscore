@@ -119,20 +119,43 @@ export default function ProductTour() {
   const [activeId, setActiveId] = useState(STEPS[0].id);
   const active = STEPS.find((s) => s.id === activeId) ?? STEPS[0];
 
+  function moveTab(dir: 1 | -1) {
+    const i = STEPS.findIndex((s) => s.id === activeId);
+    const next = STEPS[(i + dir + STEPS.length) % STEPS.length];
+    setActiveId(next.id);
+    document.getElementById(`tab-${next.id}`)?.focus();
+  }
+
   return (
     <div className="grid items-start gap-8 lg:grid-cols-[300px_1fr]">
       {/* Tabs */}
-      <div className="flex gap-2 overflow-x-auto pb-2 lg:flex-col lg:overflow-visible lg:pb-0" role="tablist" aria-label="Product tour">
+      <div
+        className="flex gap-2 overflow-x-auto pb-2 lg:flex-col lg:overflow-visible lg:pb-0"
+        role="tablist"
+        aria-label="Product tour"
+        onKeyDown={(e) => {
+          if (e.key === "ArrowDown" || e.key === "ArrowRight") {
+            e.preventDefault();
+            moveTab(1);
+          } else if (e.key === "ArrowUp" || e.key === "ArrowLeft") {
+            e.preventDefault();
+            moveTab(-1);
+          }
+        }}
+      >
         {STEPS.map((step) => {
           const selected = step.id === activeId;
           return (
             <button
               key={step.id}
+              id={`tab-${step.id}`}
               type="button"
               role="tab"
               aria-selected={selected}
+              aria-controls={`panel-${step.id}`}
+              tabIndex={selected ? 0 : -1}
               onClick={() => setActiveId(step.id)}
-              className={`flex min-w-[240px] items-start gap-3 rounded-xl border p-4 text-left transition lg:min-w-0 ${
+              className={`flex min-w-[240px] items-start gap-3 rounded-xl border p-4 text-left transition focus-visible:outline-2 focus-visible:outline-indigo-400 lg:min-w-0 ${
                 selected
                   ? "border-indigo-500/60 bg-indigo-950/40"
                   : "border-zinc-800 bg-zinc-900/40 hover:border-zinc-700"
@@ -151,7 +174,7 @@ export default function ProductTour() {
       </div>
 
       {/* Panel */}
-      <div role="tabpanel" aria-labelledby={`tab-${active.id}`} className="min-w-0">
+      <div id={`panel-${active.id}`} role="tabpanel" aria-labelledby={`tab-${active.id}`} tabIndex={0} className="min-w-0">
         <div key={active.id} className="animate-fade-in">
           <UiMock variant={active.mock} className="w-full max-w-3xl" />
           <div className="mt-6 grid gap-6 sm:grid-cols-[1fr_auto] sm:items-start">

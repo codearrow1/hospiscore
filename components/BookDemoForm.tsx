@@ -15,6 +15,7 @@ export default function BookDemoForm({ compact = false }: { compact?: boolean })
     company: "",
     propertyName: "",
     propertyCount: "1-5",
+    focus: "",
     message: "",
   });
   const [context, setContext] = useState<{
@@ -65,7 +66,7 @@ export default function BookDemoForm({ compact = false }: { compact?: boolean })
                 : values.propertyCount === "21-100"
                   ? 60
                   : 250,
-          message: values.message,
+          message: values.focus ? `[Focus: ${values.focus}] ${values.message}`.trim() : values.message,
           plan: context.plan,
           country: context.country,
           billingCycle: context.cycle,
@@ -167,7 +168,7 @@ export default function BookDemoForm({ compact = false }: { compact?: boolean })
         </label>
         <label className="flex flex-col gap-1.5">
           <span className={labelCls}>What should we focus on?</span>
-          <select value={values.message === "" ? "" : values.message} onChange={(e) => set("message", e.target.value)} className={inputCls}>
+           <select value={values.focus} onChange={(e) => set("focus", e.target.value)} className={inputCls}>
             <option value="">Review &amp; reputation</option>
             <option value="online presence score">Online presence score</option>
             <option value="ai reply drafts">AI reply drafts</option>

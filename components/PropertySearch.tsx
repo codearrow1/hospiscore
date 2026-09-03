@@ -128,7 +128,7 @@ export default function PropertySearch({ compact = false }: { compact?: boolean 
           placeholder="Search by property name, city or country… e.g. Lisbon"
           aria-label="Search properties"
           autoComplete="off"
-          className="w-full rounded-2xl border border-zinc-300 bg-white py-4 pl-12 pr-4 text-base text-zinc-900 shadow-sm outline-none transition focus:border-indigo-500 focus:ring-2 focus:ring-indigo-200 dark:border-zinc-700 dark:bg-zinc-900 dark:text-zinc-50 dark:focus:ring-indigo-900"
+          className="w-full rounded-2xl border border-zinc-700 bg-zinc-900 py-4 pl-12 pr-4 text-base text-zinc-100 shadow-sm outline-none transition focus:border-indigo-400 focus:ring-2 focus:ring-indigo-900"
         />
         <svg
           className="pointer-events-none absolute left-4 top-1/2 h-5 w-5 -translate-y-1/2 text-zinc-400"
@@ -158,8 +158,8 @@ export default function PropertySearch({ compact = false }: { compact?: boolean 
           <span
             className={`rounded-full px-2 py-0.5 font-medium ${
               mode === "live"
-                ? "bg-indigo-50 text-indigo-600 dark:bg-indigo-950 dark:text-indigo-300"
-                : "bg-zinc-100 text-zinc-500 dark:bg-zinc-800 dark:text-zinc-400"
+                ? "bg-indigo-500/15 text-indigo-300"
+                : "bg-zinc-800 text-zinc-400"
             }`}
           >
             {mode === "live" ? "Live data" : "Demo data"}
@@ -172,16 +172,16 @@ export default function PropertySearch({ compact = false }: { compact?: boolean 
           {[0, 1, 2].map((i) => (
             <div
               key={i}
-              className="flex animate-pulse items-center justify-between gap-4 rounded-2xl border border-zinc-200 bg-white p-4 dark:border-zinc-800 dark:bg-zinc-900"
+              className="flex animate-pulse items-center justify-between gap-4 rounded-2xl border border-zinc-800 bg-zinc-900 p-4"
             >
               <div className="flex items-center gap-4">
-                <div className="h-12 w-12 rounded-xl bg-zinc-200 dark:bg-zinc-800" />
+                <div className="h-12 w-12 rounded-xl bg-zinc-800" />
                 <div className="space-y-2">
-                  <div className="h-4 w-40 max-w-full rounded bg-zinc-200 dark:bg-zinc-800" />
-                  <div className="h-3 w-56 max-w-full rounded bg-zinc-200 dark:bg-zinc-800" />
+                  <div className="h-4 w-40 max-w-full rounded bg-zinc-800" />
+                  <div className="h-3 w-56 max-w-full rounded bg-zinc-800" />
                 </div>
               </div>
-              <div className="h-11 w-11 rounded-xl bg-zinc-200 dark:bg-zinc-800" />
+              <div className="h-11 w-11 rounded-xl bg-zinc-800" />
             </div>
           ))}
         </div>
@@ -212,7 +212,7 @@ export default function PropertySearch({ compact = false }: { compact?: boolean 
       {results !== null && (
         <div className="mt-4 flex flex-col gap-3">
           {error && (
-            <p className="rounded-xl border border-red-200 bg-red-50 p-4 text-sm text-red-600 dark:border-red-900 dark:bg-red-950/40 dark:text-red-300">
+            <p className="rounded-xl border border-red-900/60 bg-red-950/40 p-4 text-sm text-red-300">
               {error}
             </p>
           )}
@@ -225,12 +225,12 @@ export default function PropertySearch({ compact = false }: { compact?: boolean 
             </>
           )}
           {!loading && results.length === 0 && !focused && query && !error && (
-            <p className="rounded-xl border border-dashed border-zinc-300 p-6 text-center text-sm text-zinc-500 dark:border-zinc-700">
+            <p className="rounded-xl border border-dashed border-zinc-700 p-6 text-center text-sm text-zinc-400">
               No properties match “{query}”. Try a city like Paris or Byron Bay.
             </p>
           )}
           {!loading && results.length === 0 && !focused && !query && mode === "live" && !error && (
-            <p className="rounded-xl border border-dashed border-zinc-300 p-6 text-center text-sm text-zinc-500 dark:border-zinc-700">
+            <p className="rounded-xl border border-dashed border-zinc-700 p-6 text-center text-sm text-zinc-400">
               Start typing a property name or city to search live data.
             </p>
           )}
@@ -255,13 +255,13 @@ function ResultCard({
   const href = r.isLive ? `/property/${r.id}` : `/properties/${r.slug}`;
   const score = r.overall;
   return (
-    <div className="flex items-center justify-between gap-3 rounded-2xl border border-zinc-200 bg-white p-4 shadow-sm transition hover:border-indigo-300 hover:shadow-md dark:border-zinc-800 dark:bg-zinc-900 dark:hover:border-indigo-700">
+    <div className="flex items-center justify-between gap-3 rounded-2xl border border-zinc-800 bg-zinc-900 p-4 shadow-sm transition hover:border-zinc-600 hover:shadow-md">
       <Link
         href={href}
         className="group flex min-w-0 flex-1 items-center justify-between gap-4"
       >
         <div className="flex min-w-0 items-center gap-4">
-        <span className="flex h-12 w-12 shrink-0 items-center justify-center rounded-xl bg-indigo-100 text-lg font-bold text-indigo-700 dark:bg-indigo-900/30 dark:text-indigo-300">
+        <span className="flex h-12 w-12 shrink-0 items-center justify-center rounded-xl bg-indigo-500/15 text-lg font-bold text-indigo-300">
           {r.name
             .split(" ")
             .slice(0, 2)
@@ -269,7 +269,7 @@ function ResultCard({
             .join("")}
         </span>
         <div className="min-w-0">
-          <div className="truncate font-semibold text-zinc-900 dark:text-zinc-50">
+          <div className="truncate font-semibold text-zinc-100">
             {r.name}
             {r.claimed && (
               <span
@@ -286,10 +286,10 @@ function ResultCard({
               </span>
             )}
           </div>
-          <div className="truncate text-sm text-zinc-500 dark:text-zinc-400">
+          <div className="truncate text-sm text-zinc-400">
             {r.type} · {r.city}, {r.country}
             {r.isLive && (
-              <span className="ml-2 rounded bg-indigo-50 px-1.5 py-0.5 text-[10px] font-medium uppercase tracking-wide text-indigo-500 dark:bg-indigo-950 dark:text-indigo-300">
+              <span className="ml-2 rounded bg-indigo-500/15 px-1.5 py-0.5 text-[10px] font-medium uppercase tracking-wide text-indigo-300">
                 live
               </span>
             )}
@@ -305,10 +305,10 @@ function ResultCard({
         <span
           className={`flex h-11 w-11 items-center justify-center rounded-xl text-base font-bold tabular-nums ${
             score >= 70
-              ? "bg-emerald-50 text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-300"
+              ? "bg-emerald-500/15 text-emerald-300"
               : score >= 50
-                ? "bg-amber-50 text-amber-700 dark:bg-amber-900/30 dark:text-amber-300"
-                : "bg-red-50 text-red-700 dark:bg-red-900/30 dark:text-red-300"
+                ? "bg-amber-500/15 text-amber-300"
+                : "bg-red-500/15 text-red-300"
           }`}
         >
           {score}
@@ -317,7 +317,7 @@ function ResultCard({
       </Link>
       <button
         onClick={() => onEmailReport(r)}
-        className="shrink-0 rounded-xl border border-indigo-200 px-3 py-2.5 text-xs font-semibold text-indigo-600 transition hover:bg-indigo-50 dark:border-indigo-900 dark:text-indigo-300 dark:hover:bg-indigo-950/50"
+        className="shrink-0 rounded-xl border border-indigo-500/40 px-3 py-2.5 text-xs font-semibold text-indigo-300 transition hover:bg-indigo-500/15"
         title={`Email the full report for ${r.name}`}
       >
         Email report

@@ -15,16 +15,16 @@ export default function FeatureCard({
   accent?: "indigo" | "violet" | "emerald" | "amber" | "rose" | "sky";
 }) {
   const accents: Record<string, string> = {
-    indigo: "bg-indigo-50 text-indigo-600 dark:bg-indigo-950/50 dark:text-indigo-300",
-    violet: "bg-violet-50 text-violet-600 dark:bg-violet-950/50 dark:text-violet-300",
-    emerald: "bg-emerald-50 text-emerald-600 dark:bg-emerald-950/50 dark:text-emerald-300",
-    amber: "bg-amber-50 text-amber-600 dark:bg-amber-950/50 dark:text-amber-300",
-    rose: "bg-rose-50 text-rose-600 dark:bg-rose-950/50 dark:text-rose-300",
-    sky: "bg-sky-50 text-sky-600 dark:bg-sky-950/50 dark:text-sky-300",
+    indigo: "bg-indigo-500/15 text-indigo-300",
+    violet: "bg-violet-500/15 text-violet-300",
+    emerald: "bg-emerald-500/15 text-emerald-300",
+    amber: "bg-amber-500/15 text-amber-300",
+    rose: "bg-rose-500/15 text-rose-300",
+    sky: "bg-sky-500/15 text-sky-300",
   };
 
   return (
-    <div className="group relative overflow-hidden rounded-2xl border border-zinc-200 bg-white p-6 transition duration-300 hover:-translate-y-1 hover:border-indigo-300 hover:shadow-xl hover:shadow-indigo-500/5 dark:border-zinc-800 dark:bg-zinc-900 dark:hover:border-indigo-800">
+    <div className="group relative overflow-hidden rounded-2xl border border-zinc-800 bg-zinc-900 p-6 transition duration-300 hover:-translate-y-1 hover:border-zinc-600 hover:shadow-xl hover:shadow-indigo-950/40">
       <div
         aria-hidden="true"
         className="pointer-events-none absolute -right-16 -top-16 h-32 w-32 rounded-full bg-indigo-500/10 blur-2xl opacity-0 transition-opacity duration-300 group-hover:opacity-100"
@@ -34,8 +34,8 @@ export default function FeatureCard({
       >
         {icon}
       </div>
-      <h3 className="mb-1.5 font-semibold text-zinc-900 dark:text-zinc-50">{title}</h3>
-      <p className="text-sm leading-relaxed text-zinc-600 dark:text-zinc-400">{body}</p>
+      <h3 className="mb-1.5 font-semibold text-zinc-100">{title}</h3>
+      <p className="text-sm leading-relaxed text-zinc-400">{body}</p>
     </div>
   );
 }

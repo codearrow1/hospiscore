@@ -62,13 +62,12 @@ export default function BeforeAfter() {
   return (
     <div>
       {/* Toggle */}
-      <div className="mx-auto flex w-fit items-center gap-3 rounded-full border border-zinc-800 bg-zinc-900/70 p-1.5" role="tablist" aria-label="Compare before and after">
+      <div className="mx-auto flex w-fit items-center gap-3 rounded-full border border-zinc-800 bg-zinc-900/70 p-1.5" role="group" aria-label="Compare before and after">
         {(["before", "after"] as RowMode[]).map((m) => (
           <button
             key={m}
             type="button"
-            role="tab"
-            aria-selected={mode === m}
+            aria-pressed={mode === m}
             onClick={() => setMode(m)}
             className={`rounded-full px-5 py-2 text-sm font-semibold transition ${
               mode === m

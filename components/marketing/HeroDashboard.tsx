@@ -38,6 +38,13 @@ export default function HeroDashboard() {
   const stageRef = useRef<HTMLDivElement>(null);
   const active = TABS.find((t) => t.id === activeId) ?? TABS[0];
 
+  function moveTab(dir: 1 | -1) {
+    const i = TABS.findIndex((t) => t.id === activeId);
+    const next = TABS[(i + dir + TABS.length) % TABS.length];
+    setActiveId(next.id);
+    document.getElementById(`htab-${next.id}`)?.focus();
+  }
+
   useEffect(() => {
     const mq = window.matchMedia("(prefers-reduced-motion: reduce)");
     setReducedMotion(mq.matches);
@@ -77,10 +84,7 @@ export default function HeroDashboard() {
       />
 
       {/* Caption band — its OWN region, above the tabs, never overlapping */}
-      <div
-        role="contentinfo"
-        className="animate-fade-up mb-4 flex items-center justify-center gap-2.5 rounded-2xl border border-indigo-800/50 bg-indigo-950/40 px-4 py-2 backdrop-blur"
-      >
+      <div className="animate-fade-up mb-4 flex items-center justify-center gap-2.5 rounded-2xl border border-indigo-800/50 bg-indigo-950/40 px-4 py-2 backdrop-blur">
         <span
           aria-hidden="true"
           className="pulse-dot h-1.5 w-1.5 rounded-full bg-emerald-400"
@@ -98,17 +102,29 @@ export default function HeroDashboard() {
         role="tablist"
         aria-label="Explore HospiOS screens"
         className="animate-fade-up mb-4 flex flex-wrap justify-center gap-2"
+        onKeyDown={(e) => {
+          if (e.key === "ArrowRight") {
+            e.preventDefault();
+            moveTab(1);
+          } else if (e.key === "ArrowLeft") {
+            e.preventDefault();
+            moveTab(-1);
+          }
+        }}
       >
         {TABS.map((tab) => {
           const selected = tab.id === activeId;
           return (
             <button
               key={tab.id}
+              id={`htab-${tab.id}`}
               type="button"
               role="tab"
               aria-selected={selected}
+              aria-controls={`hpanel-${tab.id}`}
+              tabIndex={selected ? 0 : -1}
               onClick={() => setActiveId(tab.id)}
-              className={`rounded-full px-3.5 py-1.5 text-xs font-semibold transition ${
+              className={`rounded-full px-3.5 py-1.5 text-xs font-semibold transition focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-indigo-400 ${
                 selected
                   ? "bg-indigo-600 text-white shadow-lg shadow-indigo-600/30"
                   : "border border-zinc-700 bg-zinc-900/60 text-zinc-300 hover:border-indigo-400 hover:text-indigo-300"
@@ -125,7 +141,7 @@ export default function HeroDashboard() {
         className="animate-scale-in relative"
         style={{ transform: parallax ? `translateY(${-parallax}px)` : undefined }}
       >
-        <div role="tabpanel" className="animate-fade-in" key={active.id}>
+        <div id={`hpanel-${active.id}`} role="tabpanel" aria-labelledby={`htab-${active.id}`} tabIndex={0} className="animate-fade-in" key={active.id}>
           <UiMock variant={active.mock} className="w-full" />
         </div>
       </div>

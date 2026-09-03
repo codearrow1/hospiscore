@@ -31,11 +31,7 @@ export default function RealtimeFeed() {
   }, []);
 
   return (
-    <div
-      role="log"
-      aria-live="polite"
-      className="rounded-3xl border border-zinc-800 bg-zinc-950/60 p-5 shadow-2xl shadow-indigo-950/40"
-    >
+    <div className="rounded-3xl border border-zinc-800 bg-zinc-950/60 p-5 shadow-2xl shadow-indigo-950/40">
       <div className="mb-4 flex items-center justify-between">
         <div className="flex items-center gap-2">
           <span className="relative flex h-2.5 w-2.5">

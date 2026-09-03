@@ -6,6 +6,7 @@ import { usePathname } from "next/navigation";
 import Link from "next/link";
 import Icon from "@/components/marketing/icons";
 import type { IconName } from "@/components/marketing/icons";
+import { useFocusTrap } from "@/hooks/useFocusTrap";
 
 interface NavItem {
   label: string;
@@ -55,12 +56,22 @@ function Dropdown({
   items: NavItem[];
   wide?: boolean;
 }) {
+  const [expanded, setExpanded] = useState(false);
   return (
-    <div className="group relative">
+    <div
+      className="group relative"
+      onMouseEnter={() => setExpanded(true)}
+      onMouseLeave={() => setExpanded(false)}
+      onFocus={() => setExpanded(true)}
+      onBlur={(e) => {
+        if (!e.currentTarget.contains(e.relatedTarget as Node)) setExpanded(false);
+      }}
+    >
       <button
         type="button"
         className="flex items-center gap-1 rounded-lg px-3 py-2 text-sm text-zinc-400 transition hover:text-zinc-50"
         aria-haspopup="true"
+        aria-expanded={expanded}
       >
         {label}
         <svg
@@ -221,6 +232,8 @@ export default function Header() {
   const [scrolled, setScrolled] = useState(false);
   const [activeSection, setActiveSection] = useState<string | null>("platform");
   const closeTimer = useRef<number | undefined>(undefined);
+  const hamburgerRef = useRef<HTMLButtonElement>(null);
+  const menuRef = useRef<HTMLDivElement>(null);
   const pathname = usePathname();
 
   const closeMenu = () => {
@@ -231,6 +244,11 @@ export default function Header() {
       setClosing(false);
     }, 180);
   };
+
+  useFocusTrap(menuRef, open, {
+    onEscape: closeMenu,
+    initialFocusRef: hamburgerRef,
+  });
 
   useEffect(() => {
     if (typeof window === "undefined") return;
@@ -247,25 +265,13 @@ export default function Header() {
     setClosing(false);
   }, [pathname]);
 
-  // While the mobile menu is open, lock page scroll and close on Escape.
+  // While the mobile menu is open, lock page scroll.
   useEffect(() => {
     if (!open) return;
     const previous = document.body.style.overflow;
     document.body.style.overflow = "hidden";
-    const onKey = (e: KeyboardEvent) => {
-      if (e.key === "Escape") {
-        if (closeTimer.current) window.clearTimeout(closeTimer.current);
-        setClosing(true);
-        closeTimer.current = window.setTimeout(() => {
-          setOpen(false);
-          setClosing(false);
-        }, 180);
-      }
-    };
-    window.addEventListener("keydown", onKey);
     return () => {
       document.body.style.overflow = previous;
-      window.removeEventListener("keydown", onKey);
     };
   }, [open]);
 
@@ -331,6 +337,7 @@ export default function Header() {
             Book a demo
           </Link>
           <button
+            ref={hamburgerRef}
             type="button"
             onClick={() => {
               if (open) {
@@ -356,7 +363,10 @@ export default function Header() {
         typeof document !== "undefined" &&
         createPortal(
           <div
+            ref={menuRef}
             id="mobile-menu"
+            role="dialog"
+            aria-label="Mobile navigation"
             className={`fixed inset-x-0 bottom-0 top-16 z-[65] overflow-y-auto overscroll-contain border-t border-zinc-800 bg-gradient-to-b from-zinc-950 via-zinc-950 to-indigo-950 px-4 pb-10 pt-2 lg:hidden ${
               closing ? "mobile-menu-exit" : "mobile-menu-enter"
             }`}

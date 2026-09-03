@@ -14,7 +14,7 @@ export default function TrackCta({
   href,
   event,
   meta,
-  onMouseDown,
+  onClick,
   className,
   children,
   ariaLabel,
@@ -22,7 +22,7 @@ export default function TrackCta({
   href: string;
   event: PublicEventName;
   meta?: string;
-  onMouseDown?: () => void;
+  onClick?: () => void;
   className?: string;
   children: ReactNode;
   ariaLabel?: string;
@@ -32,9 +32,9 @@ export default function TrackCta({
       href={href}
       aria-label={ariaLabel}
       className={className}
-      onMouseDown={() => {
+      onClick={() => {
         track(event, meta);
-        onMouseDown?.();
+        onClick?.();
       }}
     >
       {children}

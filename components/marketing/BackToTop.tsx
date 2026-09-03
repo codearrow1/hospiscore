@@ -27,13 +27,15 @@ export default function BackToTop() {
     <button
       type="button"
       aria-label="Back to top"
+      aria-hidden={!visible}
+      tabIndex={visible ? 0 : -1}
       onClick={() =>
         window.scrollTo({ top: 0, behavior: reduced ? "auto" : "smooth" })
       }
       className={`fixed bottom-5 right-4 z-50 flex h-11 w-11 items-center justify-center rounded-full border border-zinc-700 bg-zinc-900/90 text-zinc-200 shadow-lg shadow-black/40 backdrop-blur transition-all duration-300 hover:border-indigo-400 hover:text-indigo-300 hover:shadow-indigo-900/40 sm:bottom-6 sm:right-6 ${
         visible
           ? "translate-y-0 opacity-100"
-          : "pointer-events-none translate-y-4 opacity-0"
+          : "pointer-events-none invisible translate-y-4 opacity-0"
       }`}
     >
       <svg className="h-5 w-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">

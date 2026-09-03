@@ -53,15 +53,15 @@ export default function Showcase() {
             <p className="text-xs font-semibold uppercase tracking-widest text-indigo-500">
               {row.eyebrow}
             </p>
-            <h3 className="mt-2 text-2xl font-bold tracking-tight text-zinc-900 sm:text-3xl dark:text-zinc-50">
+            <h3 className="mt-2 text-2xl font-bold tracking-tight text-zinc-100 sm:text-3xl">
               {row.title}
             </h3>
-            <p className="mt-3 text-base leading-relaxed text-zinc-600 dark:text-zinc-400">
+            <p className="mt-3 text-base leading-relaxed text-zinc-400">
               {row.body}
             </p>
             <ul className="mt-5 flex flex-col gap-2">
               {row.bullets.map((b) => (
-                <li key={b} className="flex items-center gap-2 text-sm text-zinc-700 dark:text-zinc-300">
+                <li key={b} className="flex items-center gap-2 text-sm text-zinc-300">
                   <svg className="h-4 w-4 shrink-0 text-emerald-500" viewBox="0 0 20 20" fill="currentColor" aria-hidden="true">
                     <path fillRule="evenodd" d="M10 18a8 8 0 1 0 0-16 8 8 0 0 0 0 16Zm3.7-9.3a1 1 0 0 0-1.4-1.4L9 10.6 7.7 9.3a1 1 0 0 0-1.4 1.4l2 2a1 1 0 0 0 1.4 0l4-4Z" clipRule="evenodd" />
                   </svg>
@@ -71,7 +71,7 @@ export default function Showcase() {
             </ul>
           </div>
 
-          <TiltCard className="glow-border group/visual flex items-center justify-center rounded-3xl border border-zinc-200 bg-gradient-to-br from-zinc-50 to-zinc-100/50 p-8 transition duration-500 hover:shadow-2xl hover:shadow-indigo-500/10 dark:border-zinc-800 dark:from-zinc-900 dark:to-zinc-950">
+          <TiltCard className="glow-border group/visual flex items-center justify-center rounded-3xl border border-zinc-800 bg-gradient-to-br from-zinc-900 to-zinc-950 p-8 transition duration-500 hover:shadow-2xl hover:shadow-indigo-950/40">
             <div className="tilt-inner transition-transform duration-500 group-hover/visual:scale-[1.04]">
               {row.visual === "radar" && <ScoreRadar components={SAMPLE_COMPONENTS} size={300} />}
             {row.visual === "feed" && (
@@ -81,17 +81,17 @@ export default function Showcase() {
                   { tone: "positive", title: "Immaculate rooms, friendly staff — will be back!", chip: "Staff & service", chip2: "Cleanliness" },
                   { tone: "negative", title: "Overpriced for what you get", chip: "Value for money" },
                 ].map((r, i) => (
-                  <div key={i} className={`rounded-xl border p-3 ${r.tone === "negative" ? "border-rose-200 bg-rose-50/60 dark:border-rose-900 dark:bg-rose-950/30" : "border-emerald-200 bg-emerald-50/60 dark:border-emerald-900 dark:bg-emerald-950/30"}`}>
-                    <div className="mb-1 text-xs font-medium text-zinc-500 dark:text-zinc-400">
+                  <div key={i} className={`rounded-xl border p-3 ${r.tone === "negative" ? "border-rose-900/60 bg-rose-950/30" : "border-emerald-900/60 bg-emerald-950/30"}`}>
+                    <div className="mb-1 text-xs font-medium text-zinc-400">
                       Booking.com <span className="text-amber-400">{"★".repeat(r.tone === "negative" ? 2 : 5)}</span>
                     </div>
-                    <p className="text-sm text-zinc-700 dark:text-zinc-200">“{r.title}”</p>
+                    <p className="text-sm text-zinc-200">“{r.title}”</p>
                     <div className="mt-2 flex gap-1.5">
-                      <span className={`rounded-full px-2 py-0.5 text-[10px] font-medium ${r.tone === "negative" ? "bg-rose-100 text-rose-700 dark:bg-rose-900/40 dark:text-rose-300" : "bg-emerald-100 text-emerald-700 dark:bg-emerald-900/40 dark:text-emerald-300"}`}>
+                      <span className={`rounded-full px-2 py-0.5 text-[10px] font-medium ${r.tone === "negative" ? "bg-rose-500/15 text-rose-300" : "bg-emerald-500/15 text-emerald-300"}`}>
                         {r.chip}
                       </span>
                       {r.chip2 && (
-                        <span className={`rounded-full px-2 py-0.5 text-[10px] font-medium ${r.tone === "negative" ? "bg-rose-100 text-rose-700 dark:bg-rose-900/40 dark:text-rose-300" : "bg-emerald-100 text-emerald-700 dark:bg-emerald-900/40 dark:text-emerald-300"}`}>
+                        <span className={`rounded-full px-2 py-0.5 text-[10px] font-medium ${r.tone === "negative" ? "bg-rose-500/15 text-rose-300" : "bg-emerald-500/15 text-emerald-300"}`}>
                           {r.chip2}
                         </span>
                       )}
