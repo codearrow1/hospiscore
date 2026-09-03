@@ -72,10 +72,10 @@ export function bucketBy<T>(
 
 export async function dashboardMetrics(
   target?: string,
-  opts?: { from?: string; to?: string },
+  opts?: { from?: string; to?: string; ownerEmail?: string },
 ): Promise<DashboardMetrics> {
   const allLeads = await listLeads(target);
-  const demos = await listDemos(target);
+  const allDemos = await listDemos(target);
   const customers = await listConvertedCustomers(target);
   const data = await readData(target);
   const views = data.pageViews ?? [];
@@ -84,7 +84,16 @@ export async function dashboardMetrics(
   const fromMs = opts?.from ? Date.parse(opts.from) : NaN;
   const toMs = opts?.to ? Date.parse(opts.to) : NaN;
   const hasRange = !Number.isNaN(fromMs) || !Number.isNaN(toMs);
-  const leads = hasRange
+
+  // Optional owner scope (sales reps see their own book of business)
+  const owner = opts?.ownerEmail?.trim().toLowerCase();
+  const mine = <T extends { ownerEmail?: string }>(rows: T[]): T[] =>
+    owner ? rows.filter((r) => (r.ownerEmail ?? "").toLowerCase() === owner) : rows;
+  const demoMine = <T extends { assignedTo?: string }>(rows: T[]): T[] =>
+    owner ? rows.filter((r) => (r.assignedTo ?? "").toLowerCase() === owner) : rows;
+
+  const demos = demoMine(allDemos);
+  const rangeFiltered = hasRange
     ? allLeads.filter((l) => {
         const t = Date.parse(l.createdAt);
         if (!Number.isNaN(fromMs) && t < fromMs) return false;
@@ -92,6 +101,7 @@ export async function dashboardMetrics(
         return true;
       })
     : allLeads;
+  const leads = mine(rangeFiltered);
 
   const now = new Date();
   const today0 = startOfToday(now).getTime();
@@ -122,10 +132,22 @@ export async function dashboardMetrics(
     count: leads.filter((l) => l.stage === stage).length,
   }));
 
+  // Trend window follows the selected range (default 14 days, capped at 90)
+  const trendSpan = Math.min(
+    Math.max(
+      !Number.isNaN(fromMs) && !Number.isNaN(toMs)
+        ? Math.round((toMs - fromMs) / DAYS_MS)
+        : !Number.isNaN(fromMs)
+          ? Math.round((now.getTime() - fromMs) / DAYS_MS)
+          : 14,
+      1,
+    ),
+    90,
+  );
   const last14: { day: string; leads: number; demos: number; views: number }[] = [];
   const start14 = startOfToday(now);
-  start14.setDate(start14.getDate() - 13);
-  for (let i = 0; i < 14; i++) {
+  start14.setDate(start14.getDate() - (trendSpan - 1));
+  for (let i = 0; i < trendSpan; i++) {
     const day = new Date(start14.getTime() + i * DAYS_MS);
     const key = dayKey(day);
     const lo = day.getTime();

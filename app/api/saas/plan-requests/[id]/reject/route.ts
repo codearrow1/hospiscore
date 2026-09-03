@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { requireSaasAccess } from "@/lib/marketing/guard";
+import { hasSaasPerm } from "@/lib/saas/roles";
 import { rejectPlanChange } from "@/lib/saas/planSync";
 
 export const runtime = "nodejs";
@@ -9,6 +10,7 @@ export const dynamic = "force-dynamic";
 export async function POST(req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   const guard = await requireSaasAccess();
   if (!guard.ok) return guard.response;
+  if (!hasSaasPerm(guard.user, "SYSTEM_SETTINGS_MANAGE")) return NextResponse.json({ error: "SYSTEM_SETTINGS_MANAGE required" }, { status: 403 });
   const { id } = await params;
   let body: { reason?: unknown };
   try {

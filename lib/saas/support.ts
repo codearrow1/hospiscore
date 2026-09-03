@@ -1,41 +1,30 @@
 /**
  * SaaS Support — Phase N (P2 #25)
  * Tickets feed customer health (open-ticket signal) and track SLA.
- * SLA targets by priority: urgent 4h, high 8h, medium 24h, low 72h.
+ * Pure lifecycle/SLA rules live in ticketRules.ts (client-safe); this module
+ * adds the Prisma-backed operations.
  */
 import { prisma } from "@/lib/prisma";
+import {
+  TICKET_CATEGORIES,
+  PRIORITIES,
+  slaDueFor,
+  canTransitionTicket,
+  type TicketStatus,
+} from "@/lib/saas/ticketRules";
+import { resolveSettings } from "@/lib/settings/resolver";
 
-export const TICKET_CATEGORIES = ["billing","technical","subscription","account","integration","bug","onboarding","affiliate","partner","franchise"] as const;
-export type TicketCategory = (typeof TICKET_CATEGORIES)[number];
-
-export type TicketStatus = "open" | "pending" | "in_progress" | "resolved" | "closed";
-export const TICKET_STATUSES: TicketStatus[] = ["open", "pending", "in_progress", "resolved", "closed"];
-
-const ALLOWED_STATUS: Record<TicketStatus, TicketStatus[]> = {
-  open: ["pending", "in_progress", "resolved", "closed"],
-  pending: ["in_progress", "resolved", "closed"],
-  in_progress: ["pending", "resolved", "closed"],
-  resolved: ["closed", "in_progress"], // reopen path
-  closed: [],
-};
-
-export function canTransitionTicket(from: TicketStatus, to: TicketStatus): boolean {
-  if (from === to) return false;
-  return ALLOWED_STATUS[from]?.includes(to) ?? false;
-}
-
-export const PRIORITIES = ["low", "medium", "high", "urgent"] as const;
-export type TicketPriority = (typeof PRIORITIES)[number];
-
-export function slaDueFor(priority: string, from = new Date()): Date {
-  const hours = priority === "urgent" ? 4 : priority === "high" ? 8 : priority === "medium" ? 24 : 72;
-  return new Date(from.getTime() + hours * 3600000);
-}
-
-export function isSlaBreached(t: { status: string; slaDueAt: Date | null; resolvedAt: Date | null; firstResponseAt: Date | null }): boolean {
-  if (!t.slaDueAt || t.resolvedAt || t.status === "closed") return false;
-  return t.slaDueAt.getTime() < Date.now();
-}
+export {
+  TICKET_CATEGORIES,
+  type TicketCategory,
+  type TicketStatus,
+  TICKET_STATUSES,
+  canTransitionTicket,
+  PRIORITIES,
+  type TicketPriority,
+  slaDueFor,
+  isSlaBreached,
+} from "@/lib/saas/ticketRules";
 
 export async function createTicket(input: {
   organizationId: string;
@@ -51,6 +40,7 @@ export async function createTicket(input: {
   const priority = input.priority && PRIORITIES.includes(input.priority as never) ? input.priority : "medium";
   const org = await prisma.organization.findUnique({ where: { id: input.organizationId }, select: { id: true } });
   if (!org) throw new Error("Organization not found");
+  const slaHours = await resolveSettings(["sla_hours_urgent", "sla_hours_high", "sla_hours_medium", "sla_hours_low"]);
   return prisma.supportTicket.create({
     data: {
       organizationId: input.organizationId,
@@ -59,22 +49,25 @@ export async function createTicket(input: {
       description: input.description?.slice(0, 4000) || null,
       priority,
       requesterEmail: input.requesterEmail || null,
-      slaDueAt: slaDueFor(priority),
+      slaDueAt: slaDueFor(priority, new Date(), { urgent: slaHours.sla_hours_urgent as number, high: slaHours.sla_hours_high as number, medium: slaHours.sla_hours_medium as number, low: slaHours.sla_hours_low as number }),
     },
   });
 }
 
-export async function listTickets(opts?: { organizationId?: string; status?: string; category?: string }) {
+export async function listTickets(opts?: { organizationId?: string; status?: string; category?: string; take?: number; skip?: number }) {
   const where: Record<string, unknown> = {};
   if (opts?.organizationId) where.organizationId = opts.organizationId;
   if (opts?.status) where.status = opts.status;
   if (opts?.category) where.category = opts.category;
+  const take = Math.min(opts?.take ?? 200, 500);
+  const skip = opts?.skip ?? 0;
   const [items, total] = await Promise.all([
     prisma.supportTicket.findMany({
       where,
       include: { organization: { select: { legalName: true, country: true } } },
       orderBy: [{ status: "asc" }, { slaDueAt: "asc" }],
-      take: 200,
+      take,
+      skip,
     }),
     prisma.supportTicket.count({ where }),
   ]);

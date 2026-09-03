@@ -1,9 +1,11 @@
-import type { Metadata } from "next";
+import type { Metadata, Viewport } from "next";
 import type { ReactNode } from "react";
 import { Inter, Geist_Mono } from "next/font/google";
 import JsonLd from "@/components/JsonLd";
 import ScrollProgress from "@/components/marketing/ScrollProgress";
 import BackToTop from "@/components/marketing/BackToTop";
+import ThemeInit from "@/components/account/ThemeInit";
+import ServiceWorkerRegistration from "@/components/ServiceWorkerRegistration";
 import { SITE_DESCRIPTION, SITE_NAME, SITE_TAGLINE, SITE_URL, ogImage } from "@/lib/site";
 import "./globals.css";
 
@@ -38,6 +40,7 @@ export const metadata: Metadata = {
   authors: [{ name: SITE_NAME }],
   creator: SITE_NAME,
   applicationName: SITE_NAME,
+  manifest: "/manifest.json",
   alternates: {
     canonical: "/",
   },
@@ -68,13 +71,19 @@ export const metadata: Metadata = {
   },
 };
 
+export const viewport: Viewport = {
+  themeColor: "#6366f1",
+};
+
 export default function RootLayout({ children }: { children: ReactNode }) {
   return (
     <html
       lang="en"
       className={`${inter.variable} ${geistMono.variable} dark h-full antialiased`}
     >
-      <body className="min-h-full flex flex-col">
+      <body className="min-h-full flex flex-col overflow-x-clip">
+        <ThemeInit />
+        <ServiceWorkerRegistration />
         <a href="#main" className="skip-link">
           Skip to content
         </a>

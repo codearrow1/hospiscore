@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { timingSafeEqual } from "node:crypto";
-import { requireCapability } from "@/lib/marketing/guard";
+import { requireCapability, originAllowed } from "@/lib/marketing/guard";
 import { getFollowUpDigest, sendFollowUpDigest, buildDigestHtml } from "@/lib/marketing/followups";
 
 export const runtime = "nodejs";
@@ -37,30 +37,51 @@ export async function GET(req: NextRequest) {
   if (!authorized) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 
   const send = req.nextUrl.searchParams.get("send") === "1";
+  const viaSecret = cronSecret && headerSecret && secretsMatch(cronSecret, headerSecret);
   const digest = await getFollowUpDigest();
-  if (!send) {
-    return NextResponse.json({
-      ok: true,
-      generatedAt: digest.generatedAt,
-      overdue: digest.overdue.map((l) => ({
-        id: l.id,
-        name: l.name,
-        email: l.email,
-        stage: l.stage,
-        ownerEmail: l.ownerEmail,
-        nextFollowUpAt: l.nextFollowUpAt,
-      })),
-      dueSoon: digest.dueSoon.map((l) => ({
-        id: l.id,
-        name: l.name,
-        email: l.email,
-        stage: l.stage,
-        ownerEmail: l.ownerEmail,
-        nextFollowUpAt: l.nextFollowUpAt,
-      })),
-      htmlPreview: buildDigestHtml(digest),
-    });
+  // Emailing the digest is a side effect — under SameSite=Lax a top-level
+  // cross-site navigation could otherwise fire it while an admin browses.
+  // Session-authenticated callers must POST; GET keeps send=1 only for
+  // secret-bearing external schedulers.
+  if (send) {
+    if (!viaSecret) {
+      return NextResponse.json({ error: "Use POST (or X-Cron-Secret header) to send the digest" }, { status: 405 });
+    }
+    const result = await sendFollowUpDigest();
+    return NextResponse.json({ ok: true, ...result, generatedAt: digest.generatedAt });
   }
+  return NextResponse.json({
+    ok: true,
+    generatedAt: digest.generatedAt,
+    overdue: digest.overdue.map((l) => ({
+      id: l.id,
+      name: l.name,
+      email: l.email,
+      stage: l.stage,
+      ownerEmail: l.ownerEmail,
+      nextFollowUpAt: l.nextFollowUpAt,
+    })),
+    dueSoon: digest.dueSoon.map((l) => ({
+      id: l.id,
+      name: l.name,
+      email: l.email,
+      stage: l.stage,
+      ownerEmail: l.ownerEmail,
+      nextFollowUpAt: l.nextFollowUpAt,
+    })),
+    htmlPreview: buildDigestHtml(digest),
+  });
+}
+
+/**
+ * POST /api/marketing/cron/followups — session-authenticated digest send.
+ * The GET handler keeps send=1 exclusively for secret-bearing schedulers.
+ */
+export async function POST(req: NextRequest) {
+  const guard = await requireCapability("leads.read");
+  if (!guard.ok) return guard.response;
+  if (!originAllowed(req)) return NextResponse.json({ error: "Rejected" }, { status: 403 });
   const result = await sendFollowUpDigest();
+  const digest = await getFollowUpDigest();
   return NextResponse.json({ ok: true, ...result, generatedAt: digest.generatedAt });
 }

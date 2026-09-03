@@ -2,6 +2,7 @@ import Link from "next/link";
 import { notFound } from "next/navigation";
 import { resolvePropertyById } from "@/lib/resolver";
 import PropertyScoreView from "@/components/PropertyScoreView";
+import PropertyClaimCTA from "@/components/PropertyClaimCTA";
 import Header from "@/components/Header";
 
 export const dynamic = "force-dynamic";
@@ -13,7 +14,8 @@ export default async function LivePropertyPage({
   params: Promise<{ id: string }>;
 }) {
   const { id } = await params;
-  const property = await resolvePropertyById(decodeURIComponent(id));
+  const decoded = decodeURIComponent(id);
+  const property = await resolvePropertyById(decoded);
   if (!property) notFound();
 
   return (
@@ -36,6 +38,11 @@ export default async function LivePropertyPage({
           Back to search
         </Link>
         <PropertyScoreView property={property} />
+        {decoded.startsWith("place:") && (
+          <div className="mt-6">
+            <PropertyClaimCTA slug={decoded} />
+          </div>
+        )}
       </main>
       <footer className="border-t border-zinc-200 py-6 text-center text-sm text-zinc-500 dark:border-zinc-800 dark:text-zinc-400">
         HospiScore · Hospitality OS

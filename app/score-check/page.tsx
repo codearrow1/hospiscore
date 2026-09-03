@@ -11,19 +11,23 @@ import ScoreCheckWidget from "@/components/ScoreCheckWidget";
 import Icon from "@/components/marketing/icons";
 import type { IconName } from "@/components/marketing/icons";
 import { SITE_NAME, SITE_URL, ogImage } from "@/lib/site";
+import { dataMode } from "@/lib/config";
+import { scoreCoverageNote, scoreDataSummary, scoreProvenanceLabel } from "@/lib/marketingCopy";
+
+const IS_LIVE = dataMode() === "live";
 
 export const metadata: Metadata = {
-  title: "Check Your Property Score — Real Google Data, Worldwide",
+  title: "Check Your Property Score — Online Presence Score",
   description:
-    "Search any hotel, resort or B&B on Earth and get its online presence score from live Google data — ratings, review volume, visibility and more. Unlock the full report with one email.",
+    "Search any hotel, resort or B&B and get its online presence score from verified platform data — ratings, review volume, visibility and more. Unlock the full report with one email.",
   alternates: { canonical: "/score-check" },
   openGraph: {
     type: "website",
     siteName: SITE_NAME,
     locale: "en_US",
-    title: "Check Your Property Score — Live Google Data",
+    title: "Check Your Property Score",
     description:
-      "A real online presence score for any property worldwide, straight from Google Places. Free preview, instant full report.",
+      "An honest online presence score for any property, built from verified platform data. Free preview, instant full report.",
     images: [{ url: ogImage("Property Score Check"), width: 1200, height: 630 }],
   },
 };
@@ -31,7 +35,9 @@ export const metadata: Metadata = {
 const STEPS: { title: string; body: string }[] = [
   {
     title: "Search any property",
-    body: "Type a hotel, resort or B&B name — anywhere in the world. We query live Google Places data in real time.",
+    body: IS_LIVE
+      ? "Type a hotel, resort or B&B name — anywhere in the world. We query Google Places and review providers in real time."
+      : "Type a hotel, resort or B&B name. The score is built from the verified signals available for that property.",
   },
   {
     title: "See your free preview",
@@ -61,17 +67,24 @@ const REPORT_FEATURES: { icon: IconName; title: string; body: string }[] = [
   },
   {
     icon: "globe",
-    title: "Worldwide live data",
-    body: "Powered by Google Places, enriched the minute you search. No curated sample, no demo property — your actual results.",
+    title: "Clear data provenance",
+    body: scoreDataSummary(),
   },
 ];
 
-const TRUST = [
-  "Live Google Places data",
-  "Any property worldwide",
-  "Free score preview",
-  "No credit card",
-];
+const TRUST = IS_LIVE
+  ? [
+      "Live Google Places data",
+      "Any property worldwide",
+      "Free score preview",
+      "No credit card",
+    ]
+  : [
+      "Verified platform signals",
+      "Clear data provenance",
+      "Free score preview",
+      "No credit card",
+    ];
 
 export default function ScoreCheckPage() {
   return (
@@ -100,7 +113,7 @@ export default function ScoreCheckPage() {
             <div className="flex justify-center">
               <span className="inline-flex items-center gap-2 rounded-full border border-emerald-500/30 bg-emerald-500/10 px-3 py-1 text-xs font-semibold text-emerald-300">
                 <span className="pulse-dot" aria-hidden="true" />
-                Live worldwide data · Google Places
+                {scoreProvenanceLabel()}
               </span>
             </div>
 
@@ -110,8 +123,8 @@ export default function ScoreCheckPage() {
             </h1>
             <p className="mx-auto mt-5 max-w-2xl text-center text-lg leading-relaxed text-zinc-400">
               Search any hotel, resort or B&amp;B — anywhere on Earth — and get its
-              real score from live Google data in seconds. See the number free, then
-              unlock the full breakdown with one email.
+              honest score from verified platform data in seconds. See the number free,
+              then unlock the full breakdown with one email.
             </p>
 
             <div className="mx-auto mt-6 flex flex-wrap justify-center gap-2">
@@ -130,8 +143,7 @@ export default function ScoreCheckPage() {
             </div>
 
             <p className="mt-4 text-center text-xs text-zinc-500">
-              Scores cover Google, Booking.com, TripAdvisor, Expedia, Airbnb and more.
-              The full report is emailed to you instantly.
+              {scoreCoverageNote()} The full report is emailed to you instantly.
             </p>
           </div>
         </section>

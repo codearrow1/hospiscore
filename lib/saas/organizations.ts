@@ -11,9 +11,26 @@ export type OrgInput = {
   affiliateId?: string;
   partnerId?: string;
   primaryContact?: { name: string; email: string; phone?: string };
+  /**
+   * Scoped dedup identity for self-serve claim-created orgs (sha256 of the
+   * normalized verified claimant email). Nullable on the DB column + unique,
+   * so it only applies to claim-created organizations and collapses concurrent
+   * redemptions by the same claimant into one organization.
+   */
+  claimantKey?: string;
 };
 
-export async function listOrganizations(opts?: { q?: string; country?: string; status?: string; take?: number; skip?: number }) {
+export type OrgSortField = "createdAt" | "legalName" | "mrr" | "healthScore";
+
+export async function listOrganizations(opts?: {
+  q?: string;
+  country?: string;
+  status?: string;
+  take?: number;
+  skip?: number;
+  sort?: OrgSortField;
+  dir?: "asc" | "desc";
+}) {
   const where: Record<string, unknown> = {};
   if (opts?.q) {
     // SQLite has no Prisma `mode:"insensitive"` (it throws at runtime).
@@ -26,17 +43,30 @@ export async function listOrganizations(opts?: { q?: string; country?: string; s
   }
   if (opts?.country) where.country = opts.country;
   if (opts?.status) where.status = opts.status;
+  const sort: OrgSortField = opts?.sort && ["createdAt", "legalName", "mrr", "healthScore"].includes(opts.sort) ? opts.sort : "createdAt";
+  const orderBy: Record<string, "asc" | "desc"> = { [sort]: opts?.dir === "asc" ? "asc" : "desc" };
   const [items, total] = await Promise.all([
     prisma.organization.findMany({
       where,
-      include: { contacts: true, properties: true, subscriptions: { include: { plan: true } } },
-      orderBy: { createdAt: "desc" },
+      include: { _count: { select: { properties: true, contacts: true, subscriptions: true } } },
+      orderBy,
       take: opts?.take ?? 50,
       skip: opts?.skip ?? 0,
     }),
     prisma.organization.count({ where }),
   ]);
   return { items, total };
+}
+
+/** Distinct countries present across organizations — powers the country filter. */
+export async function listOrganizationCountries(): Promise<string[]> {
+  const rows = await prisma.organization.findMany({
+    where: { country: { not: null } },
+    select: { country: true },
+    distinct: ["country"],
+    orderBy: { country: "asc" },
+  });
+  return rows.map((r) => r.country as string);
 }
 
 export async function getOrganization(id: string) {
@@ -87,6 +117,7 @@ export async function createOrganization(input: OrgInput) {
       acquisitionCampaign: input.acquisitionCampaign || null,
       affiliateId: input.affiliateId || null,
       partnerId: validPartnerId,
+      claimantKey: input.claimantKey || null,
       contacts: input.primaryContact
         ? {
             create: {
@@ -132,5 +163,19 @@ export async function updateOrganization(id: string, patch: Partial<OrgInput> & 
 }
 
 export async function deleteOrganization(id: string) {
+  const org = await prisma.organization.findUnique({
+    where: { id },
+    select: { id: true, legalName: true },
+  });
+  if (!org) throw new Error("Organization not found");
+
+  const [subCount, invoiceCount] = await Promise.all([
+    prisma.subscription.count({ where: { organizationId: id } }),
+    prisma.invoice.count({ where: { organizationId: id } }),
+  ]);
+  if (subCount > 0 || invoiceCount > 0) {
+    throw new Error(`Cannot delete organization "${org.legalName}" with ${subCount} subscription(s) and ${invoiceCount} invoice(s). Archive it first.`);
+  }
+
   await prisma.organization.delete({ where: { id } });
 }

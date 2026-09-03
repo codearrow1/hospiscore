@@ -82,7 +82,7 @@ describe("rbac subadmin boundary (backend-enforced)", () => {
 describe("rbac dashboard routing", () => {
   it("routes every canonical role to its own dashboard", () => {
     expect(dashboardPathFor("super_admin")).toBe("/saas");
-    expect(dashboardPathFor("subadmin")).toBe("/subadmin");
+    expect(dashboardPathFor("subadmin")).toBe("/marketing-admin");
     expect(dashboardPathFor("staff")).toBe("/staff");
     expect(dashboardPathFor("affiliate")).toBe("/affiliate");
     expect(dashboardPathFor("partner")).toBe("/partner");
@@ -152,4 +152,42 @@ describe("rbac portal APIs are structurally self-scoped (IDOR guard-rail)", () =
       expect(src).not.toMatch(/params\.id/);
     });
   }
+});
+
+describe("rbac property boundary (H-10 invariant)", () => {
+  // Cross-org property WRITE must stay exclusive to the two platform-owner
+  // roles. If a new role ever needs it, that decision must be explicit —
+  // this test failing is the tripwire, not an accident.
+  const noManageRoles = [
+    "finance_admin",
+    "marketing_admin",
+    "sales_admin",
+    "customer_success",
+    "support_admin",
+    "affiliate_manager",
+    "partner_manager",
+    "franchise_manager",
+    "analyst",
+    "read_only",
+    "marketing_manager",
+    "sales_manager",
+    "sales_rep",
+    "content_editor",
+    "seo_manager",
+  ] as const;
+
+  it.each(noManageRoles)("%s never gains cross-org property writes", (role) => {
+    expect(hasSaasPerm(u("x@b.c", role), "PROPERTY_MANAGE")).toBe(false);
+  });
+
+  it("only super_admin and platform_admin hold PROPERTY_MANAGE", () => {
+    expect(hasSaasPerm(u("x@b.c", "super_admin"), "PROPERTY_MANAGE")).toBe(true);
+    expect(hasSaasPerm(u("x@b.c", "platform_admin"), "PROPERTY_MANAGE")).toBe(true);
+  });
+
+  it("staff/read roles keep PROPERTY_VIEW for support tooling (by design)", () => {
+    for (const role of ["support_admin", "customer_success", "analyst", "read_only", "sales_rep"] as const) {
+      expect(hasSaasPerm(u("x@b.c", role), "PROPERTY_VIEW")).toBe(true);
+    }
+  });
 });

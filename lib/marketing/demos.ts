@@ -10,10 +10,10 @@ import { readData, writeData } from "@/lib/db";
 import { addEvent } from "./events";
 import { getLead } from "./leads";
 import { DEMO_STATUSES, type DemoBooking, type DemoStatus } from "./types";
+import { DEFAULT_SLOT_MINUTES } from "./demosView";
 
 export type { DemoBooking, DemoStatus };
 
-export const DEFAULT_SLOT_MINUTES = 45;
 export const SLOT_HOURS = [9, 10, 11, 12, 13, 14, 15, 16, 17];
 
 export interface DemoInput {
@@ -21,6 +21,7 @@ export interface DemoInput {
   startAt: string;
   durationMin?: number;
   status?: DemoStatus;
+  demoType?: string;
   assignedTo?: string;
   meetingUrl?: string;
   phone?: string;
@@ -38,6 +39,7 @@ export async function createDemo(input: DemoInput, byEmail?: string, target?: st
     startAt: input.startAt,
     durationMin: input.durationMin ?? DEFAULT_SLOT_MINUTES,
     status: input.status ?? "new",
+    demoType: input.demoType,
     assignedTo: input.assignedTo,
     meetingUrl: input.meetingUrl,
     phone: input.phone ?? lead.phone,
@@ -90,6 +92,7 @@ export interface DemoPatch {
   startAt?: string;
   durationMin?: number;
   status?: DemoStatus;
+  demoType?: string;
   assignedTo?: string;
   meetingUrl?: string;
   notes?: string;

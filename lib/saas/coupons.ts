@@ -6,6 +6,7 @@
  */
 import { prisma } from "@/lib/prisma";
 import { randomBytes } from "node:crypto";
+import type { Prisma } from "@/lib/generated/prisma/client";
 
 export type CouponType = "percent" | "fixed";
 export type CouponDuration = "once" | "repeating" | "forever";
@@ -86,15 +87,60 @@ export function computeDiscount(type: string, value: number, amount: number): nu
   return Math.min(amount, value);
 }
 
-/** Apply coupon to an invoice amount; records the redemption. */
-export async function applyCoupon(params: { code: string; organizationId: string; subscriptionId?: string | null; invoiceId?: string | null; amount: number; planId?: string | null }): Promise<{ amountDue: number; discount: number; couponId: string }> {
-  const check = await validateCoupon(params.code, { organizationId: params.organizationId, planId: params.planId });
+/**
+ * Apply coupon to an invoice amount; records the redemption.
+ *
+ * mode "new" (default): first application — one redemption per org.
+ * mode "renewal": re-application on a later invoice for the SAME org.
+ *   - once → rejected (already redeemed)
+ *   - repeating → allowed until `months` invoices have used it (exact count
+ *     via CouponRedemption.timesApplied; the single redemption row is updated
+ *     because @@unique([couponId, organizationId]) forbids per-invoice rows)
+ *   - forever → always allowed while active/unexpired
+ */
+export async function applyCoupon(params: { code: string; organizationId: string; subscriptionId?: string | null; invoiceId?: string | null; amount: number; planId?: string | null; mode?: "new" | "renewal" }, tx?: Prisma.TransactionClient): Promise<{ amountDue: number; discount: number; couponId: string }> {
+  const db = tx ?? prisma;
+  const check = await validateCoupon(params.code, { planId: params.planId });
   if (!check.ok) throw new Error(check.error);
-  const c = await prisma.coupon.findUniqueOrThrow({ where: { id: check.couponId } });
+  const c = await db.coupon.findUniqueOrThrow({ where: { id: check.couponId } });
+
+  const existing = await db.couponRedemption.findUnique({ where: { couponId_organizationId: { couponId: c.id, organizationId: params.organizationId } } });
+  if (existing) {
+    const monthsAllowed = c.duration === "repeating" ? c.months ?? 1 : null;
+    const canRepeat =
+      params.mode === "renewal" &&
+      c.isActive &&
+      (!c.expiresAt || c.expiresAt.getTime() > Date.now()) &&
+      (c.duration === "forever" || (c.duration === "repeating" && existing.timesApplied < monthsAllowed!));
+    if (!canRepeat) throw new Error("Coupon already redeemed by this organization");
+    const discount = computeDiscount(c.type, c.value, params.amount);
+    // Re-application mutates the org's single redemption row: cumulative
+    // discount total + application count + latest invoice reference.
+    // The conditional updateMany re-validates the application count AT WRITE
+    // TIME, so two racing renewals cannot both consume the same month — the
+    // loser observes a changed counter and aborts instead of over-applying.
+    const claimedRepeat = await db.couponRedemption.updateMany({
+      where: {
+        id: existing.id,
+        timesApplied: existing.timesApplied,
+      },
+      data: {
+        amountDiscounted: existing.amountDiscounted + discount,
+        timesApplied: { increment: 1 },
+        invoiceId: params.invoiceId ?? existing.invoiceId,
+        subscriptionId: params.subscriptionId ?? existing.subscriptionId,
+      },
+    });
+    if (claimedRepeat.count === 0) {
+      throw new Error("Coupon application raced with another invoice — not applied");
+    }
+    return { amountDue: params.amount - discount, discount, couponId: c.id };
+  }
+
+  // First application — claim against maxRedemptions atomically (the previous
+  // check-then-increment let concurrent invoices exceed the cap).
   const discount = computeDiscount(c.type, c.value, params.amount);
-  // Atomic claim against maxRedemptions — the previous check-then-increment
-  // let concurrent invoices exceed the cap.
-  const claimed = await prisma.coupon.updateMany({
+  const claimed = await db.coupon.updateMany({
     where: {
       id: c.id,
       isActive: true,
@@ -104,7 +150,7 @@ export async function applyCoupon(params: { code: string; organizationId: string
   });
   if (claimed.count === 0) throw new Error("Coupon redemption limit reached");
   try {
-    await prisma.couponRedemption.create({
+    await db.couponRedemption.create({
       data: {
         couponId: c.id,
         organizationId: params.organizationId,
@@ -114,7 +160,7 @@ export async function applyCoupon(params: { code: string; organizationId: string
       },
     });
   } catch (e) {
-    await prisma.coupon.update({ where: { id: c.id }, data: { redeemedCount: { decrement: 1 } } }).catch(() => {});
+    await db.coupon.update({ where: { id: c.id }, data: { redeemedCount: { decrement: 1 } } }).catch(() => {});
     throw e;
   }
   return { amountDue: params.amount - discount, discount, couponId: c.id };

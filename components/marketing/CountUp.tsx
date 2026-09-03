@@ -79,12 +79,23 @@ export default function CountUp({
     minimumFractionDigits: decimals,
     maximumFractionDigits: decimals,
   });
+  const finalFormatted = to.toLocaleString("en-US", {
+    minimumFractionDigits: decimals,
+    maximumFractionDigits: decimals,
+  });
 
   return (
     <span ref={ref}>
-      {prefix}
-      {formatted}
-      {suffix}
+      <span aria-hidden="true">
+        {prefix}
+        {formatted}
+        {suffix}
+      </span>
+      <span className="sr-only">
+        {prefix}
+        {finalFormatted}
+        {suffix}
+      </span>
     </span>
   );
 }

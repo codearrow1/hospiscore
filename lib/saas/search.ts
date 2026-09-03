@@ -5,7 +5,7 @@
  */
 
 import { prisma } from "@/lib/prisma";
-import { listLeads } from "@/lib/marketing/leads";
+import { readData } from "@/lib/db";
 
 export type SearchResult = {
   type: "organization" | "property" | "subscription" | "invoice" | "payment" | "lead" | "user";
@@ -18,9 +18,9 @@ export type SearchResult = {
 export async function globalSearch(q: string, limit = 20): Promise<SearchResult[]> {
   const query = q.trim();
   if (!query || query.length < 2) return [];
-  const lower = query.toLowerCase();
 
-  const [orgs, props, subs, invoices, payments, leads] = await Promise.all([
+  const lowerQuery = query.toLowerCase();
+  const [orgs, props, subs, invoices, payments, data] = await Promise.all([
     prisma.organization.findMany({
       where: { OR: [{ legalName: { contains: query } }, { businessName: { contains: query } }] },
       take: 5,
@@ -29,8 +29,14 @@ export async function globalSearch(q: string, limit = 20): Promise<SearchResult[
     prisma.subscription.findMany({ where: { OR: [{ id: { contains: query } }, { status: { contains: query } }] }, take: 5, include: { organization: { select: { legalName: true } }, plan: { select: { name: true } } } }),
     prisma.invoice.findMany({ where: { OR: [{ id: { contains: query } }, { type: { contains: query } }] }, take: 5, include: { organization: { select: { legalName: true } } } }),
     prisma.payment.findMany({ where: { id: { contains: query } }, take: 5, include: { organization: { select: { legalName: true } } } }),
-    listLeads().then((all) => all.filter((l) => [l.name, l.email, l.company, l.propertyName].some((s) => s?.toLowerCase().includes(lower))).slice(0, 5)),
+    readData().catch(() => null),
   ]);
+
+  const leads = (data?.leads ?? []).filter((l) =>
+    l.name?.toLowerCase().includes(lowerQuery) ||
+    l.email?.toLowerCase().includes(lowerQuery) ||
+    l.company?.toLowerCase().includes(lowerQuery)
+  ).slice(0, 5);
 
   const results: SearchResult[] = [];
   for (const o of orgs) results.push({ type: "organization", id: o.id, title: o.legalName, subtitle: o.businessName || o.country || "", href: `/saas/organizations/${o.id}` });

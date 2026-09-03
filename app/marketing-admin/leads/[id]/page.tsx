@@ -8,6 +8,13 @@ import { listDemos } from "@/lib/marketing/demos";
 import { listUsers } from "@/lib/marketing/users";
 import { hasCapability } from "@/lib/marketing/roles";
 import type { Capability } from "@/lib/marketing/roles";
+import {
+  dealAgeDays,
+  daysInStage,
+  followUpStateOf,
+  isStaleLead,
+  demoStatusOf,
+} from "@/lib/marketing/leadsView";
 import LeadWorkspace from "@/components/marketing-admin/LeadWorkspace";
 import type {
   LeadDetailShape,
@@ -54,6 +61,29 @@ export default async function LeadDetailPage({
 
   if (!lead) notFound();
 
+  const now = Date.now();
+  const followUp = followUpStateOf(lead.nextFollowUpAt, now);
+  const leadDemos = demos
+    .filter((d) => d.leadId === lead.id)
+    .map((d) => ({
+      id: d.id,
+      leadId: d.leadId,
+      startAt: d.startAt,
+      durationMin: d.durationMin,
+      status: d.status,
+      assignedTo: d.assignedTo,
+      meetingUrl: d.meetingUrl,
+      notes: d.notes,
+    }));
+  const newestDemo = leadDemos.reduce<DemoLite | null>(
+    (acc, d) => (!acc || Date.parse(d.startAt) > Date.parse(acc.startAt) ? d : acc),
+    null,
+  );
+  const demoStatus = demoStatusOf(
+    newestDemo ?? undefined,
+    lead.demoId,
+  );
+
   const shape: LeadDetailShape = {
     id: lead.id,
     name: lead.name,
@@ -79,11 +109,18 @@ export default async function LeadDetailPage({
     nextFollowUpAt: lead.nextFollowUpAt,
     lastContactAt: lead.lastContactAt,
     estimatedValue: lead.estimatedValue,
+    estimatedValueCurrency: (lead as { estimatedValueCurrency?: string }).estimatedValueCurrency,
     demoId: lead.demoId,
     lostReason: lead.lostReason,
     convertedCustomerId: lead.convertedCustomerId,
     createdAt: lead.createdAt,
     updatedAt: lead.updatedAt,
+    // Real temporal/deal signals computed from stored timestamps.
+    dealAgeDays: dealAgeDays(lead, now),
+    daysInStage: daysInStage(lead, now),
+    stale: isStaleLead(lead, now),
+    followUpStatus: followUp.status,
+    demoStatus,
   };
 
   const timeline: EventLite[] = events.map((e) => ({
@@ -94,19 +131,6 @@ export default async function LeadDetailPage({
     summary: e.summary,
     detail: e.detail,
   }));
-
-  const leadDemos: DemoLite[] = demos
-    .filter((d) => d.leadId === lead.id)
-    .map((d) => ({
-      id: d.id,
-      leadId: d.leadId,
-      startAt: d.startAt,
-      durationMin: d.durationMin,
-      status: d.status,
-      assignedTo: d.assignedTo,
-      meetingUrl: d.meetingUrl,
-      notes: d.notes,
-    }));
 
   const capabilities = ALL_CAPS.filter((c) => hasCapability(guard.user, c));
 

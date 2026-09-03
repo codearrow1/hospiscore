@@ -25,9 +25,13 @@ export async function POST(req: NextRequest) {
   let body: Record<string, unknown>;
   try { body = await req.json(); } catch { return NextResponse.json({ error: "Invalid JSON" }, { status: 400 }); }
   try {
+    const amount = Number(body.amount);
+    if (!Number.isFinite(amount) || amount <= 0) {
+      return NextResponse.json({ error: "amount must be a positive number" }, { status: 400 });
+    }
     const payout = await requestPartnerPayout({
       partnerId: String(body.partnerId ?? ""),
-      amount: Number(body.amount),
+      amount,
       method: typeof body.method === "string" ? body.method : undefined,
     });
     await writeSaasAudit({ byEmail: guard.user.email, action: "partner_payout.created", entity: "payout", entityId: payout.id, detail: `${payout.amount}`, ip: clientIp(req) });

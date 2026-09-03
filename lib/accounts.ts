@@ -1,4 +1,4 @@
-import { randomUUID } from "node:crypto";
+import { createHash, randomBytes, randomUUID } from "node:crypto";
 import { readData, writeData } from "@/lib/db";
 import {
   COOKIE_NAME,
@@ -91,6 +91,80 @@ export async function purgeExpiredSessions(): Promise<void> {
     ...data,
     sessions: data.sessions.filter((s) => !isExpired(s)),
   }));
+}
+
+// ---------------------------------------------------------------------------
+// Password reset (Phase 7). Tokens are stored hashed — the raw token exists
+// only in the reset link handed to the user, exactly like portal claims.
+// ---------------------------------------------------------------------------
+
+export const PASSWORD_RESET_TTL_MS = 30 * 60_000;
+
+interface PasswordResetRecord {
+  email: string;
+  tokenHash: string;
+  expiresAt: string;
+  createdAt: string;
+  usedAt?: string;
+}
+
+function hashResetToken(token: string): string {
+  return createHash("sha256").update(token.trim()).digest("hex");
+}
+
+/** Create a one-time reset token for an account. Returns null for unknown
+ *  emails so callers can respond identically either way (no enumeration). */
+export async function createPasswordReset(email: string): Promise<{ token: string; expiresAt: string } | null> {
+  const norm = email.trim().toLowerCase();
+  const user = await findUserByEmail(norm);
+  if (!user) return null;
+  const token = randomBytes(24).toString("base64url");
+  const rec: PasswordResetRecord = {
+    email: norm,
+    tokenHash: hashResetToken(token),
+    expiresAt: new Date(Date.now() + PASSWORD_RESET_TTL_MS).toISOString(),
+    createdAt: new Date().toISOString(),
+  };
+  await writeData((data) => ({
+    ...data,
+    // Opportunistic sweep of stale/used tokens.
+    passwordResets: [
+      ...(data.passwordResets ?? []).filter((r) => !r.usedAt && Date.parse(r.expiresAt) > Date.now()),
+      rec,
+    ],
+  }));
+  return { token, expiresAt: rec.expiresAt };
+}
+
+export async function peekPasswordReset(token: string): Promise<PasswordResetRecord | null> {
+  const h = hashResetToken(token);
+  const data = await readData();
+  const rec = (data.passwordResets ?? []).find((r) => r.tokenHash === h);
+  if (!rec || rec.usedAt || Date.parse(rec.expiresAt) <= Date.now()) return null;
+  return rec;
+}
+
+/** Consume a reset token and set the new password hash. Throws on bad tokens. */
+export async function consumePasswordReset(params: { token: string; passwordHash: string }): Promise<string> {
+  const h = hashResetToken(params.token);
+  const updated = await writeData((data) => {
+    const rec = (data.passwordResets ?? []).find((r) => r.tokenHash === h);
+    if (!rec || rec.usedAt || Date.parse(rec.expiresAt) <= Date.now()) {
+      throw new Error("Invalid or expired reset token");
+    }
+    const users = data.users.map((u) =>
+      u.email.toLowerCase() === rec.email ? { ...u, passwordHash: params.passwordHash } : u,
+    );
+    return {
+      ...data,
+      users,
+      passwordResets: (data.passwordResets ?? []).map((r) =>
+        r.tokenHash === h ? { ...r, usedAt: new Date().toISOString() } : r,
+      ),
+    };
+  });
+  const user = updated.users.find((u) => u.passwordHash === params.passwordHash && u.email.toLowerCase());
+  return user?.email ?? "";
 }
 
 export { COOKIE_NAME };

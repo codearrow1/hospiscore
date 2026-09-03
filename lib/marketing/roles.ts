@@ -65,6 +65,22 @@ export type Capability =
   | "settings.manage" // roles, automation toggles, webhooks
   | "audit.read";
 
+/** Every capability name, for deriving a user's effective capability list. */
+export const MARKETING_CAPABILITIES: readonly Capability[] = [
+  "access",
+  "leads.read",
+  "leads.write",
+  "leads.manage",
+  "demos.manage",
+  "campaigns.manage",
+  "forms.manage",
+  "content.manage",
+  "pricing.manage",
+  "analytics.read",
+  "settings.manage",
+  "audit.read",
+];
+
 export const ROLE_CAPABILITIES: Record<
   MarketingRole,
   ReadonlySet<Capability>
@@ -186,4 +202,17 @@ export function isOwner(
 /** Marketing roles that may assign leads / manage the whole team. */
 export function canAssign(user: Pick<AuthUser, "role" | "email">): boolean {
   return hasCapability(user, "leads.manage");
+}
+
+/**
+ * Per-lead access check (H-09): leads.manage holders see everything;
+ * everyone else is restricted to leads assigned to them. Case-insensitive
+ * because owner emails are free-form user input.
+ */
+export function canAccessLead(
+  user: Pick<AuthUser, "email" | "role">,
+  lead: { ownerEmail?: string | null },
+): boolean {
+  if (hasCapability(user, "leads.manage")) return true;
+  return !!lead.ownerEmail && lead.ownerEmail.toLowerCase() === user.email.toLowerCase();
 }

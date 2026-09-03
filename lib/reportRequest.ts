@@ -78,5 +78,30 @@ export async function submitReportRequest(
     }),
     target,
   );
+
+  // Phase 5: mirror into the marketing CRM so there is one lead system.
+  // Fire-and-forget semantics: the raw capture above stays the source of
+  // truth for the score-report flow; CRM dedupe merges repeat visitors.
+  try {
+    const { upsertLead } = await import("@/lib/marketing/leads");
+    await upsertLead(
+      {
+        name: record.name,
+        email: record.email,
+        phone: record.phone,
+        propertyName: record.propertyName,
+        source: "other",
+        attribution: {
+          source: "other",
+          pagePath: `/score-check/${record.propertySlug}`,
+          landing: "/score-check",
+        },
+      },
+      target,
+    );
+  } catch {
+    // Never fail the user-facing request because of CRM mirroring.
+  }
+
   return record;
 }

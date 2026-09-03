@@ -1,12 +1,20 @@
 import { requireCapability } from "@/lib/marketing/guard";
 import { restrictedPanel } from "@/app/marketing-admin/restricted";
 import { ensureMarketingStore } from "@/lib/marketing/seed";
-import { listLeads, filterLeads } from "@/lib/marketing/leads";
+import { hasCapability } from "@/lib/marketing/roles";
+import { listLeads, filterLeads, listConvertedCustomers } from "@/lib/marketing/leads";
+import { listDemos } from "@/lib/marketing/demos";
 import { listUsers } from "@/lib/marketing/users";
-import { isLeadStage } from "@/lib/marketing/stages";
+import { isLeadStage, PIPELINE_STAGES, STAGE_LABELS } from "@/lib/marketing/stages";
+import { LEAD_SOURCES } from "@/lib/marketing/types";
+import {
+  buildLeadRows,
+  leadsKpis,
+  funnelOf,
+  openValueByCurrency,
+  type LeadRow,
+} from "@/lib/marketing/leadsView";
 import LeadsTableClient from "@/components/marketing-admin/LeadsTableClient";
-import { FilterChipLink, SearchBox } from "@/components/marketing-admin/LeadTable";
-import { PIPELINE_STAGES, STAGE_LABELS } from "@/lib/marketing/stages";
 
 export const dynamic = "force-dynamic";
 export const runtime = "nodejs";
@@ -37,17 +45,36 @@ export default async function LeadsPage({
   const perPage = [10, 20, 50].includes(perPageRaw) ? perPageRaw : 20;
 
   const [leads, users] = await Promise.all([listLeads(), listUsers()]);
-  let filtered = filterLeads(leads, {
-    q,
-    stage: stage as never,
-    source: source as never,
-    country: country || undefined,
-    plan: plan || undefined,
-    band: band as never,
-    owner: owner || undefined,
-  });
+  const demos = await listDemos();
+  const converted = await listConvertedCustomers();
 
-  // Sorting
+  // Sales reps (no leads.manage) are hard-scoped to their own assignments,
+  // mirroring GET /api/marketing/leads and the pipeline board — the page can
+  // never leak other people's leads, and an ?owner= param cannot widen it.
+  const canManage = hasCapability(guard.user, "leads.manage");
+  const scopedLeads = canManage
+    ? leads
+    : leads.filter((l) => (l.ownerEmail ?? "").toLowerCase() === guard.user.email.toLowerCase());
+
+  const allLeadsCount = scopedLeads.length;
+
+  // "?owner=__none__" means "unassigned" — filterLeads can't express that, so
+  // pre-reduce here.
+  const unassignOnly = owner === "__none__";
+  let filtered = filterLeads(
+    unassignOnly ? scopedLeads.filter((l) => !l.ownerEmail) : scopedLeads,
+    {
+      q,
+      stage: stage as never,
+      source: source as never,
+      country: country || undefined,
+      plan: plan || undefined,
+      band: band as never,
+      owner: unassignOnly ? undefined : owner || undefined,
+    },
+  );
+
+  // Sorting (server-side, URL driven)
   filtered = filtered.slice().sort((a, b) => {
     let cmp = 0;
     if (sort === "score") cmp = a.score - b.score;
@@ -63,46 +90,14 @@ export default async function LeadsPage({
   const safePage = Math.min(page, totalPages);
   const paged = filtered.slice((safePage - 1) * perPage, safePage * perPage);
 
-  const rows = paged.map((l) => ({
-    id: l.id,
-    name: l.name,
-    email: l.email,
-    company: l.company,
-    propertyName: l.propertyName,
-    country: l.country,
-    planInterest: l.planInterest,
-    source: l.source,
-    stage: l.stage,
-    score: l.score,
-    band: l.band,
-    ownerEmail: l.ownerEmail,
-    nextFollowUpAt: l.nextFollowUpAt,
-    estimatedValue: l.estimatedValue,
-    rooms: l.rooms,
-    createdAt: l.createdAt,
-  }));
-
-  const href = (patch: Record<string, string | undefined>) => {
-    const p = new URLSearchParams();
-    if (q) p.set("q", q);
-    const merged = { stage, source, country, plan, band, owner, sort, dir, page: String(safePage), perPage: String(perPage), ...patch };
-    for (const [k, v] of Object.entries(merged)) {
-      const def = k === "perPage" ? "20" : k === "sort" ? "updatedAt" : k === "dir" ? "desc" : k === "page" ? "1" : "all";
-      if (!v || v === def || (k === "page" && v === "1")) {
-        if (k === "perPage" && v === "20") continue;
-        if (k === "sort" && v === "updatedAt") continue;
-        if (k === "dir" && v === "desc") continue;
-        if (k === "page" && v === "1") continue;
-        if (v === "all" || v === "") continue;
-      }
-      p.set(k, v);
-    }
-    // When filter changes, reset page
-    if (patch.stage !== undefined || patch.source !== undefined || patch.country !== undefined || patch.q !== undefined || patch.band !== undefined || patch.owner !== undefined) {
-      p.delete("page");
-    }
-    return p.toString() ? `/marketing-admin/leads?${p}` : "/marketing-admin/leads";
-  };
+  // Enrich *all* filtered rows (not just the page) so KPIs/summaries reflect
+  // the current filtered view, then page the enriched rows for the table.
+  const allRows = buildLeadRows(filtered, demos, converted);
+  const rowById = new Map(allRows.map((r) => [r.id, r]));
+  const pagedRows = paged.map((l) => rowById.get(l.id) as LeadRow);
+  const kpis = leadsKpis(allRows);
+  const funnel = funnelOf(allRows, PIPELINE_STAGES);
+  const openValue = openValueByCurrency(allRows);
 
   const exportHref = `/api/marketing/export?${new URLSearchParams({
     ...(q ? { q } : {}),
@@ -115,58 +110,35 @@ export default async function LeadsPage({
   }).toString()}`;
 
   const ownerOptions = users.map((u) => ({ email: u.email, name: u.name }));
-
-  const sourceOptions = [
-    "organic", "google_ads", "meta_ads", "linkedin", "youtube", "direct",
-    "referral", "partner", "email", "whatsapp", "blog", "pricing_page",
-    "feature_page", "demo_page", "country_page", "campaign",
-  ];
+  const activeSources = LEAD_SOURCES.filter((s) => scopedLeads.some((l) => l.source === s));
+  const countryOptions = Array.from(new Set(scopedLeads.map((l) => l.country).filter(Boolean) as string[])).sort();
+  const planOptions = Array.from(new Set(scopedLeads.map((l) => l.planInterest).filter(Boolean) as string[])).sort();
+  const bandOptions = ["cold", "warm", "hot", "very_hot"];
+  const stageOptions = PIPELINE_STAGES.map((s) => ({ value: s, label: STAGE_LABELS[s] }));
 
   return (
-    <div className="space-y-5">
-      <div className="flex flex-wrap items-end justify-between gap-4">
-        <div>
-          <h1 className="text-2xl font-bold tracking-tight">Leads</h1>
-          <p className="mt-1 text-sm text-zinc-500 dark:text-zinc-400">
-            {total} of {leads.length} leads · page {safePage} of {totalPages} · every form and demo request is captured automatically.
-          </p>
-        </div>
-      </div>
-
-      <LeadsTableClient
-        rows={rows}
-        total={total}
-        page={safePage}
-        perPage={perPage}
-        totalPages={totalPages}
-        sort={sort}
-        dir={dir}
-        ownerOptions={ownerOptions}
-        exportHref={exportHref}
-        filterBar={
-          <>
-            <SearchBox initial={q} />
-            <div className="flex max-w-full flex-wrap items-center gap-1.5">
-              <FilterChipLink href={href({ stage: "all" })} label="All stages" active={stage === "all"} />
-              {PIPELINE_STAGES.map((s) => (
-                <FilterChipLink key={s} href={href({ stage: s })} label={STAGE_LABELS[s]} active={stage === s} />
-              ))}
-            </div>
-            <div className="flex max-w-full flex-wrap items-center gap-1.5">
-              <FilterChipLink href={href({ source: "all" })} label="All sources" active={source === "all"} />
-              {sourceOptions.slice(0, 8).map((s) => (
-                <FilterChipLink key={s} href={href({ source: s })} label={s.replace(/_/g, " ")} active={source === s} />
-              ))}
-            </div>
-            <div className="flex max-w-full flex-wrap items-center gap-1.5">
-              <FilterChipLink href={href({ band: "all" })} label="All bands" active={band === "all"} />
-              {["cold", "warm", "hot", "very_hot"].map((b) => (
-                <FilterChipLink key={b} href={href({ band: b })} label={b.replace("_", " ")} active={band === b} />
-              ))}
-            </div>
-          </>
-        }
-      />
-    </div>
+    <LeadsTableClient
+      rows={pagedRows}
+      allRowsCount={allLeadsCount}
+      total={total}
+      page={safePage}
+      perPage={perPage}
+      totalPages={totalPages}
+      sort={sort}
+      dir={dir}
+      ownerOptions={ownerOptions}
+      sourceOptions={activeSources}
+      countryOptions={countryOptions}
+      planOptions={planOptions}
+      bandOptions={bandOptions}
+      stageOptions={stageOptions}
+      exportHref={exportHref}
+      currentFilters={{
+        q, stage, source, country, plan, band, owner,
+      }}
+      kpis={kpis}
+      funnel={funnel}
+      openValue={openValue}
+    />
   );
 }

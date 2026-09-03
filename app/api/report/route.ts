@@ -1,4 +1,5 @@
-import { NextResponse } from "next/server";
+import { NextRequest, NextResponse } from "next/server";
+import { originAllowed, rateLimit, clientIp } from "@/lib/marketing/guard";
 import {
   submitReportRequest,
   validateReportInput,
@@ -21,7 +22,16 @@ export const dynamic = "force-dynamic";
  * e-mail was dispatched (console transport always reports sent), 400 on
  * validation failure, 404 when the property is unknown.
  */
-export async function POST(request: Request) {
+export async function POST(request: NextRequest) {
+  if (!originAllowed(request)) {
+    return NextResponse.json({ error: "Rejected" }, { status: 403 });
+  }
+  // Public endpoint that sends e-mail to a caller-supplied address: throttle
+  // per client to blunt scripted/abusive report generation.
+  if (!rateLimit(`report:${clientIp(request)}`, 10, 60_000)) {
+    return NextResponse.json({ error: "Slow down" }, { status: 429 });
+  }
+
   let body: Partial<ReportRequestInput>;
   try {
     body = await request.json();

@@ -1,23 +1,20 @@
 import { NextResponse } from "next/server";
 import { getCurrentUser } from "@/lib/sessionCookie";
+import { findOrgContactForUser } from "@/lib/saas/portalLinks";
 import { prisma } from "@/lib/prisma";
 import { initSaasDb } from "@/lib/saas/init";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 
-// Partner portal — returns own partner record + commissions/payouts/referred
-// orgs. Strictly scoped to the caller; never exposes other partners' data.
+// Customer portal — returns the bound org's data. Identity comes exclusively
+// from an explicit portal binding; never exposes other orgs' data.
 export async function GET() {
   await initSaasDb().catch(() => {});
   const user = await getCurrentUser();
   if (!user) return NextResponse.json({ error: "Not signed in" }, { status: 401 });
 
-  const contact = await prisma.orgContact.findFirst({
-    where: { email: user.email, organization: { status: { not: "cancelled" } } },
-    orderBy: { isPrimary: "desc" },
-    include: { organization: true },
-  });
+  const contact = await findOrgContactForUser(user.id);
   if (!contact) {
     return NextResponse.json({ customer: null, subscriptions: [], invoices: [], usage30d: 0 });
   }

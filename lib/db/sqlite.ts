@@ -34,8 +34,13 @@ export class SqliteDataBackend implements DataBackend {
       .prepare("SELECT value FROM meta WHERE key = ?")
       .get("doc") as { value: string } | undefined;
     if (!row) return Promise.resolve(emptyData());
-    const parsed = JSON.parse(row.value) as Partial<DataFile>;
-    return Promise.resolve({ ...emptyData(), ...parsed });
+    try {
+      const parsed = JSON.parse(row.value) as Partial<DataFile>;
+      return Promise.resolve({ ...emptyData(), ...parsed });
+    } catch {
+      console.error("[sqlite] Corrupt doc row — returning empty data");
+      return Promise.resolve(emptyData());
+    }
   }
 
   write(mutate: (prev: DataFile) => Promise<DataFile> | DataFile): Promise<DataFile> {
@@ -43,7 +48,17 @@ export class SqliteDataBackend implements DataBackend {
       const row = this.db
         .prepare("SELECT value FROM meta WHERE key = ?")
         .get("doc") as { value: string } | undefined;
-      const prev = row ? ({ ...emptyData(), ...JSON.parse(row.value) } as DataFile) : emptyData();
+      let prev: DataFile;
+      if (row) {
+        try {
+          prev = { ...emptyData(), ...JSON.parse(row.value) } as DataFile;
+        } catch {
+          console.error("[sqlite] Corrupt doc row in write — resetting to empty");
+          prev = emptyData();
+        }
+      } else {
+        prev = emptyData();
+      }
       const next = await mutate(prev);
       this.db
         .prepare("INSERT OR REPLACE INTO meta (key, value) VALUES ('doc', ?)")

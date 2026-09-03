@@ -1,9 +1,15 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import { useRouter } from "next/navigation";
 import { Badge, btnGhost, btnPrimary, EmptyState, Field, inputCls, Modal, SectionCard } from "./ui";
 import { STAGE_LABELS, STAGE_STYLES } from "@/lib/marketing/stages";
+import { formatMoney } from "@/lib/format";
+import type { LostReason } from "@/lib/marketing/stages";
 import type { LeadEventType } from "@/lib/marketing/types";
+import { useToast } from "@/components/ui/Toast";
+import { ConfirmDialog } from "@/components/ui/ConfirmDialog";
+import { LostReasonDialog } from "./LostReasonDialog";
 
 export interface LeadDetailShape {
   id: string;
@@ -41,11 +47,18 @@ export interface LeadDetailShape {
   nextFollowUpAt?: string;
   lastContactAt?: string;
   estimatedValue: number;
+  estimatedValueCurrency?: string;
   demoId?: string;
   lostReason?: string;
   convertedCustomerId?: string;
   createdAt: string;
   updatedAt: string;
+  // Real temporal/deal signals from leadsView (computed server-side).
+  dealAgeDays: number;
+  daysInStage: number;
+  stale: boolean;
+  followUpStatus: "none" | "overdue" | "due" | "later";
+  demoStatus: "none" | "scheduled" | "completed" | "no_show" | "cancelled";
 }
 
 export interface EventLite {
@@ -105,6 +118,8 @@ export default function LeadWorkspace({
   const canWrite = capabilities.includes("leads.write");
   const canManage = capabilities.includes("leads.manage");
   const canDemos = capabilities.includes("demos.manage");
+  const toast = useToast();
+  const router = useRouter();
 
   const [draft, setDraft] = useState<Record<string, string>>({});
   const [status, setStatus] = useState("");
@@ -112,6 +127,9 @@ export default function LeadWorkspace({
   const [demosState, setDemosState] = useState<DemoLite[]>(demos);
   const [notesState, setNotesState] = useState<string[]>(lead.notes ?? []);
   const [busy, setBusy] = useState(false);
+  const [losingStage, setLosingStage] = useState(false);
+  const [confirmConvert, setConfirmConvert] = useState(false);
+  const [confirmWon, setConfirmWon] = useState(false);
 
   useEffect(() => {
     setDraft({
@@ -169,21 +187,28 @@ export default function LeadWorkspace({
     }
   };
 
-  const moveStage = async (stage: string) => {
+  const performMoveStage = async (stage: string, lostReason?: LostReason) => {
     if (stage === lead.stage) return;
+    setBusy(true);
     const body: Record<string, unknown> = { stage };
-    if (stage === "lost") {
-      const reason = window.prompt("Lost reason? budget / chose_competitor / no_response / timing / feature_gap / pricing / other");
-      if (!reason) return;
-      body.lostReason = reason;
-    }
+    if (stage === "lost" && lostReason) body.lostReason = lostReason;
     const res = await fetch(`/api/marketing/leads/${lead.id}/stage`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify(body),
     });
-    if (res.ok) window.location.reload();
-    else alert((await res.json()).error ?? "Could not move stage");
+    setBusy(false);
+    if (res.ok) router.refresh();
+    else toast.error((await res.json().catch(() => ({}))).error ?? "Could not move stage");
+  };
+
+  /** Stage-change flow: lost requires a structured reason, won asks for
+   *  confirmation (it closes the deal), everything else applies directly. */
+  const requestMoveStage = (stage: string) => {
+    if (stage === lead.stage) return;
+    if (stage === "lost") setLosingStage(true);
+    else if (stage === "won") setConfirmWon(true);
+    else void performMoveStage(stage);
   };
 
   const addNote = async (text: string) => {
@@ -234,8 +259,7 @@ export default function LeadWorkspace({
 
   const [commDetail, setCommDetail] = useState("");
   const [commKind, setCommKind] = useState<"email" | "whatsapp" | "call">("email");
-  const [note, setNote] = useState("");
-  const [followAt, setFollowAt] = useState("");
+  const [note, setNote] = useState("");  const [followAt, setFollowAt] = useState("");
   const [showBook, setShowBook] = useState(false);
   const [bookDate, setBookDate] = useState("");
   const [bookTime, setBookTime] = useState("10:00");
@@ -243,7 +267,10 @@ export default function LeadWorkspace({
   const [bookMeeting, setBookMeeting] = useState("");
 
   const bookDemo = async () => {
-    if (!bookDate) return alert("Pick a date");
+    if (!bookDate) {
+      toast.error("Pick a date before booking the demo.");
+      return;
+    }
     const startAt = new Date(`${bookDate}T${bookTime}:00`);
     const res = await fetch("/api/marketing/demos", {
       method: "POST",
@@ -272,40 +299,53 @@ export default function LeadWorkspace({
   };
 
   const convert = async () => {
-    if (!window.confirm("Convert this lead to a customer? Attribution (source, campaign, country, plan) is preserved.")) return;
     const res = await fetch(`/api/marketing/leads/${lead.id}`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ plan: draft.planInterest || undefined, billingCycle: draft.billingCycle || undefined, notes: "Converted from marketing admin" }),
     });
-    if (res.ok) window.location.reload();
+    if (res.ok) router.refresh();
     else setStatus((await res.json()).error ?? "Could not convert");
   };
 
-  const openComm = (kind: "email" | "whatsapp" | "call") => {
-    setCommKind(kind);
-    if (typeof window !== "undefined") {
-      if (kind === "email") window.location.href = `mailto:${lead.email}`;
-      if (kind === "whatsapp") window.open(`https://wa.me/${(lead.phone ?? "").replace(/[^\d]/g, "")}`, "_blank");
-      if (kind === "call") window.location.href = `tel:${lead.phone ?? ""}`;
-    }
+  /** Launch the contact channel in a new window/tab — logging is explicit. */
+  const openChannel = (kind: "email" | "whatsapp" | "call") => {
+    if (typeof window === "undefined") return;
+    if (kind === "email") window.open(`mailto:${lead.email}`, "_self");
+    if (kind === "whatsapp") window.open(`https://wa.me/${(lead.phone ?? "").replace(/[^\d]/g, "")}`, "_blank");
+    if (kind === "call") window.open(`tel:${lead.phone ?? ""}`, "_self");
   };
 
   return (
     <div className="grid gap-5 lg:grid-cols-3">
       <div className="space-y-5 lg:col-span-2">
         <SectionCard title={`${lead.name} · ${lead.email}`}>
-          <div className="mb-4 flex flex-wrap items-center gap-2">
+          <div className="mb-3 flex flex-wrap items-center gap-2">
             <Badge className={STAGE_STYLES[lead.stage as keyof typeof STAGE_STYLES] ?? STAGE_STYLES.new}>{STAGE_LABELS[lead.stage as keyof typeof STAGE_LABELS] ?? lead.stage}</Badge>
             <Badge className="bg-indigo-100 text-indigo-700 dark:bg-indigo-950 dark:text-indigo-300">{lead.score} · {lead.band.replace("_", " ")}</Badge>
             <Badge>source: {lead.source.replace(/_/g, " ")}</Badge>
             {lead.convertedCustomerId && <Badge className="bg-emerald-100 text-emerald-700 dark:bg-emerald-950 dark:text-emerald-300">customer ✓</Badge>}
+            {lead.demoStatus !== "none" && (
+              <Badge className="bg-sky-100 text-sky-700 dark:bg-sky-950 dark:text-sky-300">demo: {lead.demoStatus.replace("_", " ")}</Badge>
+            )}
+            {lead.stale && <Badge className="bg-orange-100 text-orange-700 dark:bg-orange-950 dark:text-orange-300">stale</Badge>}
+            {lead.followUpStatus === "overdue" && <Badge className="bg-red-100 text-red-700 dark:bg-red-950 dark:text-red-300">follow-up overdue</Badge>}
+            {lead.followUpStatus === "due" && <Badge className="bg-amber-100 text-amber-700 dark:bg-amber-950 dark:text-amber-300">follow-up due</Badge>}
           </div>
+          <p className="mb-3 text-xs text-zinc-400">
+            Lead age: <span className="font-medium text-zinc-600 dark:text-zinc-300">{lead.dealAgeDays} days</span>
+            <span aria-hidden="true"> · </span>
+            {lead.daysInStage === 0 ? "just updated" : `${lead.daysInStage} days in this stage`}
+            <span aria-hidden="true"> · </span>
+            <a href={`/marketing-admin/pipeline?stage=${lead.stage}`} className="font-medium text-indigo-600 hover:underline dark:text-indigo-400">
+              View in pipeline →
+            </a>
+          </p>
 
           {canWrite && (
             <div className="mb-4 grid gap-3 sm:grid-cols-2">
               <Field label="Stage" required>
-                <select className={inputCls} value={lead.stage} onChange={(e) => moveStage(e.target.value)} disabled={!canWrite}>
+                <select className={inputCls} value={lead.stage} onChange={(e) => requestMoveStage(e.target.value)} disabled={!canWrite}>
                   {Object.entries(STAGE_LABELS).map(([k, v]) => (
                     <option key={k} value={k}>{v}</option>
                   ))}
@@ -377,21 +417,52 @@ export default function LeadWorkspace({
             <p><span className="text-xs font-semibold uppercase text-zinc-400">Created</span><br />{fmtDate(lead.createdAt)}</p>
             <p><span className="text-xs font-semibold uppercase text-zinc-400">Updated</span><br />{fmtDate(lead.updatedAt)}</p>
             <p><span className="text-xs font-semibold uppercase text-zinc-400">Next follow-up</span><br />{fmtDate(lead.nextFollowUpAt)}</p>
-            <p><span className="text-xs font-semibold uppercase text-zinc-400">Est. value (annual)</span><br />{lead.estimatedValue ? `$${lead.estimatedValue.toLocaleString("en-US")}` : "—"}</p>
+            <p><span className="text-xs font-semibold uppercase text-zinc-400">Est. value (annual)</span><br />{lead.estimatedValue ? formatMoney(lead.estimatedValue, lead.estimatedValueCurrency ?? "USD") : "—"}</p>
           </div>
         </SectionCard>
 
         <SectionCard
           title="Communication"
-          action={canManage && <button className={btnGhost} onClick={() => setShowBook(true)}>Book demo</button>}
+          action={
+            <div className="flex items-center gap-3">
+              <span className="text-xs text-zinc-400">
+                Last contact {lead.lastContactAt ? fmtDate(lead.lastContactAt) : "—"}
+              </span>
+              {canManage && <button className={btnGhost} onClick={() => setShowBook(true)}>Book demo</button>}
+            </div>
+          }
         >
           {canWrite && (
-            <div className="flex flex-wrap items-center gap-2">
-              <button className={btnGhost} onClick={() => openComm("email")}>✉ Email</button>
-              <button className={btnGhost} onClick={() => openComm("whatsapp")}>WhatsApp</button>
-              <button className={btnGhost} onClick={() => openComm("call")}>Call</button>
-              <input className={inputCls + " max-w-xs"} value={commDetail} onChange={(e) => setCommDetail(e.target.value)} placeholder={`Detail (${commKind} content / notes)`} />
-              <button className={btnPrimary} onClick={() => logComm(commKind, commDetail || "No detail given")}>Log {commKind}</button>
+            <div className="space-y-2.5">
+              <div className="flex flex-wrap items-center gap-2">
+                <span className="text-xs font-semibold uppercase tracking-wide text-zinc-400">Reach out</span>
+                <button className={btnGhost} onClick={() => openChannel("email")}>✉ Email</button>
+                <button className={btnGhost} onClick={() => openChannel("whatsapp")} disabled={!lead.phone}>WhatsApp</button>
+                <button className={btnGhost} onClick={() => openChannel("call")} disabled={!lead.phone}>Call</button>
+              </div>
+              <div className="flex flex-wrap items-center gap-2">
+                <span className="text-xs font-semibold uppercase tracking-wide text-zinc-400">Log</span>
+                <select
+                  className={inputCls + " !w-auto"}
+                  value={commKind}
+                  onChange={(e) => setCommKind(e.target.value as typeof commKind)}
+                  aria-label="Communication type"
+                >
+                  <option value="email">Email</option>
+                  <option value="whatsapp">WhatsApp</option>
+                  <option value="call">Call</option>
+                </select>
+                <input
+                  className={inputCls + " max-w-xs flex-1"}
+                  value={commDetail}
+                  onChange={(e) => setCommDetail(e.target.value)}
+                  placeholder={`What happened on this ${commKind}?`}
+                  onKeyDown={(e) => { if (e.key === "Enter") { void logComm(commKind, commDetail || "No detail given"); setCommDetail(""); } }}
+                />
+                <button className={btnPrimary} onClick={() => { void logComm(commKind, commDetail || "No detail given"); setCommDetail(""); }}>
+                  Log {commKind}
+                </button>
+              </div>
             </div>
           )}
           {demosState.length > 0 && (
@@ -468,11 +539,13 @@ export default function LeadWorkspace({
         )}
 
         {canManage && (
-          <SectionCard title="Conversion (Phase 37)">
+          <SectionCard title="Convert to customer">
             <p className="mb-3 text-xs text-zinc-400">
-              Converting preserves the original source, campaign, country, room count, plan and demo history.
+              Converting creates the customer record and preserves the original
+              source, campaign, country, room count, plan and demo history. The
+              lead then becomes read-only in the CRM.
             </p>
-            <button className={btnPrimary + " w-full"} onClick={convert} disabled={Boolean(lead.convertedCustomerId)}>
+            <button className={btnPrimary + " w-full"} onClick={() => setConfirmConvert(true)} disabled={Boolean(lead.convertedCustomerId)}>
               {lead.convertedCustomerId ? "Converted ✓" : "Convert to customer"}
             </button>
           </SectionCard>
@@ -500,6 +573,53 @@ export default function LeadWorkspace({
           </div>
         </div>
       </Modal>
+
+      {losingStage && (
+        <LostReasonDialog
+          leadName={lead.name}
+          onClose={() => setLosingStage(false)}
+          onConfirm={(reason) => {
+            setLosingStage(false);
+            void performMoveStage("lost", reason);
+          }}
+        />
+      )}
+
+      <ConfirmDialog
+        action={confirmWon
+          ? {
+              title: "Mark as won",
+              message: `Mark ${lead.name} as won?`,
+              consequences: [
+                "The deal is counted in win-rate and conversion reporting.",
+                "You can re-open the lead afterwards; the change is logged.",
+              ],
+              confirmLabel: "Mark won",
+            }
+          : null}
+        onClose={() => setConfirmWon(false)}
+        onConfirm={() => {
+          setConfirmWon(false);
+          void performMoveStage("won");
+        }}
+      />
+
+      <ConfirmDialog
+        action={confirmConvert
+          ? {
+              title: "Convert lead to customer",
+              message: `Convert ${lead.name} to a paying customer?`,
+              consequences: [
+                "A customer organization is created for this lead.",
+                "Attribution (source, campaign, country, plan) is preserved.",
+                "The lead becomes read-only in the CRM.",
+              ],
+              confirmLabel: "Convert",
+            }
+          : null}
+        onClose={() => setConfirmConvert(false)}
+        onConfirm={() => void convert()}
+      />
     </div>
   );
 }

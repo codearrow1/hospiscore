@@ -12,6 +12,7 @@ import type {
   ConvertedCustomer,
   DemoBooking,
   LeadEvent,
+  MarketingEvent,
   MarketingFormConfig,
   MarketingLead,
   PageView,
@@ -47,7 +48,11 @@ export interface DataFile {
   forms?: MarketingFormConfig[];
   auditLog?: AuditEntry[];
   pageViews?: PageView[];
+  /** Privacy-light named conversion events (see lib/marketing/eventsPub.ts). */
+  marketingEvents?: MarketingEvent[];
   convertedCustomers?: ConvertedCustomer[];
+  /** Password reset tokens (stored hashed; see lib/accounts.ts). */
+  passwordResets?: { email: string; tokenHash: string; expiresAt: string; createdAt: string; usedAt?: string }[];
 }
 
 export function emptyData(): DataFile {
@@ -65,6 +70,7 @@ export function emptyData(): DataFile {
     forms: [],
     auditLog: [],
     pageViews: [],
+    marketingEvents: [],
     convertedCustomers: [],
   };
 }

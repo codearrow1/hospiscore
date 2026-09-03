@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { requireSaasAccess } from "@/lib/marketing/guard";
 import { hasSaasPerm } from "@/lib/saas/roles";
+import { secretsMatch } from "@/lib/saas/cronAuth";
 import { runAutomationSweep, listAutomationEvents } from "@/lib/saas/automation";
 
 export const runtime = "nodejs";
@@ -14,7 +15,7 @@ export const dynamic = "force-dynamic";
 async function authorized(req: NextRequest): Promise<boolean> {
   const cronSecret = process.env.CRON_SECRET?.trim();
   const headerSecret = req.headers.get("x-cron-secret")?.trim();
-  if (cronSecret && headerSecret && cronSecret === headerSecret) return true;
+  if (cronSecret && headerSecret && secretsMatch(cronSecret, headerSecret)) return true;
   const guard = await requireSaasAccess();
   return guard.ok && hasSaasPerm(guard.user, "MARKETING_MANAGE");
 }

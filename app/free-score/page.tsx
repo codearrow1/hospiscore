@@ -12,11 +12,15 @@ import TiltCard from "@/components/marketing/TiltCard";
 import Icon from "@/components/marketing/icons";
 import type { IconName } from "@/components/marketing/icons";
 import { SITE_NAME, SITE_URL, ogImage } from "@/lib/site";
+import { dataMode } from "@/lib/config";
+import { scoreCoverageNote } from "@/lib/marketingCopy";
+
+const IS_LIVE = dataMode() === "live";
 
 export const metadata: Metadata = {
   title: "Free Online Presence Score",
   description:
-    "See exactly how visible your property is online in under a minute. Free score across Google, Booking.com, TripAdvisor, Expedia and Airbnb — no sign-up needed.",
+    "See exactly how visible your property is online in under a minute. A free online presence score from verified platform signals — no sign-up needed.",
   alternates: { canonical: "/free-score" },
   openGraph: {
     type: "website",
@@ -38,7 +42,9 @@ const FACTORS: { icon: IconName; title: string; body: string }[] = [
   {
     icon: "globe",
     title: "Channel visibility",
-    body: "Whether guests can find and book you on Google Hotels, Booking.com, Airbnb, TripAdvisor, Expedia and Agoda.",
+    body: IS_LIVE
+      ? "Whether guests can find and book you on Google Hotels, Booking.com, Airbnb, TripAdvisor, Expedia and Agoda."
+      : "How visible your property is across the channels we have verified signals for — never invented where data is missing.",
   },
   {
     icon: "megaphone",
@@ -101,8 +107,7 @@ export default function FreeScorePage() {
             </p>
             <PropertySearch />
             <p className="mt-4 text-center text-xs text-zinc-500">
-              No sign-up needed. Scores cover Google, Booking.com, TripAdvisor,
-              Expedia, Airbnb and more.
+              {scoreCoverageNote()}
             </p>
           </div>
         </section>

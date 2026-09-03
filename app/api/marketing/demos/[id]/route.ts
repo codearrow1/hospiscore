@@ -6,7 +6,9 @@ import {
   rateLimit,
 } from "@/lib/marketing/guard";
 import { getDemo, updateDemo, deleteDemo } from "@/lib/marketing/demos";
+import { getLead } from "@/lib/marketing/leads";
 import { writeAudit } from "@/lib/marketing/audit";
+import { canAccessLead, hasCapability } from "@/lib/marketing/roles";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -37,6 +39,12 @@ export async function PATCH(
   }
   const current = await getDemo(id);
   if (!current) return NextResponse.json({ error: "Demo not found" }, { status: 404 });
+  // Reps may only touch demos on their own leads or assigned to them.
+  const ownsDemo =
+    hasCapability(a.user, "leads.manage") ||
+    current.assignedTo?.toLowerCase() === a.user.email.toLowerCase() ||
+    (await getLead(current.leadId).then((l) => !!l && canAccessLead(a.user, l)));
+  if (!ownsDemo) return NextResponse.json({ error: "Demo not found" }, { status: 404 });
   const demo = await updateDemo(
     id,
     {
@@ -46,6 +54,7 @@ export async function PATCH(
           : undefined,
       durationMin: num(body.durationMin),
       status: (typeof body.status === "string" ? body.status : undefined) as never,
+      demoType: s(body.demoType),
       assignedTo: s(body.assignedTo),
       meetingUrl: s(body.meetingUrl),
       notes: s(body.notes),
@@ -71,6 +80,13 @@ export async function DELETE(
   const a = await auth(req);
   if (!("user" in a)) return a;
   const { id } = await params;
+  const current = await getDemo(id);
+  if (!current) return NextResponse.json({ error: "Demo not found" }, { status: 404 });
+  const ownsDemo =
+    hasCapability(a.user, "leads.manage") ||
+    current.assignedTo?.toLowerCase() === a.user.email.toLowerCase() ||
+    (await getLead(current.leadId).then((l) => !!l && canAccessLead(a.user, l)));
+  if (!ownsDemo) return NextResponse.json({ error: "Demo not found" }, { status: 404 });
   const removed = await deleteDemo(id);
   if (!removed) return NextResponse.json({ error: "Demo not found" }, { status: 404 });
   await writeAudit({ byEmail: a.user.email, action: "demo.deleted", entity: "demo", entityId: id, ip: clientIp(req) });

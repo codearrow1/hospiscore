@@ -22,6 +22,8 @@ export interface PlaceMatch {
   rating: number | null;
   userRatingCount: number | null;
   websiteUri: string | null;
+  /** On-file phone from Place Details (used to verify a claim later). */
+  phone: string | null;
 }
 
 const PLACES_BASE = "https://places.googleapis.com/v1";
@@ -90,6 +92,7 @@ async function searchPlacesLive(query: string, limit: number): Promise<PlaceMatc
     rating: p.rating ?? null,
     userRatingCount: p.userRatingCount ?? null,
     websiteUri: p.websiteUri ?? null,
+    phone: null, // not requested by Text Search; populated by Place Details
   }));
 }
 
@@ -131,6 +134,7 @@ async function getPlaceDetailsLive(placeId: string): Promise<PlaceMatch> {
     rating?: number;
     userRatingCount?: number;
     websiteUri?: string;
+    internationalPhoneNumber?: string;
   };
 
   return {
@@ -141,5 +145,6 @@ async function getPlaceDetailsLive(placeId: string): Promise<PlaceMatch> {
     rating: d.rating ?? null,
     userRatingCount: d.userRatingCount ?? null,
     websiteUri: d.websiteUri ?? null,
+    phone: d.internationalPhoneNumber ?? null,
   };
 }

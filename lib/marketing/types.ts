@@ -88,8 +88,13 @@ export interface MarketingLead {
   notes: string[];
   nextFollowUpAt?: string;
   lastContactAt?: string;
-  /** Estimated annual contract value in USD (from plan + pricing catalog). */
+  /** Estimated annual contract value (from plan + country pricing catalog).
+   *  Denominated in `estimatedValueCurrency` when known. */
   estimatedValue: number;
+  /** ISO 4217 code of the country profile used for the estimate. */
+  estimatedValueCurrency?: string;
+  /** Sales priority (optional; absent = unprioritized, never fabricated). */
+  priority?: "high" | "medium" | "low";
   demoId?: string;
   trialStartedAt?: string;
   lostReason?: string;
@@ -148,6 +153,8 @@ export interface DemoBooking {
   /** Demo length in minutes. */
   durationMin: number;
   status: DemoStatus;
+  /** Optional free-form demo type label (e.g. product walkthrough, onboarding). */
+  demoType?: string;
   assignedTo?: string;
   meetingUrl?: string;
   phone?: string;
@@ -225,6 +232,23 @@ export interface PageView {
   utmCampaign?: string;
   utmSource?: string;
   utmMedium?: string;
+  country?: string;
+  session: string;
+}
+
+/**
+ * Privacy-light named conversion event (no cookie, no raw PII).
+ * Mirrors the page-view philosophy: session-keyed, optional small meta, no
+ * fingerprint/IP. Kept in a separate store array so it never changes the shape
+ * of page views or the operational data model.
+ */
+export interface MarketingEvent {
+  id: string;
+  /** Event name, e.g. "demo_cta", "score_submit". */
+  name: string;
+  /** Optional short context (page path, cta label). Truncated on write. */
+  meta?: string;
+  at: string;
   country?: string;
   session: string;
 }

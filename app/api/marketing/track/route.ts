@@ -14,7 +14,7 @@ export const dynamic = "force-dynamic";
  * site. No cookies, no IP stored, deduped; rate-limited per client.
  */
 export async function POST(req: NextRequest) {
-  if (!CONFIG.trackViews) return NextResponse.json({ ok: false }, { status: 204 });
+  if (!CONFIG.trackViews) return new NextResponse(null, { status: 204 });
   if (!originAllowed(req)) {
     return NextResponse.json({ error: "Rejected" }, { status: 403 });
   }
@@ -42,7 +42,7 @@ export async function POST(req: NextRequest) {
     country: resolution.country,
     session: typeof body.session === "string" ? body.session : undefined,
   });
-  if (!ok) return NextResponse.json({ ok: false }, { status: 204 });
+  if (!ok) return new NextResponse(null, { status: 204 });
 
   await ensureMarketingStore();
   await recordView(ok);

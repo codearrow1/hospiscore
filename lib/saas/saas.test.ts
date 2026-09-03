@@ -1,16 +1,17 @@
 import { describe, it, expect } from "vitest";
 import { validateOrgInput, validateOrgPatch } from "./organizations";
 import { validatePropertyInput } from "./properties";
-import { hasSaasPerm } from "./roles";
+import { hasSaasPerm, getRolePermissions } from "./roles";
 import { validatePlanInput } from "./plans";
 import { canTransition, computeMrr, isSubscriptionStatus } from "./subscriptions";
 import { getPlanLimit } from "./usage";
 import { canTransitionCommission, calcCommissionAmount, COMMISSION_STATUSES } from "./commissions";
 import { canTransitionPayout, PAYOUT_STATUSES } from "./payouts";
 import { statusForScore } from "./health";
-import { nextRetryAfterAttempt, RETRY_SCHEDULE_DAYS } from "./dunning";
+import { nextRetryAfterAttemptSync, RETRY_SCHEDULE_DAYS } from "./dunning";
 import { validateCouponInput, computeDiscount } from "./coupons";
 import { canTransitionTicket, slaDueFor, isSlaBreached, TICKET_CATEGORIES } from "./support";
+import { DEFAULT_SLA_HOURS } from "./ticketRules";
 import { canTransitionFranchisee, FRANCHISEE_STATUSES } from "./franchise";
 import { PARTNER_STATUSES } from "./partners";
 
@@ -65,6 +66,23 @@ describe("saas RBAC", () => {
   });
   it("no role = no access", () => {
     expect(hasSaasPerm({ email: "a@x.com", role: "" }, "CUSTOMER_VIEW")).toBe(false);
+  });
+  it("getRolePermissions returns all perms for super_admin", () => {
+    const perms = getRolePermissions("super_admin");
+    expect(perms.length).toBe(29);
+    expect(perms).toContain("CUSTOMER_MANAGE");
+    expect(perms).toContain("SYSTEM_SETTINGS_MANAGE");
+    expect(perms).toContain("FINANCIAL_APPROVE");
+  });
+  it("getRolePermissions returns scoped perms for analyst", () => {
+    const perms = getRolePermissions("analyst");
+    expect(perms.length).toBeGreaterThan(0);
+    expect(perms).toContain("CUSTOMER_VIEW");
+    expect(perms).not.toContain("CUSTOMER_MANAGE");
+    expect(perms).not.toContain("SYSTEM_SETTINGS_MANAGE");
+  });
+  it("getRolePermissions returns empty for unknown role", () => {
+    expect(getRolePermissions("bogus_role")).toEqual([]);
   });
 });
 
@@ -173,13 +191,13 @@ describe("saas dunning schedule", () => {
   it("uses 1/3/5/7 day retry ladder", () => {
     expect(RETRY_SCHEDULE_DAYS).toEqual([1, 3, 5, 7]);
     const base = new Date("2026-01-01T00:00:00Z");
-    expect(nextRetryAfterAttempt(1, base)).toEqual(new Date("2026-01-02T00:00:00Z"));
-    expect(nextRetryAfterAttempt(2, base)).toEqual(new Date("2026-01-04T00:00:00Z"));
-    expect(nextRetryAfterAttempt(4, base)).toEqual(new Date("2026-01-08T00:00:00Z"));
+    expect(nextRetryAfterAttemptSync(1, base)).toEqual(new Date("2026-01-02T00:00:00Z"));
+    expect(nextRetryAfterAttemptSync(2, base)).toEqual(new Date("2026-01-04T00:00:00Z"));
+    expect(nextRetryAfterAttemptSync(4, base)).toEqual(new Date("2026-01-08T00:00:00Z"));
   });
   it("returns null after final attempt", () => {
-    expect(nextRetryAfterAttempt(4 + 1)).toBeNull();
-    expect(nextRetryAfterAttempt(99)).toBeNull();
+    expect(nextRetryAfterAttemptSync(4 + 1)).toBeNull();
+    expect(nextRetryAfterAttemptSync(99)).toBeNull();
   });
 });
 
@@ -225,6 +243,22 @@ describe("saas support tickets", () => {
     expect(slaDueFor("high", base)).toEqual(new Date("2026-01-01T08:00:00Z"));
     expect(slaDueFor("medium", base)).toEqual(new Date("2026-01-02T00:00:00Z"));
     expect(slaDueFor("low", base)).toEqual(new Date("2026-01-04T00:00:00Z"));
+  });
+  it("DEFAULT_SLA_HOURS matches hardcoded defaults", () => {
+    expect(DEFAULT_SLA_HOURS).toEqual({ urgent: 4, high: 8, medium: 24, low: 72 });
+  });
+  it("slaDueFor uses custom hours when provided", () => {
+    const base = new Date("2026-01-01T00:00:00Z");
+    const custom = { urgent: 2, high: 4, medium: 12, low: 48 };
+    expect(slaDueFor("urgent", base, custom)).toEqual(new Date("2026-01-01T02:00:00Z"));
+    expect(slaDueFor("high", base, custom)).toEqual(new Date("2026-01-01T04:00:00Z"));
+    expect(slaDueFor("medium", base, custom)).toEqual(new Date("2026-01-01T12:00:00Z"));
+    expect(slaDueFor("low", base, custom)).toEqual(new Date("2026-01-03T00:00:00Z"));
+  });
+  it("slaDueFor falls back to default for unknown priority", () => {
+    const base = new Date("2026-01-01T00:00:00Z");
+    expect(slaDueFor("unknown", base)).toEqual(new Date("2026-01-04T00:00:00Z"));
+    expect(slaDueFor("unknown", base, { urgent: 1 })).toEqual(new Date("2026-01-04T00:00:00Z"));
   });
   it("flags SLA breaches deterministically", () => {
     const overdue = { status: "open", slaDueAt: new Date(Date.now() - 60000), resolvedAt: null, firstResponseAt: null };

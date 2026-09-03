@@ -276,9 +276,9 @@ export default function ScoreCheckWidget() {
       </div>
 
       <div className="mt-3 flex min-h-5 items-center justify-between text-xs text-zinc-400">
-        <span>
+        <span aria-live="polite">
           {loading
-            ? "Searching live data…"
+            ? "Searching…"
             : results !== null
               ? `${results.length} result${results.length === 1 ? "" : "s"} found`
               : "\u00A0"}
@@ -354,12 +354,15 @@ export default function ScoreCheckWidget() {
 
       {selected && (
         <div ref={unlockRef} className="mt-4 rounded-3xl border border-zinc-800 bg-zinc-900/70 p-5 sm:p-6">
+          <p className="sr-only" aria-live="polite">
+            {selected.name}: overall score {unlocked?.overall ?? selected.overall} out of 100
+          </p>
           <div className="flex flex-wrap items-center gap-4">
             <div className="order-2 w-full min-w-0 sm:order-1 sm:w-auto">
               <p className="text-[11px] font-semibold uppercase tracking-widest text-indigo-400">
                 {unlocked ? "Full report unlocked" : "Free score preview"}
               </p>
-              <h3 className="mt-1 truncate text-lg font-bold text-zinc-50">{selected.name}</h3>
+              <h2 className="mt-1 truncate text-lg font-bold text-zinc-50">{selected.name}</h2>
               <p className="text-sm text-zinc-400">
                 {selected.type} · {selected.city}, {selected.country}
               </p>

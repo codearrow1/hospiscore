@@ -69,18 +69,27 @@ export function normalizePlan(plan: string | undefined, rooms?: number): PlanId 
   return undefined;
 }
 
-/** Estimate annual contract value in USD from pricing catalog (0 = unknown). */
+/** Estimate annual contract value from pricing catalog (0 = unknown).
+ *  The amount is denominated in the country profile's record currency. */
+export function estimateValueWithCurrency(
+  lead: Pick<MarketingLead, "country" | "planInterest" | "rooms">,
+  pricing: PricingDoc,
+): { value: number; currency: string | undefined } {
+  const plan = normalizePlan(lead.planInterest, lead.rooms);
+  if (!plan || plan === "enterprise") return { value: 0, currency: undefined };
+  const profile = pricing.profiles[lead.country ?? "US"] ?? pricing.profiles.US;
+  if (!profile) return { value: 0, currency: undefined };
+  return { value: priceFor(profile, plan, "yearly"), currency: profile.currency };
+}
+
+/** Back-compat wrapper — see estimateValueWithCurrency. */
 export async function estimateValueForLead(
   lead: Pick<MarketingLead, "country" | "planInterest" | "rooms">,
   doc?: PricingDoc,
   target?: string,
 ): Promise<number> {
   const pricing: PricingDoc = doc ?? (await getPricingDoc(target));
-  const plan = normalizePlan(lead.planInterest, lead.rooms);
-  if (!plan || plan === "enterprise") return 0;
-  const profile = pricing.profiles[lead.country ?? "US"] ?? pricing.profiles.US;
-  if (!profile) return 0;
-  return priceFor(profile, plan, "yearly");
+  return estimateValueWithCurrency(lead, pricing).value;
 }
 
 export interface UpsertInput {
@@ -100,6 +109,7 @@ export interface UpsertInput {
   message?: string;
   source: LeadSource;
   attribution?: LeadSourceAttribution;
+  priority?: "high" | "medium" | "low";
   byEmail?: string;
 }
 
@@ -132,6 +142,7 @@ export async function upsertLead(input: UpsertInput, target?: string): Promise<M
         message: input.message,
         source: input.source,
         attribution: input.attribution ?? {},
+        priority: input.priority,
         stage: "new",
         score: 0,
         band: "cold",
@@ -163,6 +174,7 @@ export async function upsertLead(input: UpsertInput, target?: string): Promise<M
         message: input.message || existing.message,
         source: existing.source === "other" ? input.source : existing.source,
         attribution: { ...existing.attribution, ...input.attribution },
+        priority: input.priority ?? existing.priority,
         estimatedValue: 0,
         updatedAt: now,
       };
@@ -177,18 +189,19 @@ export async function upsertLead(input: UpsertInput, target?: string): Promise<M
   if (!nextId) return null;
   const saved = await getLead(nextId, target);
   if (!saved) return null;
-  const estimatedValue = await estimateValueForLead(saved, undefined, target);
-  if (estimatedValue >= 0) {
-    await writeData(
-      (d) => ({
-        ...d,
-        leads: (d.leads ?? []).map((l) =>
-          l.id === saved.id ? { ...l, estimatedValue } : l,
-        ),
-      }),
-      target,
-    );
-  }
+  const pricingDoc = await getPricingDoc(target);
+  const est = estimateValueWithCurrency(saved, pricingDoc);
+  await writeData(
+    (d) => ({
+      ...d,
+      leads: (d.leads ?? []).map((l) =>
+        l.id === saved.id
+          ? { ...l, estimatedValue: est.value, estimatedValueCurrency: est.currency }
+          : l,
+      ),
+    }),
+    target,
+  );
 
   await addEvent(
     {
@@ -241,7 +254,7 @@ export function filterLeads(
     if (filter.source && filter.source !== "all" && l.source !== filter.source) return false;
     if (filter.country && l.country !== filter.country.toUpperCase()) return false;
     if (filter.plan && l.planInterest !== filter.plan) return false;
-    if (filter.owner && l.ownerEmail !== filter.owner) return false;
+    if (filter.owner && l.ownerEmail?.toLowerCase() !== filter.owner.toLowerCase()) return false;
     if (filter.band && filter.band !== "all" && l.band !== filter.band) return false;
     if (typeof filter.minScore === "number" && l.score < filter.minScore) return false;
     if (q) {
@@ -287,6 +300,9 @@ export type LeadPatch = Partial<
     | "nextFollowUpAt"
     | "lastContactAt"
     | "lostReason"
+    | "priority"
+    | "estimatedValue"
+    | "estimatedValueCurrency"
   >
 > & { note?: string };
 

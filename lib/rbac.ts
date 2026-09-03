@@ -40,7 +40,8 @@ export const APP_ROLE_LABELS: Record<AppRole, string> = {
 
 export const APP_ROLE_DASHBOARDS: Record<AppRole, string> = {
   super_admin: "/saas",
-  subadmin: "/subadmin",
+  // Legacy /subadmin retired — the Growth (marketing) plane is canonical.
+  subadmin: "/marketing-admin",
   staff: "/staff",
   affiliate: "/affiliate",
   partner: "/partner",
@@ -84,8 +85,9 @@ export function appRoleFromStoredRole(
 }
 
 /**
- * Full resolver: admins first, then portal identities from the SaaS plane
- * (Affiliate / Partner / primary OrgContact by email or userId link).
+ * Full resolver: admins first, then portal identities from the SaaS plane.
+ * Portal identity requires an explicit binding (Affiliate/Partner userId
+ * column or a KV binding record) — never a raw email match (S-01).
  */
 export async function resolveAppRole(
   user: Pick<AuthUser, "id" | "email" | "role">,
@@ -94,27 +96,14 @@ export async function resolveAppRole(
   if (fromRole === "super_admin" || fromRole === "staff") return fromRole;
 
   // Lazy import keeps this module importable from edge-safe contexts.
-  const { prisma } = await import("@/lib/prisma");
   const { initSaasDb } = await import("@/lib/saas/init");
   await initSaasDb().catch(() => {});
 
+  const portalLinks = await import("@/lib/saas/portalLinks");
   const [affiliate, partner, contact] = await Promise.all([
-    prisma.affiliate.findFirst({
-      where: { OR: [{ email: user.email }, { userId: user.id }] },
-      select: { id: true },
-    }),
-    prisma.partner.findFirst({
-      where: { OR: [{ email: user.email }, { userId: user.id }] },
-      select: { id: true },
-    }),
-    prisma.orgContact.findFirst({
-      where: {
-        email: user.email,
-        organization: { status: { not: "cancelled" } },
-      },
-      orderBy: { isPrimary: "desc" },
-      select: { id: true },
-    }),
+    portalLinks.findAffiliateForUser(user.id).catch(() => null),
+    portalLinks.findPartnerForUser(user.id).catch(() => null),
+    portalLinks.findOrgContactForUser(user.id).catch(() => null),
   ]);
 
   if (affiliate) return "affiliate";

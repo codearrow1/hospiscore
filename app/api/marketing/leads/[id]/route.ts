@@ -5,9 +5,12 @@ import {
   clientIp,
   rateLimit,
 } from "@/lib/marketing/guard";
-import { getLead, updateLead, deleteLead, convertLead } from "@/lib/marketing/leads";
+import { getLead, updateLead, deleteLead, convertLead, type LeadPatch } from "@/lib/marketing/leads";
 import { eventsForLead } from "@/lib/marketing/events";
 import { writeAudit } from "@/lib/marketing/audit";
+import { canAccessLead, hasCapability } from "@/lib/marketing/roles";
+import { isPriority } from "@/lib/marketing/stages";
+import type { AuthUser } from "@/lib/auth";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -20,7 +23,10 @@ export async function GET(
   if (!guard.ok) return guard.response;
   const { id } = await params;
   const [lead, events] = await Promise.all([getLead(id), eventsForLead(id)]);
-  if (!lead) return NextResponse.json({ error: "Lead not found" }, { status: 404 });
+  // 404 (not 403) so reps can't probe which lead ids exist.
+  if (!lead || !canAccessLead(guard.user, lead)) {
+    return NextResponse.json({ error: "Lead not found" }, { status: 404 });
+  }
   return NextResponse.json({ lead, events });
 }
 
@@ -28,7 +34,7 @@ async function mutate(
   req: NextRequest,
   params: Promise<{ id: string }>,
   capability: "leads.write" | "leads.manage",
-): Promise<{ ok: true; user: { email: string } } | { ok: false; response: NextResponse }> {
+): Promise<{ ok: true; user: AuthUser } | { ok: false; response: NextResponse }> {
   const guard = await requireCapability(capability);
   if (!guard.ok) return { ok: false, response: guard.response };
   if (!originAllowed(req)) {
@@ -37,7 +43,7 @@ async function mutate(
   if (!rateLimit(`admin:${guard.user.email}`, 120, 60_000)) {
     return { ok: false, response: NextResponse.json({ error: "Slow down" }, { status: 429 }) };
   }
-  return { ok: true, user: { email: guard.user.email } };
+  return { ok: true, user: guard.user };
 }
 
 export async function PATCH(
@@ -53,7 +59,7 @@ export async function PATCH(
   } catch {
     return NextResponse.json({ error: "Invalid JSON" }, { status: 400 });
   }
-  const patch = {
+  const patch: LeadPatch = {
     name: s(body.name),
     email: s(body.email),
     phone: s(body.phone),
@@ -72,6 +78,18 @@ export async function PATCH(
     lostReason: s(body.lostReason),
     note: s(body.note),
   };
+  // Priority is optional and explicit: only touch it when the client sends
+  // a valid value (or "" to clear). Absent → leave untouched.
+  if (isPriority(body.priority)) patch.priority = body.priority;
+  else if (body.priority === "") patch.priority = undefined;
+  const existing = await getLead(id);
+  // 404 (not 403) so reps can't probe which lead ids exist.
+  if (!existing || !canAccessLead(auth.user, existing)) {
+    return NextResponse.json({ error: "Lead not found" }, { status: 404 });
+  }
+  // Reassignment is a leads.manage action — reps cannot hand leads to
+  // themselves or anyone else via a PATCH.
+  if (!hasCapability(auth.user, "leads.manage")) patch.ownerEmail = undefined;
   const lead = await updateLead(id, patch, auth.user.email);
   if (!lead) return NextResponse.json({ error: "Lead not found" }, { status: 404 });
   await writeAudit({

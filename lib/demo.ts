@@ -101,5 +101,34 @@ export async function submitDemoRequest(
     }),
     target,
   );
+
+  // Phase 5: mirror into the marketing CRM so there is one lead system.
+  // The raw capture above stays the source of truth for the legacy export;
+  // CRM dedupe merges repeat visitors by email/phone/domain.
+  try {
+    const { upsertLead } = await import("@/lib/marketing/leads");
+    await upsertLead(
+      {
+        name: record.name,
+        email: record.email,
+        company: record.company,
+        propertyName: record.propertyName,
+        rooms: record.propertyCount,
+        planInterest: record.plan,
+        country: record.country,
+        billingCycle: record.billingCycle,
+        message: record.message,
+        source: "demo_page",
+        attribution: {
+          source: "demo_page",
+          pagePath: "/demo",
+        },
+      },
+      target,
+    );
+  } catch {
+    // Never fail the user-facing request because of CRM mirroring.
+  }
+
   return record;
 }

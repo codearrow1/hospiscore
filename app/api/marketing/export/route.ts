@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { requireCapability } from "@/lib/marketing/guard";
+import { hasCapability } from "@/lib/marketing/roles";
 import { ensureMarketingStore } from "@/lib/marketing/seed";
 import { listLeads, filterLeads, leadToCsvRows } from "@/lib/marketing/leads";
 import { isLeadStage } from "@/lib/marketing/stages";
@@ -15,13 +16,17 @@ export async function GET(req: NextRequest) {
 
   const sp = req.nextUrl.searchParams;
   const leads = await listLeads();
+  const canSeeAll = hasCapability(guard.user, "leads.manage");
+  // Mirrors GET /api/marketing/leads: non-managers (sales reps) are hard-scoped
+  // to their own assignments; an ?owner= param cannot widen the view/export.
+  const owner = canSeeAll ? (sp.get("owner") ?? undefined) : guard.user.email;
   const filtered = filterLeads(leads, {
     q: sp.get("q") ?? undefined,
     stage: isLeadStage(sp.get("stage") ?? "") ? (sp.get("stage") as never) : "all",
     source: (sp.get("source") ?? "all") as never,
     country: sp.get("country") ?? undefined,
     plan: sp.get("plan") ?? undefined,
-    owner: sp.get("owner") ?? undefined,
+    owner,
     band: ((sp.get("band") ?? "all") as never) || "all",
     minScore: sp.get("minScore") ? Number(sp.get("minScore")) : undefined,
   });

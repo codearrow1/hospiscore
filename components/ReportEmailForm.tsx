@@ -30,7 +30,7 @@ export default function ReportEmailForm({
   const wrapClass =
     variant === "inline"
       ? "rounded-2xl border border-indigo-900/70 bg-indigo-950/40 p-5"
-      : "rounded-2xl border border-zinc-200 bg-white p-6 shadow-sm dark:border-zinc-800 dark:bg-zinc-900";
+      : "rounded-2xl border border-zinc-800 bg-zinc-900 p-6 shadow-sm";
 
   async function onSubmit(e: React.FormEvent) {
     e.preventDefault();
@@ -62,9 +62,9 @@ export default function ReportEmailForm({
 
   if (state.status === "success") {
     return (
-      <div className="rounded-2xl border border-emerald-200 bg-emerald-50 p-6 dark:border-emerald-900 dark:bg-emerald-950/40">
+      <div className="rounded-2xl border border-emerald-900/60 bg-emerald-950/40 p-6">
         <div className="flex items-start gap-3">
-          <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-emerald-100 text-emerald-600 dark:bg-emerald-900/40 dark:text-emerald-300">
+          <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-emerald-500/15 text-emerald-300">
             <svg className="h-5 w-5" viewBox="0 0 20 20" fill="currentColor">
               <path
                 fillRule="evenodd"
@@ -74,12 +74,12 @@ export default function ReportEmailForm({
             </svg>
           </span>
           <div>
-            <h3 className="font-semibold text-zinc-900 dark:text-zinc-50">
+            <h3 className="font-semibold text-zinc-50">
               {state.emailed === false
                 ? "Report saved — we’ll email it shortly."
                 : `Report sent to ${state.message}`}
             </h3>
-            <p className="mt-1 text-sm text-zinc-600 dark:text-zinc-300">
+            <p className="mt-1 text-sm text-zinc-300">
               The full report for {propertyName} is on its way. One of our hospitality
               specialists may reach out to help you act on it — no spam, ever.
             </p>
@@ -94,7 +94,7 @@ export default function ReportEmailForm({
       <h2 className="text-sm font-semibold uppercase tracking-wide text-zinc-400">
         Get the full report in your inbox
       </h2>
-      <p className="mt-1 text-sm text-zinc-500 dark:text-zinc-400">
+      <p className="mt-1 text-sm text-zinc-400">
         We’ll email the complete score report for {propertyName} — strengths,
         watchouts and what to fix first — so you can share it with your team.
       </p>
@@ -111,7 +111,7 @@ export default function ReportEmailForm({
             value={name}
             onChange={(e) => setName(e.target.value)}
             placeholder="Your name"
-            className="w-full rounded-xl border border-zinc-300 bg-white px-4 py-2.5 text-sm text-zinc-900 outline-none transition focus:border-indigo-500 focus:ring-2 focus:ring-indigo-200 dark:border-zinc-700 dark:bg-zinc-950 dark:text-zinc-50 dark:focus:ring-indigo-900"
+            className="w-full rounded-xl border border-zinc-700 bg-zinc-950 px-4 py-2.5 text-sm text-zinc-100 outline-none transition focus:border-indigo-400 focus:ring-2 focus:ring-indigo-900"
           />
         </div>
         <div>
@@ -126,7 +126,7 @@ export default function ReportEmailForm({
             value={email}
             onChange={(e) => setEmail(e.target.value)}
             placeholder="Work email"
-            className="w-full rounded-xl border border-zinc-300 bg-white px-4 py-2.5 text-sm text-zinc-900 outline-none transition focus:border-indigo-500 focus:ring-2 focus:ring-indigo-200 dark:border-zinc-700 dark:bg-zinc-950 dark:text-zinc-50 dark:focus:ring-indigo-900"
+            className="w-full rounded-xl border border-zinc-700 bg-zinc-950 px-4 py-2.5 text-sm text-zinc-100 outline-none transition focus:border-indigo-400 focus:ring-2 focus:ring-indigo-900"
           />
         </div>
         <button
@@ -139,7 +139,7 @@ export default function ReportEmailForm({
         {state.status === "error" && (
           <p
             role="alert"
-            className="rounded-xl border border-red-200 bg-red-50 p-3 text-sm text-red-600 dark:border-red-900 dark:bg-red-950/40 dark:text-red-300"
+            className="rounded-xl border border-red-900/60 bg-red-950/40 p-3 text-sm text-red-300"
           >
             {state.message}
           </p>

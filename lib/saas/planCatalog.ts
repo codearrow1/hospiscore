@@ -425,7 +425,7 @@ export async function reconcilePlans(opts: { dryRun?: boolean } = {}): Promise<R
     if (p.archivedAt || !p.isActive) continue;
     const subs = await prisma.subscription.count({ where: { planId: p.id } });
     actions.push({
-      type: subs > 0 ? "ARCHIVE" : "ARCHIVE",
+      type: "ARCHIVE",
       target: p.slug,
       detail: `active plan without Marketing counterpart (${subs} historical subscriptions preserved via archive)`,
       deterministic: true,

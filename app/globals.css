@@ -6,12 +6,59 @@
   --background: #ffffff;
   --foreground: #171717;
   color-scheme: light;
+
+  /* HospiOS semantic product tokens (Phase 1 foundation) */
+  --surface: #ffffff;
+  --surface-subtle: #f4f4f5;
+  --line: #e4e4e7;
+  --line-strong: #d4d4d8;
+  --ink-secondary: #52525b;
+  --ink-muted: #a1a1aa;
+  --brand: #4f46e5;
+  --brand-soft: #eef2ff;
+  --success: #059669;
+  --success-soft: #ecfdf5;
+  --warning: #b45309;
+  --warning-soft: #fffbeb;
+  --danger: #e11d48;
+  --danger-soft: #fff1f2;
+  --info: #0369a1;
+  --info-soft: #f0f9ff;
+  --accent: #7c3aed;
+  --accent-soft: #f5f3ff;
+  --disabled: #a1a1aa;
+  --focus: #4f46e5;
+  --selected: #eef2ff;
+  --hover: #f4f4f5;
 }
 
 .dark {
   --background: #0a0a0a;
   --foreground: #ededed;
   color-scheme: dark;
+
+  --surface: #18181b;
+  --surface-subtle: #1f1f23;
+  --line: #2e2e32;
+  --line-strong: #3f3f46;
+  --ink-secondary: #a1a1aa;
+  --ink-muted: #71717a;
+  --brand: #818cf8;
+  --brand-soft: rgba(99, 102, 241, 0.16);
+  --success: #34d399;
+  --success-soft: rgba(16, 185, 129, 0.14);
+  --warning: #fbbf24;
+  --warning-soft: rgba(245, 158, 11, 0.14);
+  --danger: #fb7185;
+  --danger-soft: rgba(244, 63, 94, 0.14);
+  --info: #38bdf8;
+  --info-soft: rgba(2, 132, 199, 0.18);
+  --accent: #a78bfa;
+  --accent-soft: rgba(124, 58, 237, 0.16);
+  --disabled: #71717a;
+  --focus: #818cf8;
+  --selected: rgba(99, 102, 241, 0.16);
+  --hover: #27272a;
 }
 
 @theme inline {
@@ -19,6 +66,26 @@
   --color-foreground: var(--foreground);
   --font-sans: var(--font-inter);
   --font-mono: var(--font-geist-mono);
+
+  --color-surface: var(--surface);
+  --color-surface-subtle: var(--surface-subtle);
+  --color-line: var(--line);
+  --color-line-strong: var(--line-strong);
+  --color-ink-secondary: var(--ink-secondary);
+  --color-ink-muted: var(--ink-muted);
+  --color-brand: var(--brand);
+  --color-brand-soft: var(--brand-soft);
+  --color-success: var(--success);
+  --color-success-soft: var(--success-soft);
+  --color-warning: var(--warning);
+  --color-warning-soft: var(--warning-soft);
+  --color-danger: var(--danger);
+  --color-danger-soft: var(--danger-soft);
+  --color-info: var(--info);
+  --color-info-soft: var(--info-soft);
+  --color-accent: var(--accent);
+  --color-accent-soft: var(--accent-soft);
+  --color-disabled: var(--disabled);
 }
 
 body {
@@ -28,9 +95,14 @@ body {
 }
 
 :focus-visible {
-  outline: 2px solid #4f46e5;
+  outline: 2px solid var(--brand, #4f46e5);
   outline-offset: 2px;
   border-radius: 4px;
+}
+
+/* Suppress focus ring on pointer-mouse clicks; keep for keyboard */
+:focus:not(:focus-visible) {
+  outline: none;
 }
 
 [id] {
@@ -198,6 +270,57 @@ body {
 
 .animate-glow {
   animation: glow-pulse 6s ease-in-out infinite;
+}
+
+/* ── Property-type showcase motion ── */
+@keyframes content-in {
+  from {
+    opacity: 0;
+    transform: translateY(12px);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+
+@keyframes pill-in {
+  from {
+    opacity: 0;
+    transform: translateY(8px);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+
+@keyframes image-in {
+  from {
+    opacity: 0;
+    transform: scale(1.04);
+  }
+  to {
+    opacity: 1;
+    transform: scale(1);
+  }
+}
+
+/* Keyed content swap: remount per property so text/pills replay subtly. */
+.content-swap {
+  animation: content-in 0.5s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+.animate-content {
+  animation: content-in 0.5s cubic-bezier(0.16, 1, 0.3, 1) both;
+}
+
+.pill-in {
+  animation: pill-in 0.4s ease-out both;
+}
+
+.crossfade-in {
+  animation: image-in 0.55s ease-out;
 }
 
 /* Skeleton shimmer for UI placeholders */
@@ -677,6 +800,10 @@ a {
   .pulse-dot,
   .hero-zoom,
   .bar-grow,
+  .content-swap,
+  .animate-content,
+  .pill-in,
+  .crossfade-in,
   .toast-in,
   .mobile-menu-enter,
   .mobile-menu-exit,
@@ -687,5 +814,57 @@ a {
   .faq-panel,
   .tilt-card {
     transition: none !important;
+  }
+}
+
+/* Print — hide chrome, show content, force light colors */
+@media print {
+  *,
+  *::before,
+  *::after {
+    background: transparent !important;
+    color: #000 !important;
+    box-shadow: none !important;
+    text-shadow: none !important;
+  }
+  body {
+    font-size: 12pt;
+    line-height: 1.4;
+  }
+  nav, header, footer, .skip-link, .scroll-progress, .back-to-top,
+  [role="banner"], [role="navigation"], button:not(.print-show),
+  .sidebar, .bottom-nav, .mobile-menu, .toast-container,
+  .animate-float, .animate-glow, .shimmer, .marquee-track,
+  .glow-border, .btn-shine, .reveal, .reveal-left, .reveal-right,
+  .reveal-scale {
+    display: none !important;
+  }
+  main, [role="main"], article, section {
+    display: block !important;
+    width: 100% !important;
+    margin: 0 !important;
+    padding: 0 !important;
+  }
+  a[href]::after {
+    content: " (" attr(href) ")";
+    font-size: 0.85em;
+    color: #555 !important;
+  }
+  a[href^="#"]::after,
+  a[href^="javascript:"]::after {
+    content: "";
+  }
+  h1, h2, h3, h4 {
+    page-break-after: avoid;
+  }
+  img {
+    max-width: 100% !important;
+    page-break-inside: avoid;
+  }
+  table {
+    border-collapse: collapse !important;
+  }
+  @page {
+    margin: 2cm;
   }
 }

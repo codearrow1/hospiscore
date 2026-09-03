@@ -41,16 +41,20 @@ export async function getUsage(organizationId: string): Promise<UsageSnapshot[]>
   const plan = org.subscriptions[0]?.plan ?? null;
   const period = new Date().toISOString().slice(0, 7); // YYYY-MM
 
-  // For metrics backed by UsageRecord, sum current period
-  const records = await prisma.usageRecord.findMany({ where: { organizationId, period } });
-  const sum = (m: string) => records.filter((r) => r.metric === m).reduce((s, r) => s + r.quantity, 0);
+  // For metrics backed by UsageRecord, aggregate at DB level instead of loading all rows
+  const usageAgg = await prisma.usageRecord.groupBy({
+    by: ["metric"],
+    where: { organizationId, period },
+    _sum: { quantity: true },
+  });
+  const usageByMetric = new Map(usageAgg.map((r) => [r.metric, r._sum.quantity ?? 0]));
 
   const metrics: UsageMetric[] = ["properties","users","bookings","api_calls","storage","emails","sms","whatsapp","automations"];
   return metrics.map((metric) => {
     let used: number;
     if (metric === "properties") used = org.properties.length;
     else if (metric === "users") used = org.contacts.length;
-    else used = sum(metric);
+    else used = usageByMetric.get(metric) ?? 0;
 
     const limit = plan ? getPlanLimit(plan as never, metric) : null;
     const pct = limit != null && limit > 0 ? Math.round((used / limit) * 100) : null;
@@ -86,9 +90,10 @@ export async function recordUsage(organizationId: string, metric: UsageMetric, q
 }
 
 export async function usageHistory(organizationId: string, months = 6) {
+  const clamped = Math.min(Math.max(1, months), 24);
   return prisma.usageRecord.findMany({
     where: { organizationId },
     orderBy: { recordedAt: "desc" },
-    take: months * 10,
+    take: clamped * 10,
   });
 }

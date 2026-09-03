@@ -3,6 +3,7 @@ import { mkdirSync, readdirSync, readFileSync } from "node:fs";
 import path from "node:path";
 import { PrismaClient } from "@/lib/generated/prisma/client";
 import { absoluteSqliteUrl, rawDatabaseUrl, sqliteFilePath } from "@/lib/saas/dbUrl";
+import { ensureQueryEngineEnv } from "@/lib/saas/enginePath";
 
 const MIGRATIONS_DIR = path.resolve(process.cwd(), "prisma", "migrations");
 
@@ -67,6 +68,7 @@ async function provision(): Promise<void> {
 
   mkdirSync(path.dirname(filePath), { recursive: true });
 
+  ensureQueryEngineEnv();
   const client = new PrismaClient({ datasourceUrl: absoluteSqliteUrl(url) });
   try {
     await client.$executeRaw`

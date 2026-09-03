@@ -3,6 +3,8 @@
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { btnGhost, btnPrimary, Field, inputCls, Modal, Badge } from "@/components/marketing-admin/ui";
+import { useToast } from "@/components/ui/Toast";
+import { ConfirmDialog } from "@/components/ui/ConfirmDialog";
 
 type Coupon = {
   id: string; code: string; description?: string | null; type: string; value: number;
@@ -12,8 +14,10 @@ type Coupon = {
 
 export default function CouponsManager({ initialCoupons, canManage }: { initialCoupons: Coupon[]; canManage: boolean }) {
   const router = useRouter();
+  const toast = useToast();
   const [coupons, setCoupons] = useState(initialCoupons);
   const [creating, setCreating] = useState(false);
+  const [archiving, setArchiving] = useState<Coupon | null>(null);
   const [form, setForm] = useState<Record<string, string>>({ type: "percent", duration: "once" });
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
@@ -48,11 +52,27 @@ export default function CouponsManager({ initialCoupons, canManage }: { initialC
 
   const toggle = async (id: string, isActive: boolean) => {
     const res = await fetch(`/api/saas/coupons/${id}`, { method: "PATCH", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ isActive }) });
-    if (!res.ok) { const d = await res.json().catch(() => ({})); alert(d.error ?? "Update failed"); return; }
+    if (!res.ok) { const d = await res.json().catch(() => ({})); toast.error(d.error ?? "Update failed"); return; }
+    setArchiving(null);
     refresh();
   };
 
-  const fmtValue = (c: Coupon) => (c.type === "percent" ? `${(c.value / 100).toFixed(c.value % 100 ? 2 : 0)}%` : `$${(c.value / 100).toFixed(2)}`);
+  /** Human-readable discount: percent shows "%", fixed is ledger minor units
+   *  (coupons carry no record currency — the invoice's currency applies). */
+  const fmtValue = (c: Coupon) =>
+    c.type === "percent"
+      ? `${(c.value / 100).toFixed(c.value % 100 ? 2 : 0)}% off`
+      : `${(c.value / 100).toFixed(2)} off (invoice currency)`;
+
+  /** "20% off first 3 months" style preview. */
+  const preview = (type: string, value: number, duration: string, months?: string | null) => {
+    const amount = type === "percent"
+      ? `${((value ?? 0) / 100).toFixed((value ?? 0) % 100 ? 2 : 0)}%`
+      : `${((value ?? 0) / 100).toFixed(2)} (ledger units)`;
+    if (duration === "once") return `${amount} off the first invoice`;
+    if (duration === "repeating") return `${amount} off each invoice for ${months || "?"} month(s)`;
+    return `${amount} off every invoice — forever`;
+  };
 
   return (
     <div className="space-y-4">
@@ -69,11 +89,25 @@ export default function CouponsManager({ initialCoupons, canManage }: { initialC
                 <td className="px-3 py-2"><span className="font-mono font-medium">{c.code}</span>{c.description && <span className="block text-xs text-zinc-500">{c.description}</span>}</td>
                 <td className="px-3 py-2">{fmtValue(c)}</td>
                 <td className="px-3 py-2 text-xs">{c.duration}{c.duration === "repeating" && c.months ? ` (${c.months}mo)` : ""}</td>
-                <td className="px-3 py-2 text-xs">{c.redeemedCount}{c.maxRedemptions ? ` / ${c.maxRedemptions}` : ""}</td>
-                <td className="px-3 py-2 text-xs">${((c.totalDiscounted ?? 0) / 100).toFixed(2)}</td>
+                <td className="px-3 py-2">
+                  {c.maxRedemptions ? (
+                    <div className="min-w-24">
+                      <div className="flex justify-between text-xs tabular-nums"><span>{c.redeemedCount}</span><span className="text-zinc-400">/ {c.maxRedemptions}</span></div>
+                      <div className="mt-1 h-1.5 overflow-hidden rounded-full bg-zinc-100 dark:bg-zinc-800">
+                        <div className={`h-full ${c.redeemedCount >= c.maxRedemptions ? "bg-red-500" : "bg-emerald-500"}`}
+                          style={{ width: `${Math.min(100, Math.round((c.redeemedCount / c.maxRedemptions) * 100))}%` }} />
+                      </div>
+                    </div>
+                  ) : (
+                    <span className="text-xs tabular-nums">{c.redeemedCount} <span className="text-zinc-400">/ unlimited</span></span>
+                  )}
+                </td>
+                <td className="px-3 py-2 text-xs tabular-nums">{(c.totalDiscounted ?? 0) > 0 ? <>{((c.totalDiscounted ?? 0) / 100).toFixed(2)} <span className="text-zinc-400">ledger</span></> : "—"}</td>
                 <td className="px-3 py-2"><Badge>{c.isActive ? "active" : "archived"}</Badge></td>
                 <td className="px-3 py-2">
-                  {canManage && <button onClick={() => toggle(c.id, !c.isActive)} className={btnGhost}>{c.isActive ? "Archive" : "Activate"}</button>}
+                  {canManage && (c.isActive
+                    ? <button onClick={() => setArchiving(c)} className={btnGhost}>Archive</button>
+                    : <button onClick={() => toggle(c.id, true)} className={btnGhost}>Activate</button>)}
                 </td>
               </tr>
             ))}
@@ -83,17 +117,23 @@ export default function CouponsManager({ initialCoupons, canManage }: { initialC
       </div>
 
       <Modal open={creating} onClose={() => setCreating(false)} title="New Coupon">
+
         <div className="space-y-3">
           <div className="grid grid-cols-2 gap-3">
             <Field label="Code (blank = auto)"><input className={inputCls} value={form.code ?? ""} onChange={set("code")} /></Field>
             <Field label="Description"><input className={inputCls} value={form.description ?? ""} onChange={set("description")} /></Field>
-            <Field label="Type" required><select className={inputCls} value={form.type} onChange={set("type")}><option value="percent">percent</option><option value="fixed">fixed ($)</option></select></Field>
+            <Field label="Type" required><select className={inputCls} value={form.type} onChange={set("type")}><option value="percent">percent</option><option value="fixed">fixed (cents)</option></select></Field>
             <Field label={form.type === "percent" ? "Value (bps: 2000 = 20%)" : "Value (cents)"} required><input className={inputCls} type="number" value={form.value ?? ""} onChange={set("value")} /></Field>
             <Field label="Duration" required><select className={inputCls} value={form.duration} onChange={set("duration")}><option value="once">once</option><option value="repeating">repeating</option><option value="forever">forever</option></select></Field>
             {form.duration === "repeating" && <Field label="Months" required><input className={inputCls} type="number" min={1} max={36} value={form.months ?? ""} onChange={set("months")} /></Field>}
             <Field label="Max redemptions"><input className={inputCls} type="number" min={1} value={form.maxRedemptions ?? ""} onChange={set("maxRedemptions")} /></Field>
             <Field label="Expires at"><input className={inputCls} type="date" value={form.expiresAt ?? ""} onChange={set("expiresAt")} /></Field>
           </div>
+          {form.value && Number(form.value) > 0 && (
+            <p className="rounded-xl bg-blue-50 px-3 py-2 text-sm text-blue-700 dark:bg-blue-950/30 dark:text-blue-300">
+              Preview: <strong>{preview(form.type, Number(form.value), form.duration, form.months)}</strong>
+            </p>
+          )}
           {error && <p className="text-sm text-red-500">{error}</p>}
           <div className="flex justify-end gap-2">
             <button className={btnGhost} onClick={() => setCreating(false)}>Cancel</button>
@@ -101,6 +141,24 @@ export default function CouponsManager({ initialCoupons, canManage }: { initialC
           </div>
         </div>
       </Modal>
+
+      <ConfirmDialog
+        action={archiving
+          ? {
+              title: "Archive coupon",
+              message: `Archive "${archiving.code}"?`,
+              consequences: [
+                "The code stops applying at checkout immediately.",
+                "Past redemptions and reporting history are kept.",
+                "You can reactivate it later from this list.",
+              ],
+              confirmLabel: "Archive",
+              tone: "warning",
+            }
+          : null}
+        onClose={() => setArchiving(null)}
+        onConfirm={() => archiving && toggle(archiving.id, false)}
+      />
     </div>
   );
 }

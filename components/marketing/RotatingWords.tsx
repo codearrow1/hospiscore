@@ -48,6 +48,9 @@ export default function RotatingWords({
       >
         {word}
       </span>
+      <span aria-live="polite" className="sr-only">
+        {word}
+      </span>
     </span>
   );
 }
