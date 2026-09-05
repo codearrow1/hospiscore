@@ -9,7 +9,7 @@ import SpotlightCard from "@/components/marketing/SpotlightCard";
 import TiltCard from "@/components/marketing/TiltCard";
 import Icon from "@/components/marketing/icons";
 import { BLOG_POSTS } from "@/lib/posts";
-import { SITE_NAME, ogImage } from "@/lib/site";
+import { SITE_NAME, SITE_URL, ogImage } from "@/lib/site";
 
 export const metadata: Metadata = {
   title: "Blog",
@@ -41,7 +41,7 @@ export default function BlogPage() {
           "@context": "https://schema.org",
           "@type": "Blog",
           name: "HospiOS Blog",
-          url: "https://hospios.com/blog",
+          url: `${SITE_URL}/blog`,
           blogPost: BLOG_POSTS.map((p) => ({
             "@type": "BlogPosting",
             headline: p.title,
@@ -78,7 +78,7 @@ export default function BlogPage() {
                       href={`/blog/${post.slug}`}
                       className="group relative flex h-full flex-col rounded-3xl border border-zinc-800 bg-zinc-900/60 p-7 transition hover:border-indigo-500/60"
                     >
-                      <div className="flex items-center gap-3">
+                      <div className="flex flex-wrap items-center gap-x-3 gap-y-1.5">
                         <span
                           className={`rounded-full px-3 py-1 text-[11px] font-semibold uppercase tracking-wide ${
                             CATEGORY_COLORS[post.category] ?? "text-zinc-300 bg-zinc-800"
@@ -93,7 +93,7 @@ export default function BlogPage() {
                             day: "numeric",
                           })}
                         </span>
-                        <span className="text-xs text-zinc-600">{post.readTime}</span>
+                        <span className="hidden text-xs text-zinc-600 sm:inline">{post.readTime}</span>
                       </div>
                       <h2 className="mt-4 text-xl font-bold leading-snug text-zinc-50 transition group-hover:text-indigo-300">
                         {post.title}

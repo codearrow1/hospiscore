@@ -42,7 +42,7 @@ export async function POST(request: Request) {
   const result = computeScore(property.signals);
   const report = buildReport(property.name, property.signals);
   const record = await submitReportRequest(
-    { name: body.name, email: body.email, propertySlug: body.propertySlug },
+    { name: body.name, email: body.email, phone: body.phone, propertySlug: body.propertySlug },
     property.name,
   );
 

@@ -39,7 +39,13 @@ export default function SavedList() {
   async function handleAuthed(u: PublicAuthUser) {
     setUser(u);
     await refreshList();
-    if (next) router.push(next);
+    if (next) {
+      router.push(next);
+    } else if (u.appDashboard && u.appDashboard !== "/account") {
+      // Route every role to its canonical dashboard (super admin → /saas,
+      // subadmin → /subadmin, portal roles → their portal).
+      router.push(u.appDashboard);
+    }
   }
 
   async function remove(slug: string) {
@@ -74,27 +80,35 @@ export default function SavedList() {
 
   return (
     <div>
-      <div className="mb-4 flex items-center justify-between gap-4">
-        <div>
+      <div className="mb-4 flex flex-wrap items-start justify-between gap-4">
+        <div className="min-w-0">
           <h2 className="text-lg font-semibold text-zinc-900 dark:text-zinc-50">
             Saved properties
           </h2>
-          <p className="text-sm text-zinc-500 dark:text-zinc-400">
+          <p className="max-w-full truncate text-sm text-zinc-500 dark:text-zinc-400">
             Signed in as {user.email}
           </p>
         </div>
-        <div className="flex items-center gap-4">
+        <div className="flex shrink-0 items-center gap-2">
+          {user.appDashboard && user.appDashboard !== "/account" && (
+            <Link
+              href={user.appDashboard}
+              className="flex min-h-11 items-center rounded-lg bg-indigo-600 px-3 py-2.5 text-sm font-semibold text-white hover:bg-indigo-500"
+            >
+              Go to dashboard
+            </Link>
+          )}
           {user.isAdmin && (
             <Link
               href="/account/leads"
-              className="text-sm font-medium text-indigo-600 hover:underline dark:text-indigo-400"
+              className="flex min-h-11 items-center rounded-lg px-3 py-2.5 text-sm font-medium text-indigo-600 hover:underline dark:text-indigo-400"
             >
               Sales leads
             </Link>
           )}
           <button
             onClick={logout}
-            className="text-sm text-zinc-500 hover:text-zinc-900 dark:hover:text-zinc-50"
+            className="flex min-h-11 items-center rounded-lg px-3 py-2.5 text-sm text-zinc-500 hover:bg-zinc-100 hover:text-zinc-900 dark:hover:bg-zinc-800 dark:hover:text-zinc-50"
           >
             Sign out
           </button>
@@ -131,18 +145,18 @@ export default function SavedList() {
                   <ScoreSparkline points={s.history} />
                 )}
               </Link>
-              <div className="flex shrink-0 items-center gap-2">
+              <div className="flex shrink-0 items-center gap-1.5">
                 <button
                   onClick={() => refresh(s.slug)}
                   disabled={refreshing === s.slug}
-                  className="rounded-lg px-2 py-1 text-xs text-indigo-600 hover:underline disabled:opacity-50 dark:text-indigo-400"
+                  className="flex min-h-11 items-center rounded-lg px-3 py-2.5 text-xs font-semibold text-indigo-600 transition hover:bg-indigo-50 disabled:opacity-50 dark:text-indigo-400 dark:hover:bg-indigo-950/30"
                 >
                   {refreshing === s.slug ? "Refreshing…" : "Refresh"}
                 </button>
                 <button
                   onClick={() => remove(s.slug)}
                   aria-label={`Remove ${s.name}`}
-                  className="rounded-lg px-2 py-1 text-xs text-rose-600 hover:underline dark:text-rose-400"
+                  className="flex min-h-11 items-center rounded-lg px-3 py-2.5 text-xs font-semibold text-rose-600 transition hover:bg-rose-50 dark:text-rose-400 dark:hover:bg-rose-950/30"
                 >
                   Remove
                 </button>

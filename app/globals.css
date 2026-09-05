@@ -244,6 +244,8 @@ body {
 .marquee-track {
   display: flex;
   width: max-content;
+  min-width: 100%;
+  white-space: nowrap;
   animation: marquee-x var(--marquee-duration, 40s) linear infinite;
   will-change: transform;
 }
@@ -436,6 +438,52 @@ body {
   }
 }
 
+/* Slow Ken-Burns zoom for hero imagery */
+@keyframes hero-zoom {
+  from {
+    transform: scale(1.02);
+  }
+  to {
+    transform: scale(1.12);
+  }
+}
+
+.hero-zoom {
+  animation: hero-zoom 30s ease-in-out infinite alternate;
+  will-change: transform;
+}
+
+/* Mini bar-chart grow (hero KPI card) */
+@keyframes bar-grow {
+  from {
+    transform: scaleY(0);
+  }
+  to {
+    transform: scaleY(1);
+  }
+}
+
+.bar-grow {
+  transform-origin: bottom;
+  animation: bar-grow 0.8s cubic-bezier(0.16, 1, 0.3, 1) both;
+}
+
+/* Floating notification toast entrance */
+@keyframes toast-in {
+  from {
+    opacity: 0;
+    transform: translateY(10px) scale(0.96);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+}
+
+.toast-in {
+  animation: toast-in 0.6s cubic-bezier(0.16, 1, 0.3, 1) 0.5s both;
+}
+
 .pulse-dot {
   position: relative;
   display: inline-block;
@@ -542,6 +590,66 @@ html {
   scrollbar-color: rgba(99, 102, 241, 0.45) transparent;
 }
 
+/* Horizontal scroll guard: `clip` (unlike `hidden`) does not create a scroll
+   container, so sticky/fixed positioning keeps working. */
+html {
+  overflow-x: clip;
+  -webkit-tap-highlight-color: transparent;
+}
+
+/* Kill the 300 ms double-tap zoom delay on touch targets and the link
+   highlight flash without removing the ability to double-tap zoom on text. */
+button,
+a {
+  touch-action: manipulation;
+}
+
+/* iOS Safari zooms the page when an input with font-size < 16px is focused.
+   Keep every input/select/textarea at 16px on small screens. */
+@media (max-width: 47.99rem) {
+  input,
+  select,
+  textarea {
+    font-size: 1rem !important;
+  }
+}
+
+@keyframes mobile-menu-in {
+  from { opacity: 0; transform: translateY(-10px); }
+  to { opacity: 1; transform: none; }
+}
+
+@keyframes mobile-menu-out {
+  from { opacity: 1; transform: none; }
+  to { opacity: 0; transform: translateY(-10px); }
+}
+
+@keyframes mobile-accordion-in {
+  from { opacity: 0; transform: translateY(8px); }
+  to { opacity: 1; transform: none; }
+}
+
+@keyframes navlink-in {
+  from { opacity: 0; transform: translateY(6px); }
+  to { opacity: 1; transform: none; }
+}
+
+.mobile-menu-enter {
+  animation: mobile-menu-in 0.28s cubic-bezier(0.22, 1, 0.36, 1) both;
+}
+
+.mobile-menu-exit {
+  animation: mobile-menu-out 0.18s ease-out both;
+}
+
+.mobile-accordion-enter {
+  animation: mobile-accordion-in 0.32s cubic-bezier(0.22, 1, 0.36, 1) both;
+}
+
+.link-pop {
+  animation: navlink-in 0.3s cubic-bezier(0.22, 1, 0.36, 1) both;
+}
+
 @media (prefers-reduced-motion: reduce) {
   .reveal,
   .reveal-left,
@@ -566,7 +674,14 @@ html {
   .btn-shine::after,
   .text-gradient,
   .heading-line::after,
-  .pulse-dot {
+  .pulse-dot,
+  .hero-zoom,
+  .bar-grow,
+  .toast-in,
+  .mobile-menu-enter,
+  .mobile-menu-exit,
+  .mobile-accordion-enter,
+  .link-pop {
     animation: none !important;
   }
   .faq-panel,

@@ -10,7 +10,7 @@ import TiltCard from "@/components/marketing/TiltCard";
 import Icon from "@/components/marketing/icons";
 import type { IconName } from "@/components/marketing/icons";
 import { CAREER_ROLES } from "@/lib/careers";
-import { SITE_NAME, ogImage } from "@/lib/site";
+import { SITE_NAME, SITE_URL, ogImage } from "@/lib/site";
 
 export const metadata: Metadata = {
   title: "Careers at HospiOS",
@@ -42,7 +42,7 @@ export default function CareersPage() {
         data={{
           "@context": "https://schema.org",
           "@type": "JobPosting",
-          url: "https://hospios.com/careers",
+          url: `${SITE_URL}/careers`,
           hiringOrganization: { "@type": "Organization", name: SITE_NAME },
           jobLocation: { "@type": "Place", address: { "@type": "PostalAddress", addressCountry: "US" } },
           employmentType: "FULL_TIME",

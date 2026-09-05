@@ -7,6 +7,10 @@ export interface PublicAuthUser {
   createdAt: string;
   /** Internal-leads access (see ADMIN_EMAILS). Never true for public visitors. */
   isAdmin?: boolean;
+  /** Marketing-role when the user may enter the marketing admin. */
+  marketingRole?: string | null;
+  /** Canonical role dashboard path (role router); "/account" when none. */
+  appDashboard?: string;
 }
 
 export type SavedItem = {

@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { createUser, createSession, toPublic, purgeExpiredSessions } from "@/lib/accounts";
 import { hashPassword } from "@/lib/auth";
 import { CONFIG } from "@/lib/config";
+import { roleFor } from "@/lib/marketing/roles";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -45,7 +46,12 @@ export async function POST(request: Request) {
   const token = await createSession(user.id);
   await purgeExpiredSessions();
 
-  const res = NextResponse.json({ user: toPublic(user), ok: true });
+  const role = roleFor(user);
+  const access = role !== null;
+  const res = NextResponse.json({
+    user: { ...toPublic(user), isAdmin: access, marketingRole: role },
+    ok: true,
+  });
   res.cookies.set({
     name: CONFIG.sessionCookie,
     value: token,

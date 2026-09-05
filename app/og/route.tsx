@@ -24,8 +24,9 @@ export async function GET(request: Request) {
           alignItems: "center",
           justifyContent: "center",
           padding: "64px",
-          background:
-            "radial-gradient(circle at 15% 10%, rgba(99,102,241,0.55) 0%, transparent 45%), radial-gradient(circle at 85% 90%, rgba(139,92,246,0.5) 0%, transparent 45%), #0a0a0a",
+          backgroundColor: "#0a0a0a",
+          backgroundImage:
+            "radial-gradient(circle at 15% 10%, rgba(99,102,241,0.55) 0%, transparent 45%), radial-gradient(circle at 85% 90%, rgba(139,92,246,0.5) 0%, transparent 45%)",
         }}
       >
         <div
@@ -100,7 +101,7 @@ export async function GET(request: Request) {
           }}
         >
           <span style={{ width: "14px", height: "14px", borderRadius: 9999, background: "#34d399" }} />
-          500+ properties · 50+ channels · 23 modules
+          23 modules · 14+ OTA channels · 10 property types
         </div>
       </div>
     ),

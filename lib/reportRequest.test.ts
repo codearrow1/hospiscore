@@ -33,6 +33,28 @@ describe("validateReportInput", () => {
     ).toEqual({ ok: true });
   });
 
+  it("accepts an optional phone number", () => {
+    expect(
+      validateReportInput({
+        name: "Marta Alvarez",
+        email: "marta@harborlights.com",
+        phone: "+1 (555) 123-4567",
+        propertySlug: "the-royal-sandpiper",
+      }),
+    ).toEqual({ ok: true });
+  });
+
+  it("rejects a phone that is too short", () => {
+    expect(
+      validateReportInput({
+        name: "Marta Alvarez",
+        email: "marta@harborlights.com",
+        phone: "123",
+        propertySlug: "the-royal-sandpiper",
+      }),
+    ).toMatchObject({ ok: false, error: "Enter a valid phone number" });
+  });
+
   it("rejects a missing name", () => {
     expect(
       validateReportInput({ name: "", email: "m@x.com", propertySlug: "the-royal-sandpiper" }),
@@ -77,6 +99,33 @@ describe("submitReportRequest", () => {
     const doc = await readData(target);
     expect(doc.reportRequests).toHaveLength(1);
     expect(doc.reportRequests[0].id).toBe(record.id);
+  });
+
+  it("persists the phone number when provided", async () => {
+    const target = await tempTarget();
+    const record = await submitReportRequest(
+      {
+        name: "Marta Alvarez",
+        email: "marta@harborlights.com",
+        phone: "+1 (555) 123-4567",
+        propertySlug: "the-royal-sandpiper",
+      },
+      "The Royal Sandpiper",
+      target,
+    );
+    expect(record.phone).toBe("+1 (555) 123-4567");
+    const doc = await readData(target);
+    expect(doc.reportRequests[0].phone).toBe("+1 (555) 123-4567");
+  });
+
+  it("omits the phone field when left blank", async () => {
+    const target = await tempTarget();
+    const record = await submitReportRequest(
+      { name: "A", email: "a@x.com", phone: "", propertySlug: "s1" },
+      "P1",
+      target,
+    );
+    expect(record.phone).toBeUndefined();
   });
 
   it("accumulates multiple requests without touching demo requests", async () => {

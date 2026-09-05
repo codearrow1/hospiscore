@@ -72,7 +72,7 @@ export default function ReplyGenerator({ review, propertyName }: Props) {
             </span>
             <button
               onClick={copy}
-              className="rounded-md px-2 py-0.5 font-medium text-zinc-500 hover:text-zinc-800 dark:text-zinc-400"
+              className="rounded-lg px-3 py-2 text-xs font-semibold text-zinc-500 transition hover:bg-zinc-100 hover:text-zinc-800 dark:text-zinc-400 dark:hover:bg-zinc-800"
             >
               {copied ? "Copied" : "Copy"}
             </button>
@@ -82,7 +82,7 @@ export default function ReplyGenerator({ review, propertyName }: Props) {
         <button
           onClick={generate}
           disabled={loading}
-          className="rounded-lg bg-sky-600 px-2 py-0.5 text-xs font-medium text-white transition-colors hover:bg-sky-700 disabled:opacity-50"
+          className="rounded-lg bg-sky-600 px-4 py-2.5 text-sm font-semibold text-white transition-colors hover:bg-sky-700 disabled:opacity-50"
         >
           {loading ? "Drafting…" : "Draft a reply"}
         </button>

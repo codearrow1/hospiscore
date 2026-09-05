@@ -9,12 +9,12 @@ import SpotlightCard from "@/components/marketing/SpotlightCard";
 import TiltCard from "@/components/marketing/TiltCard";
 import Icon from "@/components/marketing/icons";
 import { CASE_STUDIES } from "@/lib/caseStudies";
-import { SITE_NAME, ogImage } from "@/lib/site";
+import { SITE_NAME, SITE_URL, ogImage } from "@/lib/site";
 
 export const metadata: Metadata = {
   title: "Case Studies",
   description:
-    "Real properties, real numbers. See how hotels, resorts, apartments and glamping sites grow revenue and cut work with HospiOS.",
+    "Typical operator journeys, illustrated — how hotels, resorts, apartments and glamping sites run on HospiOS.",
   alternates: { canonical: "/case-studies" },
   openGraph: {
     type: "website",
@@ -22,7 +22,7 @@ export const metadata: Metadata = {
     locale: "en_US",
     title: "Case Studies · HospiOS",
     description:
-      "Real properties, real numbers — how properties grow with HospiOS.",
+      "Typical operator journeys — how properties run on HospiOS.",
     images: [{ url: ogImage("HospiOS Case Studies"), width: 1200, height: 630 }],
   },
 };
@@ -35,11 +35,11 @@ export default function CaseStudiesPage() {
           "@context": "https://schema.org",
           "@type": "CollectionPage",
           name: "HospiOS Case Studies",
-          url: "https://hospios.com/case-studies",
+          url: "${SITE_URL}/case-studies",
           hasPart: CASE_STUDIES.map((c) => ({
             "@type": "Article",
             headline: c.headline,
-            url: `https://hospios.com/case-studies/${c.slug}`,
+            url: `${SITE_URL}/case-studies/${c.slug}`,
           })),
         }}
       />
@@ -47,13 +47,13 @@ export default function CaseStudiesPage() {
 
       <main id="main" className="flex-1">
         <PageHero
-          eyebrow="Customer stories"
+          eyebrow="Customer journeys"
           title={
             <>
-              Real properties, <span className="text-gradient">real numbers</span>
+              How teams run <span className="text-gradient">on HospiOS</span>
             </>
           }
-          subtitle="Hotels, resorts, apartments and glamping sites — the results they've seen after moving to HospiOS. Every case below is a real deployment with honest metrics."
+          subtitle="Hotels, resorts, apartments and glamping sites — the challenge, the switch, and what changes when everything runs in one platform. These are illustrative scenarios, not claims about named deployments."
           top={
             <nav aria-label="Breadcrumb" className="text-xs text-zinc-500">
               <Link href="/" className="link-underline hover:text-indigo-400">Home</Link>
@@ -73,9 +73,12 @@ export default function CaseStudiesPage() {
                       href={`/case-studies/${c.slug}`}
                       className="group relative flex h-full flex-col rounded-3xl border border-zinc-800 bg-zinc-900/60 p-7 transition hover:border-indigo-500/60"
                     >
-                      <div className="flex items-center justify-between gap-3">
+                      <div className="flex flex-wrap items-center justify-between gap-x-3 gap-y-1.5">
                         <span className="rounded-full bg-indigo-950 px-3 py-1 text-[11px] font-semibold uppercase tracking-wide text-indigo-300">
                           {c.sector}
+                        </span>
+                        <span className="rounded-full border border-zinc-700/70 bg-zinc-900 px-2.5 py-0.5 text-[10px] font-medium text-zinc-400">
+                          Illustrative scenario
                         </span>
                         <span className="text-xs text-zinc-500">
                           {c.size} · {c.location}
@@ -87,13 +90,13 @@ export default function CaseStudiesPage() {
                       <p className="mt-2 flex-1 text-sm leading-relaxed text-zinc-400">
                         {c.summary}
                       </p>
-                      <div className="mt-5 grid grid-cols-3 gap-3 border-t border-zinc-800 pt-5">
+                      <div className="mt-5 grid grid-cols-3 gap-2 border-t border-zinc-800 pt-5 sm:gap-3">
                         {c.results.map((r) => (
                           <div key={r.metric}>
-                            <p className="text-lg font-bold tabular-nums text-emerald-400">
+                            <p className="text-base font-bold tabular-nums text-emerald-400 sm:text-lg">
                               {r.value}
                             </p>
-                            <p className="text-[11px] leading-tight text-zinc-500">{r.label}</p>
+                            <p className="text-[10px] leading-tight text-zinc-500 sm:text-[11px]">{r.label}</p>
                           </div>
                         ))}
                       </div>
@@ -115,8 +118,8 @@ export default function CaseStudiesPage() {
                   Your property could be next
                 </h2>
                 <p className="mt-1 text-sm text-zinc-400">
-                  Book a demo and see what the numbers above would look like for
-                  your rooms.
+                  Book a demo and see what running one platform would look like
+                  for your rooms.
                 </p>
               </div>
               <Link

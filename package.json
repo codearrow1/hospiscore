@@ -4,15 +4,20 @@
   "private": true,
   "scripts": {
     "dev": "next dev",
-    "build": "next build",
-    "start": "next start",
+    "build": "prisma generate && node scripts/fix-prisma-runtime.mjs && next build",
+    "postinstall": "prisma generate && node scripts/fix-prisma-runtime.mjs",
+    "start": "prisma migrate deploy && next start",
+    "db:migrate": "prisma migrate deploy",
     "lint": "eslint",
     "typecheck": "tsc --noEmit",
     "test": "vitest run",
     "snapshot": "tsx scripts/snapshot.ts",
-    "alerts": "tsx scripts/alerts.ts"
+    "alerts": "tsx scripts/alerts.ts",
+    "seed:marketing-demo": "tsx scripts/seedMarketingDemo.ts",
+    "seed:demo-month": "tsx scripts/seed-demo-month.ts"
   },
   "dependencies": {
+    "@prisma/client": "^6.19.3",
     "next": "15.5.21",
     "react": "19.2.8",
     "react-dom": "19.2.8"
@@ -23,7 +28,8 @@
     "@types/react": "^19",
     "@types/react-dom": "^19",
     "eslint": "^9",
-    "eslint-config-next": "15.3.9",
+    "eslint-config-next": "15.5.21",
+    "prisma": "^6.19.3",
     "tailwindcss": "^4",
     "tsx": "^4.23.8",
     "typescript": "^5",

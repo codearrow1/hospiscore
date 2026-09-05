@@ -1,11 +1,4 @@
 import { CONFIG } from "@/lib/config";
-import { createRequire } from "node:module";
-import { join } from "node:path";
-
-// Points at <project>/node_modules so the optional `redis` package can be
-// required at runtime without being statically bundled (it's not installed by
-// default). createRequire-based requires are left as runtime imports by Next.
-const require = createRequire(join(process.cwd(), "package.json"));
 
 /**
  * TTL cache with async get/set and pluggable backends.
@@ -50,19 +43,11 @@ export class MemoryBackend implements CacheBackend {
 /* ------------------------------ Redis ------------------------------ */
 
 async function createRedisBackend(): Promise<CacheBackend> {
-  // Optional dependency: only load when Redis is actually configured.
-  const { createClient } = require("redis") as {
-    createClient: (options: { url: string }) => {
-      connect(): Promise<void>;
-      get(key: string): Promise<string | null>;
-      set(
-        key: string,
-        value: string,
-        options?: { EX: number },
-      ): Promise<unknown>;
-      del(...keys: string[]): Promise<number>;
-    };
-  };
+  // Optional dependency: only load when Redis is actually configured. The
+  // webpackIgnore comment keeps the import external so Next never resolves
+  // `redis` at build time (it may not be installed); the dynamic import runs
+  // through Node's own module resolution at runtime instead.
+  const { createClient } = await import(/* webpackIgnore: true */ "redis");
   const client = createClient({ url: CONFIG.redisUrl });
   await client.connect();
 

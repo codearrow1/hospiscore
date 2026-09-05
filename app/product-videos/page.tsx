@@ -9,7 +9,7 @@ import SectionHeading from "@/components/marketing/SectionHeading";
 import UiMock from "@/components/marketing/UiMock";
 import type { UiMockVariant } from "@/components/marketing/UiMock";
 import Icon from "@/components/marketing/icons";
-import { SITE_NAME, ogImage } from "@/lib/site";
+import { SITE_NAME, SITE_URL, ogImage } from "@/lib/site";
 
 export const metadata: Metadata = {
   title: "Product Videos",
@@ -74,7 +74,7 @@ export default function ProductVideosPage() {
           "@context": "https://schema.org",
           "@type": "ItemList",
           name: "HospiOS Product Videos",
-          url: "https://hospios.com/product-videos",
+          url: `${SITE_URL}/product-videos`,
         }}
       />
       <Header />
@@ -112,13 +112,17 @@ export default function ProductVideosPage() {
                 <div className="group flex h-full flex-col rounded-3xl border border-zinc-800 bg-zinc-900/60 p-4 transition hover:-translate-y-0.5 hover:border-indigo-500/60">
                   <div className="relative overflow-hidden rounded-2xl border border-zinc-800 bg-zinc-950">
                     <UiMock variant={v.variant} />
-                    <div className="absolute inset-0 flex items-center justify-center bg-zinc-950/40">
+                    <Link
+                      href="/demo"
+                      aria-label={`Watch ${v.title} — or book a live demo instead`}
+                      className="absolute inset-0 flex items-center justify-center bg-zinc-950/40 transition hover:bg-zinc-950/50"
+                    >
                       <span className="flex h-14 w-14 items-center justify-center rounded-full bg-white/90 text-zinc-900 shadow-xl transition group-hover:scale-110">
                         <svg className="ml-0.5 h-6 w-6" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
                           <path d="M8 5.14v13.72a1 1 0 0 0 1.5.86l11-6.86a1 1 0 0 0 0-1.72l-11-6.86a1 1 0 0 0-1.5.86Z" />
                         </svg>
                       </span>
-                    </div>
+                    </Link>
                     <span className="absolute right-2 top-2 rounded-full bg-zinc-950/80 px-2 py-0.5 text-[11px] font-medium text-zinc-200 backdrop-blur">
                       {v.duration}
                     </span>

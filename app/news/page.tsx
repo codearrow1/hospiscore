@@ -9,7 +9,7 @@ import SpotlightCard from "@/components/marketing/SpotlightCard";
 import TiltCard from "@/components/marketing/TiltCard";
 import Icon from "@/components/marketing/icons";
 import { NEWS_ITEMS } from "@/lib/news";
-import { SITE_NAME, ogImage } from "@/lib/site";
+import { SITE_NAME, SITE_URL, ogImage } from "@/lib/site";
 
 export const metadata: Metadata = {
   title: "News & Announcements",
@@ -41,7 +41,7 @@ export default function NewsPage() {
           "@context": "https://schema.org",
           "@type": "Blog",
           name: "HospiOS News",
-          url: "https://hospios.com/news",
+          url: `${SITE_URL}/news`,
           blogPost: NEWS_ITEMS.map((n) => ({
             "@type": "NewsArticle",
             headline: n.title,
@@ -80,7 +80,7 @@ export default function NewsPage() {
                       href={`/news/${n.slug}`}
                       className="group relative flex h-full flex-col rounded-3xl border border-zinc-800 bg-zinc-900/60 p-7 transition hover:border-indigo-500/60"
                     >
-                      <div className="flex items-center gap-3">
+                      <div className="flex flex-wrap items-center gap-x-3 gap-y-1.5">
                         <span
                           className={`rounded-full px-3 py-1 text-[11px] font-semibold uppercase tracking-wide ${
                             CATEGORY_COLORS[n.category] ?? "text-zinc-300 bg-zinc-800"

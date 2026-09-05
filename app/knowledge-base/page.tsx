@@ -9,7 +9,7 @@ import SpotlightCard from "@/components/marketing/SpotlightCard";
 import TiltCard from "@/components/marketing/TiltCard";
 import Icon from "@/components/marketing/icons";
 import { KNOWLEDGE_ARTICLES } from "@/lib/knowledge";
-import { SITE_NAME, ogImage } from "@/lib/site";
+import { SITE_NAME, SITE_URL, ogImage } from "@/lib/site";
 
 export const metadata: Metadata = {
   title: "Knowledge Base",
@@ -45,7 +45,7 @@ export default function KnowledgeBasePage() {
           "@context": "https://schema.org",
           "@type": "CollectionPage",
           name: "HospiOS Knowledge Base",
-          url: "https://hospios.com/knowledge-base",
+          url: `${SITE_URL}/knowledge-base`,
         }}
       />
       <Header />

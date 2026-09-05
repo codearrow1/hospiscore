@@ -45,7 +45,7 @@ const TOOLS: Tool[] = [
     slug: "channel",
     icon: "network",
     name: "Channel Manager",
-    headline: "Connect 50+ booking channels without the overhead",
+    headline: "Connect 14+ booking channels without the overhead",
     body: "Inventory, rates, and restrictions sync two-way across every major OTA in real time.",
     bullets: [
       "Two-way availability, rate & restriction sync",

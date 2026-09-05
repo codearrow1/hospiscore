@@ -7,7 +7,7 @@ import PageHero from "@/components/marketing/PageHero";
 import Reveal from "@/components/marketing/Reveal";
 import SectionHeading from "@/components/marketing/SectionHeading";
 import Icon from "@/components/marketing/icons";
-import { SITE_NAME, ogImage } from "@/lib/site";
+import { SITE_NAME, SITE_URL, ogImage } from "@/lib/site";
 
 export const metadata: Metadata = {
   title: "HospiOS vs other PMS solutions",
@@ -54,7 +54,7 @@ export default function AlternativesPage() {
           "@context": "https://schema.org",
           "@type": "WebPage",
           name: "HospiOS vs other PMS solutions",
-          url: "https://hospios.com/alternatives",
+          url: `${SITE_URL}/alternatives`,
         }}
       />
       <Header />
@@ -67,7 +67,7 @@ export default function AlternativesPage() {
               Honest talk about <span className="text-gradient">switching</span>
             </>
           }
-          subtitle="We'll tell you when HospiOS fits and when it doesn't. If you run a multi-thousand-room chain or need heavy third-party customization, another tool may be better. For the other 95% of properties, here's the difference."
+          subtitle="We'll tell you when HospiOS fits and when it doesn't. If you run a multi-thousand-room chain or need heavy third-party customization, another tool may be better. For almost every independent property, here's the difference."
           top={
             <nav aria-label="Breadcrumb" className="text-xs text-zinc-500">
               <Link href="/" className="link-underline hover:text-indigo-400">Home</Link>

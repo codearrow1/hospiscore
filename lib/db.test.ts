@@ -1,5 +1,5 @@
 import { describe, it, expect, afterEach } from "vitest";
-import { mkdtemp, rm } from "node:fs/promises";
+import { mkdtemp, rm, writeFile, readFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import path from "node:path";
 
@@ -10,6 +10,10 @@ async function tempPath(name: string): Promise<string> {
   const dir = await mkdtemp(path.join(tmpdir(), "hs-db-"));
   dirs.push(dir);
   return path.join(dir, name);
+}
+
+function readRaw(file: string): Promise<string> {
+  return readFile(file, "utf8");
 }
 
 afterEach(async () => {
@@ -37,6 +41,62 @@ describe("file backend (via facade)", () => {
     const doc = await readData(target);
     expect(doc.users).toHaveLength(1);
     expect(doc.saved.u1).toEqual([]);
+  });
+});
+
+describe("file backend mirror recovery", () => {
+  it("reads from the mirror when the primary file is lost", async () => {
+    const { FileDataBackend } = await import("./db");
+    const primary = await tempPath("data.json");
+    const mirror = await tempPath("mirror.json");
+
+    const a = new FileDataBackend(primary, mirror);
+    await a.write((d) => ({
+      ...d,
+      users: [{ id: "u1", name: "A", email: "a@x.com", createdAt: "t", passwordHash: "h" }],
+    }));
+    // mirror was written alongside the primary
+    await expect(readRaw(mirror)).resolves.toContain("u1");
+
+    // Simulate a deploy that wiped the app directory.
+    await rm(primary, { force: true });
+    const b = new FileDataBackend(primary, mirror);
+    const doc = await b.read();
+    expect(doc.users.map((u) => u.id)).toEqual(["u1"]);
+
+    // The next write recreates the primary from the recovered document.
+    await b.write((d) => ({ ...d, saved: { u1: [] } }));
+    const c = new FileDataBackend(primary, mirror);
+    const again = await c.read();
+    expect(again.users.map((u) => u.id)).toEqual(["u1"]);
+    expect(again.saved.u1).toEqual([]);
+  });
+
+  it("prefers the mirror when the primary resets to an empty document", async () => {
+    const { FileDataBackend } = await import("./db");
+    const primary = await tempPath("data.json");
+    const mirror = await tempPath("mirror.json");
+
+    const a = new FileDataBackend(primary, mirror);
+    await a.write((d) => ({
+      ...d,
+      users: [{ id: "u1", name: "A", email: "a@x.com", createdAt: "t", passwordHash: "h" }],
+    }));
+    await writeFile(primary, JSON.stringify({ users: [], sessions: [], saved: {} }, null, 2), "utf8");
+
+    const b = new FileDataBackend(primary, mirror);
+    const doc = await b.read();
+    expect(doc.users.map((u) => u.id)).toEqual(["u1"]);
+  });
+
+  it("returns an empty store when both files are fresh", async () => {
+    const { FileDataBackend } = await import("./db");
+    const primary = await tempPath("data.json");
+    const mirror = await tempPath("mirror.json");
+    const backend = new FileDataBackend(primary, mirror);
+    const doc = await backend.read();
+    expect(doc.users).toEqual([]);
+    expect(doc.leads).toEqual([]);
   });
 });
 

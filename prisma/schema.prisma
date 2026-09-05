@@ -1,0 +1,574 @@
+// PMS SaaS Control Plane — Phase B thin slice
+// Organizations + Plans + Subscriptions + Invoices + Payments
+// Keep marketing DataFile (var/data.json) intact; this is the SaaS commerce plane.
+
+generator client {
+  provider     = "prisma-client"
+  output       = "../lib/generated/prisma"
+  // CJS runtime avoids Passenger's ESM node:process facade bug on shared hosts
+  // ("Error: open EEXIST" at process.getStdin when loading library.mjs).
+  moduleFormat = "cjs"
+  // Hostinger's Node runtime detects debian-openssl-1.1.x at runtime (see
+  // /api/saas/admin/db-diag). "native" keeps local dev working on Windows.
+  binaryTargets = ["native", "debian-openssl-1.1.x"]
+}
+
+datasource db {
+  provider = "sqlite"
+  url      = env("DATABASE_URL")
+}
+
+model Organization {
+  id               String       @id @default(cuid())
+  legalName        String
+  businessName     String?
+  country          String?      // ISO2
+  industry         String?
+  website          String?
+  primaryContactId String?
+  affiliateId      String?
+  partnerId        String?
+  franchiseTerritoryId String?
+  acquisitionSource String?
+  acquisitionCampaign String?
+  healthScore      Int?         // 0-100
+  healthStatus     String?      // Healthy|Stable|AtRisk|Critical|Churned
+  status           String       @default("active") // active|suspended|cancelled
+  mrr              Int          @default(0) // cents, cached
+  arr              Int          @default(0)
+  createdAt        DateTime     @default(now())
+  updatedAt        DateTime     @updatedAt
+
+  contacts              OrgContact[]
+  properties            Property[]
+  subscriptions         Subscription[]
+  invoices              Invoice[]
+  payments              Payment[]
+  usageRecords          UsageRecord[]
+  featureFlags          FeatureFlag[]
+  affiliateCommissions  AffiliateCommission[]
+  dunningCases          DunningCase[]
+  couponRedemptions     CouponRedemption[]
+  automationEvents      AutomationEvent[]
+  supportTickets        SupportTicket[]
+  partner               Partner?             @relation(fields: [partnerId], references: [id])
+  franchiseTerritory    FranchiseTerritory?  @relation(fields: [franchiseTerritoryId], references: [id])
+
+  @@index([country])
+  @@index([status])
+  @@index([createdAt])
+}
+
+model OrgContact {
+  id             String       @id @default(cuid())
+  organizationId String
+  organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  name           String
+  email          String
+  phone          String?
+  role           String?      // owner|billing|tech
+  isPrimary      Boolean      @default(false)
+  createdAt      DateTime     @default(now())
+
+  @@index([organizationId])
+  @@index([email])
+}
+
+model Property {
+  id             String       @id @default(cuid())
+  organizationId String
+  organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  name           String
+  city           String?
+  country        String?
+  rooms          Int?
+  pmsInstanceUrl String?
+  status         String       @default("active")
+  createdAt      DateTime     @default(now())
+  featureFlags   FeatureFlag[]
+
+  @@index([organizationId])
+}
+
+model Plan {
+  id             String   @id @default(cuid())
+  name           String   @unique
+  slug           String   @unique // catalog id from lib/pricing/catalog.ts PLAN_IDS
+  /// Stable cross-system identity. The Marketing Admin pricing catalog defines
+  /// the commercial structure; this column IS the canonical link (replaces the
+  /// former PlanLink join table).
+  marketingPlanId String? @unique
+  monthlyPrice   Int      // USD cents — billing canonical (computeMrr/invoices)
+  annualPrice    Int      // USD cents — billing canonical
+  currency       String   @default("USD")
+  trialDays      Int      @default(14)
+  maxProperties  Int?
+  maxUsers       Int?
+  maxBookings    Int?
+  storageGb      Int?
+  features       Json?    // {api, reports, marketing, automation, supportLevel}
+  isActive       Boolean  @default(true)
+  // Commercial definition mirrored from the Marketing pricing catalog.
+  description     String?
+  tagline         String?
+  descriptor      String?
+  roomMin         Int?    // recommended room band (inclusive lower bound)
+  roomMax         Int?    // inclusive upper bound; null = custom/unlimited
+  adminLimit      Int?    // null = custom/unlimited
+  staffLimit      Int?    // null = custom/unlimited
+  featured        Boolean @default(false) // "Most Popular" badge
+  displayOrder    Int     @default(0)     // catalog ordering
+  /// Contact-sales plan (Enterprise): numeric prices are placeholders and must
+  /// never be used for self-serve checkout.
+  isCustomPrice   Boolean @default(false)
+  /// Set when a plan is retired from the active catalog. Historical rows keep
+  /// referencing the archived plan id.
+  archivedAt      DateTime?
+  // Optimistic-concurrency counter for pricing approvals: every canonical
+  // mutation increments it so stale approval requests can be detected.
+  version        Int      @default(1)
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+
+  subscriptions  Subscription[]
+  featureFlags   FeatureFlag[]
+  changeRequests PlanChangeRequest[]
+  countryPrices  PlanCountryPrice[]
+}
+
+/// Localized storefront price point for one plan in one market. Stored in the
+/// SAME units as the marketing PricingDoc (local currency units, not cents).
+/// Invariant enforced by the sync service: for the US baseline,
+/// monthly × 100 == Plan.monthlyPrice (billing canonical, USD cents).
+model PlanCountryPrice {
+  id       String   @id @default(cuid())
+  planId   String
+  plan     Plan     @relation(fields: [planId], references: [id], onDelete: Cascade)
+  country  String // ISO 3166-1 alpha-2, e.g. "US"
+  currency String
+  monthly  Int // local currency units per month
+  annual   Int // local currency units per year
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@unique([planId, country])
+  @@index([country])
+}
+
+/// Marketing-proposed plan change awaiting Super Admin decision. Snapshots are
+/// full Plan JSON so approval is deterministic; baseVersion detects staleness.
+/// Supports structural actions: create|update|archive|activate|deactivate
+/// (create requests have a null planId until approved).
+model PlanChangeRequest {
+  id               String    @id @default(cuid())
+  planId           String?
+  plan             Plan?     @relation(fields: [planId], references: [id], onDelete: Cascade)
+  /// update|create|archive|deactivate|activate
+  action           String    @default("update")
+  requestedByEmail String
+  status           String    @default("pending") // pending|approved|rejected|cancelled
+  beforeSnapshot   Json
+  proposedSnapshot Json
+  reason           String?
+  baseVersion      Int
+  reviewedByEmail  String?
+  reviewedAt       DateTime?
+  rejectionReason  String?
+  createdAt        DateTime  @default(now())
+  updatedAt        DateTime  @updatedAt
+
+  @@index([planId, status])
+  @@index([status])
+}
+
+/// Platform-level toggles (Super Admin only). JSON value keeps future
+/// settings schema-free.
+model SystemSetting {
+  key            String   @id
+  value          Json
+  updatedByEmail String?
+  updatedAt      DateTime @updatedAt
+}
+
+model Subscription {
+  id                 String   @id @default(cuid())
+  organizationId     String
+  organization       Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  planId             String
+  plan               Plan     @relation(fields: [planId], references: [id])
+  status             String   @default("trial") // trial|active|past_due|grace|suspended|cancelled|expired|paused
+  billingCycle       String   @default("monthly") // monthly|yearly
+  mrr                Int      // USD-cents snapshot (normalized MRR metric; never converted)
+  /// Market this subscription was sold in (ISO2). Authoritative for which
+  /// country price applied at creation; legacy rows default to US.
+  country            String   @default("US")
+  /// Currency actually charged (ISO 4217). Mirrors the market's catalog
+  /// currency; never re-derived or converted after creation.
+  currency           String   @default("USD")
+  /// Recurring amount in `currency` UNITS (not cents) as charged, matching
+  /// the PlanCountryPrice row for (planId, country). Null = legacy row whose
+  /// USD-cents `mrr` remains authoritative.
+  unitAmount         Int?
+  quantity           Int      @default(1)
+  currentPeriodStart DateTime
+  currentPeriodEnd   DateTime
+  trialEndsAt        DateTime?
+  cancelAt           DateTime?
+  createdAt          DateTime @default(now())
+  updatedAt          DateTime @updatedAt
+
+  invoices                Invoice[]
+  affiliateCommissions  AffiliateCommission[]
+
+  @@index([organizationId])
+  @@index([planId])
+  @@index([status])
+  @@index([currentPeriodEnd])
+  @@index([country])
+}
+
+model Invoice {
+  id             String   @id @default(cuid())
+  organizationId String
+  organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  subscriptionId String?
+  subscription   Subscription? @relation(fields: [subscriptionId], references: [id])
+  type           String   @default("subscription") // subscription|addon|usage|onetime|credit
+  status         String   @default("draft") // draft|issued|paid|partially_paid|past_due|void|refunded
+  amount         Int      // cents
+  currency       String   @default("USD")
+  dueAt          DateTime?
+  paidAt         DateTime?
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+
+  payments       Payment[]
+
+  @@index([organizationId])
+  @@index([subscriptionId])
+  @@index([status])
+  @@index([createdAt])
+}
+
+model Payment {
+  id             String   @id @default(cuid())
+  organizationId String
+  organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  invoiceId      String?
+  invoice        Invoice? @relation(fields: [invoiceId], references: [id])
+  gateway        String   @default("manual") // stripe|razorpay|manual
+  amount         Int
+  currency       String   @default("USD")
+  status         String   @default("succeeded") // succeeded|failed|pending|refunded
+  failureReason  String?
+  createdAt      DateTime @default(now())
+
+  @@index([organizationId])
+  @@index([invoiceId])
+  @@index([status])
+}
+
+model UsageRecord {
+  id             String       @id @default(cuid())
+  organizationId String
+  organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  metric         String       // properties|users|bookings|api_calls|storage|emails|sms|whatsapp|automations
+  quantity       Int
+  period         String       // YYYY-MM
+  recordedAt     DateTime     @default(now())
+
+  @@index([organizationId, metric, period])
+  @@index([recordedAt])
+}
+
+model FeatureFlag {
+  id             String       @id @default(cuid())
+  key            String       // e.g. ai_assistant, whatsapp
+  enabled        Boolean      @default(false)
+  planId         String?
+  plan           Plan?        @relation(fields: [planId], references: [id])
+  organizationId String?
+  organization   Organization? @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  propertyId     String?
+  property       Property?    @relation(fields: [propertyId], references: [id], onDelete: Cascade)
+  country        String?      // ISO2 or null = global
+  percentage     Int?         // 0-100 rollout
+  isBeta         Boolean      @default(false)
+  createdAt      DateTime     @default(now())
+  updatedAt      DateTime     @updatedAt
+
+  @@index([key])
+  @@index([organizationId])
+  @@index([planId])
+  @@index([propertyId])
+}
+
+model AuditLog {
+  id         String   @id @default(cuid())
+  actorEmail String
+  actorId    String?
+  action     String   // org.created, plan.updated, subscription.status_changed, invoice.created, refund, payout.approved, etc.
+  targetType String   // organization|property|plan|subscription|invoice|payment|feature_flag|territory
+  targetId   String?
+  before     Json?
+  after      Json?
+  ip         String?
+  requestId  String?
+  timestamp  DateTime @default(now())
+
+  @@index([actorEmail])
+  @@index([targetType, targetId])
+  @@index([timestamp])
+  @@index([action])
+}
+
+model Affiliate {
+  id               String   @id @default(cuid())
+  name             String
+  businessName     String?
+  email            String   @unique
+  phone            String?
+  country          String?
+  website          String?
+  audience         String?
+  promotionMethod  String?
+  status           String   @default("applied") // applied|review|approved|active|suspended
+  referralCode     String   @unique // AFF123
+  couponCode       String?  @unique
+  tier             String   @default("standard") // standard|silver|gold|platinum
+  commissionModel  String   @default("percent_mrr_12") // fixed|percent_first|percent_mrr_12|percent_mrr_recurring|tiered
+  commissionValue  Int      @default(2000) // cents or basis points (e.g. 2000 = 20%)
+  taxDetails       String?
+  payoutMethod     String?  // upi|bank|paypal
+  payoutDetails    String?
+  userId           String?  // linked AuthUser if affiliate is also a platform user
+  createdAt        DateTime @default(now())
+  updatedAt        DateTime @updatedAt
+
+  clicks           AffiliateClick[]
+  commissions      AffiliateCommission[]
+  payouts          AffiliatePayout[]
+
+  @@index([status])
+  @@index([referralCode])
+}
+
+model AffiliateClick {
+  id          String   @id @default(cuid())
+  affiliateId String
+  affiliate   Affiliate @relation(fields: [affiliateId], references: [id], onDelete: Cascade)
+  ip          String?
+  userAgent   String?
+  referrer    String?
+  utmSource   String?
+  utmMedium   String?
+  utmCampaign String?
+  createdAt   DateTime @default(now())
+
+  @@index([affiliateId])
+  @@index([createdAt])
+}
+
+model AffiliateCommission {
+  id             String   @id @default(cuid())
+  affiliateId    String?
+  affiliate      Affiliate? @relation(fields: [affiliateId], references: [id], onDelete: Cascade)
+  partnerId      String?
+  partner        Partner?   @relation(fields: [partnerId], references: [id])
+  organizationId String?
+  organization   Organization? @relation(fields: [organizationId], references: [id])
+  subscriptionId String?
+  subscription   Subscription? @relation(fields: [subscriptionId], references: [id])
+  leadId         String?  // MarketingLead id (DataFile)
+  amount         Int      // cents
+  currency       String   @default("USD")
+  status         String   @default("pending") // pending|eligible|approved|payable|paid|rejected|reversed|fraud_hold
+  model          String   // snapshot of commissionModel at creation
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+
+  @@index([affiliateId])
+  @@index([partnerId])
+  @@index([status])
+  @@index([organizationId])
+}
+
+model AffiliatePayout {
+  id          String   @id @default(cuid())
+  affiliateId String?
+  affiliate   Affiliate? @relation(fields: [affiliateId], references: [id], onDelete: Cascade)
+  partnerId   String?
+  partner     Partner?   @relation(fields: [partnerId], references: [id])
+  amount      Int
+  currency    String   @default("USD")
+  method      String   @default("bank") // upi|bank|paypal
+  status      String   @default("requested") // requested|approved|processing|paid|failed
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  @@index([affiliateId])
+  @@index([partnerId])
+  @@index([status])
+}
+
+model DunningCase {
+  id             String   @id @default(cuid())
+  organizationId String
+  organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  invoiceId      String
+  subscriptionId String?
+  attempt        Int      @default(0)
+  maxAttempts    Int      @default(4)
+  nextRetryAt    DateTime?
+  lastError      String?
+  status         String   @default("active") // active|recovered|suspended|given_up
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+
+  @@index([status])
+  @@index([nextRetryAt])
+  @@index([invoiceId])
+}
+
+model Coupon {
+  id             String    @id @default(cuid())
+  code           String    @unique
+  description    String?
+  type           String    // percent|fixed
+  value          Int       // bps for percent (2000 = 20%), cents for fixed
+  duration       String    @default("once") // once|repeating|forever
+  months         Int?      // for repeating duration
+  maxRedemptions Int?
+  redeemedCount  Int       @default(0)
+  expiresAt      DateTime?
+  planId         String?
+  isActive       Boolean   @default(true)
+  createdAt      DateTime  @default(now())
+  updatedAt      DateTime  @updatedAt
+
+  redemptions CouponRedemption[]
+
+  @@index([isActive])
+}
+
+model CouponRedemption {
+  id               String   @id @default(cuid())
+  couponId         String
+  coupon           Coupon   @relation(fields: [couponId], references: [id], onDelete: Cascade)
+  organizationId   String
+  organization     Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  subscriptionId   String?
+  invoiceId        String?
+  amountDiscounted Int      // cents actually discounted
+  createdAt        DateTime @default(now())
+
+  @@unique([couponId, organizationId])
+  @@index([organizationId])
+}
+
+model AutomationEvent {
+  id             String   @id @default(cuid())
+  organizationId String?
+  organization   Organization? @relation(fields: [organizationId], references: [id])
+  rule           String
+  channel        String   @default("email")
+  recipient      String?
+  payload        String?
+  status         String   @default("sent") // sent|failed|skipped
+  error          String?
+  createdAt      DateTime @default(now())
+
+  @@index([rule, organizationId, createdAt])
+  @@index([createdAt])
+}
+
+model SupportTicket {
+  id             String    @id @default(cuid())
+  organizationId String
+  organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  subscriptionId String?
+  category       String    // billing|technical|subscription|account|integration|bug|onboarding|affiliate|partner|franchise
+  priority       String    @default("medium") // low|medium|high|urgent
+  status         String    @default("open") // open|pending|in_progress|resolved|closed
+  subject        String
+  description    String?
+  requesterEmail String?
+  assigneeEmail  String?
+  slaDueAt       DateTime?
+  firstResponseAt DateTime?
+  resolvedAt     DateTime?
+  createdAt      DateTime  @default(now())
+  updatedAt      DateTime  @updatedAt
+
+  @@index([organizationId])
+  @@index([status])
+  @@index([slaDueAt])
+}
+
+model Partner {
+  id              String   @id @default(cuid())
+  name            String
+  company         String?
+  email           String   @unique
+  phone           String?
+  country         String?
+  website         String?
+  type            String   @default("reseller") // it_agency|consultant|reseller|implementation|hmc
+  tier            String   @default("bronze") // bronze|silver|gold|platinum
+  status          String   @default("applied") // applied|review|approved|active|suspended
+  commissionModel String   @default("percent_first") // fixed|percent_first|percent_mrr_12|percent_mrr_recurring
+  commissionValue Int      @default(1500) // cents or bps
+  referralCode    String   @unique
+  userId          String?
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+
+  organizations Organization[]
+  commissions   AffiliateCommission[]
+  payouts       AffiliatePayout[]
+
+  @@index([status])
+}
+
+model Franchisee {
+  id               String    @id @default(cuid())
+  company          String
+  contactName      String
+  email            String    @unique
+  phone            String?
+  country          String?
+  revenueShareBps  Int       @default(1500)
+  agreementStartAt DateTime?
+  agreementEndAt   DateTime?
+  status           String    @default("proposed") // proposed|signed|active|terminated
+  notes            String?
+  createdAt        DateTime  @default(now())
+  updatedAt        DateTime  @updatedAt
+
+  territories FranchiseTerritory[]
+
+  @@index([status])
+}
+
+model FranchiseTerritory {
+  id                String   @id @default(cuid())
+  parentTerritoryId String?
+  parent            FranchiseTerritory?  @relation("TerritoryTree", fields: [parentTerritoryId], references: [id])
+  children          FranchiseTerritory[] @relation("TerritoryTree")
+  franchiseeId      String?
+  franchisee        Franchisee? @relation(fields: [franchiseeId], references: [id])
+  name              String
+  country           String
+  region            String?
+  city              String?
+  type              String   @default("region") // master|region|city
+  exclusive         Boolean  @default(false)
+  status            String   @default("active") // active|inactive
+  createdAt         DateTime @default(now())
+  updatedAt         DateTime @updatedAt
+
+  organizations Organization[]
+
+  @@unique([country, region, city, type, status])
+  @@index([franchiseeId])
+}

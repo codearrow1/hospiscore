@@ -27,7 +27,7 @@ export const FAQS: FaqItem[] = [
   },
   {
     q: "How is my data kept secure?",
-    a: "Granular role-based access across 20+ roles, two-factor authentication, full audit and activity logs, API-key and session management, password policies, automated backups, and disaster recovery — all on an enterprise-grade cloud architecture.",
+    a: "Role-based access, two-factor authentication, activity logs, API-key and session management, password policies, automated backups, and disaster recovery — all on an enterprise-grade cloud architecture.",
   },
   {
     q: "Do I need to change my restaurant or accounting systems?",

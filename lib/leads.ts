@@ -4,21 +4,23 @@ import type { AuthUser } from "@/lib/auth";
 import type { DemoRequest } from "@/lib/demo";
 import type { ReportRequest } from "@/lib/reportRequest";
 import { isLeadStatus, type LeadStatus } from "@/lib/accountTypes";
+import { roleFor } from "@/lib/marketing/roles";
 
 /**
  * Internal sales-leads view (server-only).
  *
  * Demo bookings and score-report e-mail captures are separate arrays in the
  * shared data document. This module unifies them into rows the `/account/leads`
- * page renders, and gates access to admin e-mails configured via `ADMIN_EMAILS`.
+ * page renders, and gates access to admin e-mails configured via `ADMIN_EMAILS`
+ * or a marketing role (see lib/marketing/roles).
  */
 
 /** Whether a user is allowed to see the internal leads view. */
 export function isAdmin(
-  user: Pick<AuthUser, "email">,
+  user: Pick<AuthUser, "email" | "role">,
   allowed: readonly string[] = CONFIG.adminEmails,
 ): boolean {
-  return allowed.includes(user.email.toLowerCase());
+  return roleFor(user, allowed) !== null || allowed.includes(user.email.toLowerCase());
 }
 
 export interface LeadRow {
@@ -26,11 +28,16 @@ export interface LeadRow {
   source: "demo" | "report";
   name: string;
   email: string;
+  phone?: string;
   propertyName?: string;
   propertySlug?: string;
   company?: string;
   propertyCount?: number;
   message?: string;
+  /** Pricing context captured with demo requests. */
+  plan?: string;
+  country?: string;
+  billingCycle?: "monthly" | "yearly";
   status: LeadStatus;
   createdAt: string;
 }
@@ -50,6 +57,9 @@ function demoRow(r: DemoRequest): LeadRow {
     company: r.company,
     propertyName: r.propertyName,
     propertyCount: r.propertyCount,
+    plan: r.plan,
+    country: r.country,
+    billingCycle: r.billingCycle,
     message: r.message,
     status: r.status ?? "new",
     createdAt: r.createdAt,
@@ -62,6 +72,7 @@ function reportRow(r: ReportRequest): LeadRow {
     source: "report",
     name: r.name,
     email: r.email,
+    phone: r.phone,
     propertyName: r.propertyName,
     propertySlug: r.propertySlug,
     status: r.status ?? "new",
@@ -139,10 +150,14 @@ const CSV_HEADERS = [
   "status",
   "name",
   "email",
+  "phone",
   "propertyName",
   "propertySlug",
   "company",
   "propertyCount",
+  "plan",
+  "country",
+  "billingCycle",
   "message",
   "createdAt",
 ] as const;
@@ -165,10 +180,14 @@ export function leadsToCsv(rows: LeadRow[]): string {
         r.status,
         r.name,
         r.email,
+        r.phone ?? null,
         r.propertyName ?? null,
         r.propertySlug ?? null,
         r.company ?? null,
         r.propertyCount ?? null,
+        r.plan ?? null,
+        r.country ?? null,
+        r.billingCycle ?? null,
         r.message ?? null,
         r.createdAt,
       ]

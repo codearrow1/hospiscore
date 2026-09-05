@@ -12,6 +12,7 @@
  */
 
 import path from "node:path";
+import os from "node:os";
 
 function env(name: string): string {
   return process.env[name]?.trim() ?? "";
@@ -56,6 +57,16 @@ export const CONFIG = {
   // --- Auth & accounts ---------------------------------------------------
   /** JSON file backing users/sessions/saved properties (default <project>/var/data.json). */
   dataFile: env("APP_DATA_FILE") || path.join(process.cwd(), "var", "data.json"),
+  /**
+   * Secondary copy of the data document, kept in sync on every write and used
+   * to recover when the primary file is lost/reset (e.g. deploys that replace
+   * the app directory). Defaults to a file in the user's home directory so it
+   * survives app-directory deploys. Set APP_DATA_MIRROR= (empty) to disable.
+   */
+  dataMirror:
+    process.env.APP_DATA_MIRROR === undefined
+      ? path.join(os.homedir(), ".hospiscore", "data.json")
+      : env("APP_DATA_MIRROR"),
   /** Session cookie name. */
   sessionCookie: env("APP_SESSION_COOKIE") || "hs_session",
   /** Session lifetime in days. */
@@ -83,6 +94,20 @@ export const CONFIG = {
     .split(",")
     .map((s) => s.trim().toLowerCase())
     .filter(Boolean),
+
+  // --- Marketing conversion center ---------------------------------------------
+  /** Default destination for lead notifications / auto-replies. */
+  salesEmail: env("SALES_EMAIL") || "hello@hospios.app",
+  /** Base URL for demo meeting links (calendar event join URLs). */
+  demoMeetingUrl: env("DEMO_MEETING_URL") || "https://meet.hospios.app/",
+  /** Public POST endpoints (forms/beacon) rate limit window (ms). */
+  publicRateWindowMs: Number(env("PUBLIC_RATE_WINDOW_MS") || 60_000),
+  /** Max public POSTs per window per client key. */
+  publicRateMax: Number(env("PUBLIC_RATE_MAX") || 10),
+  /** Max admin mutations per window per user. */
+  adminRateMax: Number(env("ADMIN_RATE_MAX") || 120),
+  /** Anonymous page-view tracking enabled (privacy-light, no cookies). */
+  trackViews: env("TRACK_VIEWS") !== "0",
 } as const;
 
 /** Human-readable mode for UI/debugging. */

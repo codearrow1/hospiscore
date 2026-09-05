@@ -50,7 +50,7 @@ const SECTIONS = [
   },
   {
     heading: "5. Security",
-    body: "We protect data with encryption in transit and at rest, role-based access controls, two-factor authentication, audit logs, and automated backups. Our security architecture is documented on the security page, and our controls are audited under SOC 2 Type 2.",
+    body: "We protect data with encryption in transit and at rest, role-based access controls, two-factor authentication, activity logs, and automated backups. Our security architecture is documented on the security page.",
   },
   {
     heading: "6. Retention",

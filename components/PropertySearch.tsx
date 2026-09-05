@@ -177,8 +177,8 @@ export default function PropertySearch({ compact = false }: { compact?: boolean 
               <div className="flex items-center gap-4">
                 <div className="h-12 w-12 rounded-xl bg-zinc-200 dark:bg-zinc-800" />
                 <div className="space-y-2">
-                  <div className="h-4 w-40 rounded bg-zinc-200 dark:bg-zinc-800" />
-                  <div className="h-3 w-56 rounded bg-zinc-200 dark:bg-zinc-800" />
+                  <div className="h-4 w-40 max-w-full rounded bg-zinc-200 dark:bg-zinc-800" />
+                  <div className="h-3 w-56 max-w-full rounded bg-zinc-200 dark:bg-zinc-800" />
                 </div>
               </div>
               <div className="h-11 w-11 rounded-xl bg-zinc-200 dark:bg-zinc-800" />
@@ -268,13 +268,13 @@ function ResultCard({
             .map((w) => w[0])
             .join("")}
         </span>
-        <div>
-          <div className="font-semibold text-zinc-900 dark:text-zinc-50">
+        <div className="min-w-0">
+          <div className="truncate font-semibold text-zinc-900 dark:text-zinc-50">
             {r.name}
             {r.claimed && (
               <span
                 title="Verified owner"
-                className="ml-2 inline-block h-3.5 w-3.5 align-middle text-emerald-500"
+                className="ml-1.5 inline-block h-3.5 w-3.5 align-middle text-emerald-500"
               >
                 <svg viewBox="0 0 20 20" fill="currentColor">
                   <path
@@ -286,7 +286,7 @@ function ResultCard({
               </span>
             )}
           </div>
-          <div className="text-sm text-zinc-500 dark:text-zinc-400">
+          <div className="truncate text-sm text-zinc-500 dark:text-zinc-400">
             {r.type} · {r.city}, {r.country}
             {r.isLive && (
               <span className="ml-2 rounded bg-indigo-50 px-1.5 py-0.5 text-[10px] font-medium uppercase tracking-wide text-indigo-500 dark:bg-indigo-950 dark:text-indigo-300">
@@ -317,7 +317,7 @@ function ResultCard({
       </Link>
       <button
         onClick={() => onEmailReport(r)}
-        className="shrink-0 rounded-xl border border-indigo-200 px-2.5 py-2 text-xs font-semibold text-indigo-600 transition hover:bg-indigo-50 dark:border-indigo-900 dark:text-indigo-300 dark:hover:bg-indigo-950/50"
+        className="shrink-0 rounded-xl border border-indigo-200 px-3 py-2.5 text-xs font-semibold text-indigo-600 transition hover:bg-indigo-50 dark:border-indigo-900 dark:text-indigo-300 dark:hover:bg-indigo-950/50"
         title={`Email the full report for ${r.name}`}
       >
         Email report

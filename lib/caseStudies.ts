@@ -1,5 +1,7 @@
 /**
  * Case-study content for the /case-studies hub and /case-studies/[slug] pages.
+ * These are illustrative scenarios based on common operator journeys —
+ * not claims about named real deployments.
  */
 
 export interface CaseStudy {
@@ -20,39 +22,39 @@ export interface CaseStudy {
 
 export const CASE_STUDIES: CaseStudy[] = [
   {
-    slug: "harbor-lights-direct-revenue",
-    company: "Harbor Lights Inn",
-    headline: "+38% direct revenue in one quarter",
+    slug: "coastal-boutique-direct-revenue",
+    company: "Coastal Boutique Inn",
+    headline: "Winning back direct bookings, one evening at a time",
     summary:
-      "A 40-room coastal inn replaced its legacy PMS and channel manager with HospiOS to win back direct bookings and cut night-audit time.",
+      "A small coastal inn replaces a legacy PMS and channel manager with HospiOS to stop re-keying and grow direct bookings.",
     sector: "Boutique Hotels",
-    location: "Coastal, US",
+    location: "Example · coastal town",
     size: "40 rooms",
     date: "2026-07-02",
     challenge:
-      "OTA commission was eating 18% of revenue and the front desk was re-keying bookings from three systems into a fourth. Night audit took two hours across five screens.",
+      "The front desk was re-keying bookings from several systems into a fourth, and night audit dragged across multiple screens. Team evenings disappeared into admin.",
     approach:
-      "HospiOS unified the booking engine, channel manager, front desk and finance in a single system. The team activated the branded booking engine with a best-rate promise, connected two-way OTA sync, and automated review requests after checkout.",
+      "HospiOS unified the booking engine, channel manager, front desk and finance in a single system — a branded booking engine with a best-rate promise, two-way OTA sync, and automated review requests after checkout.",
     results: [
-      { metric: "Direct revenue", value: "+38%", label: "in one quarter" },
-      { metric: "Night audit", value: "2h → 15m", label: "across all outlets" },
-      { metric: "Commission", value: "-14 pts", label: "of revenue saved" },
+      { metric: "Direct revenue", value: "Climbing", label: "quarter over quarter" },
+      { metric: "Night audit", value: "One pass", label: "across all outlets" },
+      { metric: "Re-keying", value: "Zero", label: "between systems" },
     ],
     quote: {
       text: "The first week we stopped re-keying bookings we got our evenings back. By month two, direct bookings were clearly climbing — we could see it in the dashboard, not guess it.",
-      name: "Marta Alvarez",
-      role: "Owner · Harbor Lights Inn",
+      name: "Illustrative example",
+      role: "Owner · coastal boutique inn",
     },
     tags: ["Direct bookings", "Channel manager", "Night audit"],
   },
   {
-    slug: "casa-verde-multiproperty",
-    company: "Casa Verde Resorts",
-    headline: "Six properties, one night audit",
+    slug: "resort-group-one-platform",
+    company: "Six-Property Resort Group",
+    headline: "Every property, one dashboard",
     summary:
-      "A family-run resort group consolidated six properties onto HospiOS and cut reporting from three days a month to minutes.",
+      "A family-run resort group consolidates six properties onto HospiOS and sees the whole portfolio in one view.",
     sector: "Resorts",
-    location: "Central America",
+    location: "Example · resort group",
     size: "6 properties · 210 rooms",
     date: "2026-06-18",
     challenge:
@@ -60,25 +62,25 @@ export const CASE_STUDIES: CaseStudy[] = [
     approach:
       "The group adopted HospiOS Enterprise for centralized reporting, shared guest profiles and a single corporate billing workflow, while keeping per-property pricing and branding.",
     results: [
-      { metric: "Reporting", value: "3 days → 10 min", label: "monthly close" },
-      { metric: "Occupancy", value: "+11%", label: "group-wide YOY" },
-      { metric: "Systems", value: "12 → 1", label: "tools to maintain" },
+      { metric: "Reporting", value: "Minutes", label: "instead of days" },
+      { metric: "Owners' view", value: "One", label: "live dashboard" },
+      { metric: "Systems", value: "One", label: "platform to maintain" },
     ],
     quote: {
       text: "For the first time the owners see every property on one dashboard. Decisions that used to wait for a monthly meeting now happen on Monday morning.",
-      name: "Lucia Mendoza",
-      role: "Group GM · Casa Verde Resorts",
+      name: "Illustrative example",
+      role: "Group GM · six-property resort group",
     },
     tags: ["Multi-property", "Consolidated reporting", "Corporate billing"],
   },
   {
-    slug: "north-pod-flexible-stays",
-    company: "North Pod Collective",
-    headline: "Glamping concepts live in one afternoon",
+    slug: "seasonal-glamping-flexible-inventory",
+    company: "Seasonal Glamping Operator",
+    headline: "A new glamping concept in one afternoon",
     summary:
-      "An experimental-stays startup uses HospiOS flexible inventory to launch seasonal glamping concepts without rebuilding its system.",
+      "An experimental-stays operator uses HospiOS flexible inventory to launch seasonal concepts without rebuilding its system.",
     sector: "Experimental Stays",
-    location: "Nordics",
+    location: "Example · Nordics",
     size: "24 pods · seasonal",
     date: "2026-05-27",
     challenge:
@@ -86,25 +88,25 @@ export const CASE_STUDIES: CaseStudy[] = [
     approach:
       "HospiOS flexible room types let them activate a new pod concept with inventory, pricing and a branded booking page in an afternoon. Digital check-in and automated guest messages run the remote sites.",
     results: [
-      { metric: "Launch time", value: "weeks → 1 day", label: "new concept live" },
-      { metric: "Upsell revenue", value: "+22%", label: "add-ons per stay" },
-      { metric: "Guest support", value: "-60%", label: "inbound messages" },
+      { metric: "Launch time", value: "Afternoon", label: "new concept live" },
+      { metric: "Upsell revenue", value: "Higher", label: "add-ons per stay" },
+      { metric: "Guest support", value: "Fewer", label: "inbound messages" },
     ],
     quote: {
       text: "We treated every season as a rebuild. Now a concept is a few clicks — inventory, rates, a landing page, done.",
-      name: "Freja Holm",
-      role: "Founder · North Pod Collective",
+      name: "Illustrative example",
+      role: "Founder · seasonal glamping operator",
     },
     tags: ["Flexible inventory", "Digital check-in", "Automation"],
   },
   {
-    slug: "driftwood-selfservice",
-    company: "Driftwood Apartments",
+    slug: "serviced-apartments-self-service",
+    company: "Serviced Apartment Operator",
     headline: "Serviced apartments without a front desk",
     summary:
-      "A 60-unit serviced-apartment operator removed reception hours and cut check-in time to five minutes with guest self-service.",
+      "A 60-unit serviced-apartment operator moves guest arrival online and automates long-stay invoicing.",
     sector: "Serviced Apartments",
-    location: "Scandinavia",
+    location: "Example · Scandinavia",
     size: "60 apartments",
     date: "2026-04-15",
     challenge:
@@ -112,40 +114,40 @@ export const CASE_STUDIES: CaseStudy[] = [
     approach:
       "HospiOS self-service portal delivered digital check-in, key codes and automated welcome flows. Long-stay rate plans and monthly corporate invoicing automated the billing backlog.",
     results: [
-      { metric: "Check-in", value: "25m → 5m", label: "average time" },
-      { metric: "Staff hours", value: "−40%", label: "at reception" },
-      { metric: "Invoicing", value: "auto", label: "monthly statements" },
+      { metric: "Check-in", value: "Minutes", label: "from arrival to room" },
+      { metric: "Reception load", value: "Lower", label: "after-hours work" },
+      { metric: "Invoicing", value: "Auto", label: "monthly statements" },
     ],
     quote: {
       text: "Guests now arrive to a room ready and a code on their phone. We don't need a desk to run a great apartment.",
-      name: "Marcus Chen",
-      role: "Operations Lead · Driftwood Apartments",
+      name: "Illustrative example",
+      role: "Operations Lead · serviced apartment operator",
     },
     tags: ["Self-service", "Long stays", "Corporate billing"],
   },
   {
-    slug: "gilded-fox-upsell",
-    company: "Gilded Fox Boutique",
-    headline: "AI reply drafts that doubled review response",
+    slug: "design-hotel-ai-review-replies",
+    company: "Design-Focused City Hotel",
+    headline: "Every review, answered the same day",
     summary:
-      "A 14-room boutique hotel automated review replies with AI drafts and turned a review backlog into a competitive advantage.",
+      "A small design hotel clears a review backlog with AI reply drafts that staff always approve before sending.",
     sector: "Boutique Hotels",
-    location: "London, UK",
+    location: "Example · London, UK",
     size: "14 rooms",
     date: "2026-03-08",
     challenge:
-      "Reviews went days without a reply, dragging the property's average response rate and its search visibility on review platforms.",
+      "Reviews went days without a reply, dragging the property's response rate and its visibility on review platforms.",
     approach:
       "The team turned on AI reply drafts with human approval. Every new review got a personalized, on-brand draft in seconds — staff reviewed and hit send from one inbox.",
     results: [
-      { metric: "Response rate", value: "31% → 98%", label: "within 24h" },
-      { metric: "Score", value: "+1.2★", label: "online presence score" },
-      { metric: "Review time", value: "2m → 20s", label: "per reply" },
+      { metric: "Response rate", value: "High", label: "same-day replies" },
+      { metric: "Score", value: "Improved", label: "online presence score" },
+      { metric: "Review time", value: "Seconds", label: "per reply" },
     ],
     quote: {
       text: "Guests noticed. Our response rate is now a selling point and the scoreboard finally reflects how much care goes into this hotel.",
-      name: "Elena Rossi",
-      role: "Owner · Gilded Fox Boutique",
+      name: "Illustrative example",
+      role: "Owner · small design hotel",
     },
     tags: ["AI", "Review management", "Online presence"],
   },

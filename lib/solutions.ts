@@ -28,9 +28,9 @@ export const SOLUTIONS: Solution[] = [
       "From check-in to night audit, HospiOS keeps front desk, housekeeping, restaurant, and accounting moving together in real time — no spreadsheets, no duplicate entry.",
     icon: "building",
     stats: [
-      { value: "30%", label: "less admin per shift" },
-      { value: "12+", label: "OTAs synced in real time" },
-      { value: "0", label: "overbookings with live inventory" },
+      { value: "All-in-one", label: "departments on one system" },
+      { value: "14+", label: "OTAs synced in real time" },
+      { value: "Live", label: "inventory everywhere" },
     ],
     challenges: [
       {
@@ -49,8 +49,8 @@ export const SOLUTIONS: Solution[] = [
     moduleIds: ["frontdesk", "reservations", "rooms", "housekeeping", "pos", "finance", "channel", "ai"],
     testimonial: {
       quote:
-        "Front desk, housekeeping, POS and finance used to live in four different tools. HospiOS put everything in one place — my team stopped re-keying data the week we switched.",
-      name: "Marta Alvarez",
+        "Front desk, housekeeping, POS and finance used to live in four different tools. HospiOS puts everything in one place — my team stopped re-keying data the week we switched.",
+      name: "Illustrative example",
       role: "General Manager · 48-key boutique hotel",
     },
   },
@@ -60,12 +60,12 @@ export const SOLUTIONS: Solution[] = [
     tagline: "One dashboard for every property, brand, and team.",
     headline: "Consolidated control across your whole portfolio",
     intro:
-      "HospiOS gives multi-property groups a central command center — shared users, consolidated reporting, central CRM and inventory, with property-specific pricing and branding.",
+      "HospiOS gives multi-property groups a central command center — shared users, consolidated reporting, central CRM and inventory — with property-specific pricing and branding across brands, countries and currencies.",
     icon: "network",
     stats: [
-      { value: "100%", label: "portfolio visibility in one view" },
-      { value: "Unlimited", label: "properties & staff roles" },
-      { value: "1", label: "night audit across all sites" },
+      { value: "Central", label: "visibility across the group" },
+      { value: "Any size", label: "property portfolio" },
+      { value: "Consolidated", label: "night audit & reporting" },
     ],
     challenges: [
       {
@@ -84,9 +84,9 @@ export const SOLUTIONS: Solution[] = [
     moduleIds: ["multiproperty", "bi", "channel", "security", "hrms", "crm", "finance", "revenue"],
     testimonial: {
       quote:
-        "We run 14 properties across three countries. HospiOS cut the time we spend on operations and reporting from hours a week to about fifteen minutes.",
-      name: "Priya Sharma",
-      role: "COO · 14-property portfolio",
+        "We run a multi-property portfolio across countries. HospiOS cut the time we spend on operations and reporting from hours a week to about fifteen minutes.",
+      name: "Illustrative example",
+      role: "COO · multi-property group",
     },
   },
   {
@@ -98,9 +98,9 @@ export const SOLUTIONS: Solution[] = [
       "Sell beds or entire dorms, handle group and seasonal bookings, and keep common-area revenue in one lightweight system built for high-volume, low-margin operations.",
     icon: "users",
     stats: [
-      { value: "2×", label: "faster group check-in" },
-      { value: "100%", label: "bed-level inventory control" },
-      { value: "24/7", label: "self-service guest requests" },
+      { value: "Fast", label: "group check-in" },
+      { value: "Bed-level", label: "inventory & availability" },
+      { value: "24/7", label: "guest self-service" },
     ],
     challenges: [
       {
@@ -119,9 +119,9 @@ export const SOLUTIONS: Solution[] = [
     moduleIds: ["frontdesk", "reservations", "rooms", "pos", "housekeeping", "crm", "marketing", "selfservice"],
     testimonial: {
       quote:
-        "We handle 90 beds and a constant stream of group bookings. HospiOS keeps beds, payments and housekeeping in sync without adding staff.",
-      name: "Tom Becker",
-      role: "Operations Manager · 90-bed hostel",
+        "We handle a busy bed inventory and a constant stream of group bookings. HospiOS keeps beds, payments and housekeeping in sync without adding staff.",
+      name: "Illustrative example",
+      role: "Operations Manager · large hostel",
     },
   },
   {
@@ -130,12 +130,12 @@ export const SOLUTIONS: Solution[] = [
     tagline: "Villas, cabins & holiday homes managed anywhere.",
     headline: "Short-let power without a front desk",
     intro:
-      "Manage villas, cabins and holiday homes with digital check-in, automated messaging, smart pricing, and cleanowner reporting — all from your phone.",
+      "Manage villas, cabins and holiday homes with digital check-in, automated messaging, smart pricing, and clean owner reporting — all from your phone.",
     icon: "key",
     stats: [
-      { value: "60%", label: "fewer owner calls" },
-      { value: "5 min", label: "digital check-in" },
-      { value: "24/7", label: "guest self-service" },
+      { value: "Fewer", label: "owner calls & emails" },
+      { value: "Digital", label: "check-in on arrival" },
+      { value: "24/7", label: "automated guest messaging" },
     ],
     challenges: [
       {
@@ -154,9 +154,9 @@ export const SOLUTIONS: Solution[] = [
     moduleIds: ["selfservice", "comms", "bookingengine", "channel", "revenue", "housekeeping", "maintenance", "finance"],
     testimonial: {
       quote:
-        "We run three villas with a tiny team. Digital check-in and automated guest messages let us deliver five-star service without adding headcount.",
-      name: "Sofia Lindqvist",
-      role: "Owner · Fjordside Cabins",
+        "We run a set of villas with a tiny team. Digital check-in and automated guest messages let us deliver five-star service without adding headcount.",
+      name: "Illustrative example",
+      role: "Owner · three villas",
     },
   },
   {
@@ -168,9 +168,9 @@ export const SOLUTIONS: Solution[] = [
       "Small hotel, big standards. Boutique properties get the same front desk, housekeeping, POS and revenue tools as the large chains — tuned to a lean, service-obsessed team.",
     icon: "sparkle",
     stats: [
-      { value: "40%", label: "less time at the desk" },
-      { value: "30+", label: "upsell-ready packages" },
-      { value: "5★", label: "guest experience focus" },
+      { value: "Less", label: "time at the desk" },
+      { value: "Upsell-ready", label: "packages & offers" },
+      { value: "Guest-first", label: "personal service" },
     ],
     challenges: [
       {
@@ -189,9 +189,9 @@ export const SOLUTIONS: Solution[] = [
     moduleIds: ["frontdesk", "reservations", "rooms", "crm", "bookingengine", "pos", "marketing", "revenue"],
     testimonial: {
       quote:
-        "We're a 14-room design hotel. HospiOS gives us the polish of a big chain PMS without a big-chain team — check-in is genuinely personal again.",
-      name: "Elena Rossi",
-      role: "Owner · Casa Aurora Boutique",
+        "We're a small design hotel. HospiOS gives us the polish of a big chain PMS without a big-chain team — check-in is genuinely personal again.",
+      name: "Illustrative example",
+      role: "Owner · small design hotel",
     },
   },
   {
@@ -203,9 +203,9 @@ export const SOLUTIONS: Solution[] = [
       "Resorts juggle rooms and villas, multiple restaurants, spas, pools, activities and group events. HospiOS keeps all of it — and every folio — moving together in real time.",
     icon: "building",
     stats: [
-      { value: "12+", label: "facilities on one folio" },
-      { value: "1", label: "night audit across all outlets" },
-      { value: "99.99%", label: "uptime in season" },
+      { value: "Single", label: "folio for every outlet" },
+      { value: "One pass", label: "night audit & settlement" },
+      { value: "24/7", label: "uptime in season" },
     ],
     challenges: [
       {
@@ -224,9 +224,9 @@ export const SOLUTIONS: Solution[] = [
     moduleIds: ["frontdesk", "rooms", "pos", "finance", "multiproperty", "hrms", "marketing", "maintenance"],
     testimonial: {
       quote:
-        "Six restaurants, 120 keys and a busy events calendar — night audit used to take two hours across five screens. Now it's one pass.",
-      name: "Daniel Okafor",
-      role: "Resort Director · Palm Key Resort",
+        "Multiple restaurants, a large room inventory and a busy events calendar — night audit used to take two hours across five screens. Now it's one pass.",
+      name: "Illustrative example",
+      role: "Resort Director · full-service resort",
     },
   },
   {
@@ -238,9 +238,9 @@ export const SOLUTIONS: Solution[] = [
       "The easiest way to manage a few rooms well. HospiOS handles bookings, housekeeping, guest messages and the online presence score — so you can stay guest-facing.",
     icon: "guest",
     stats: [
-      { value: "< 1 hr", label: "setup to live" },
+      { value: "Fast", label: "setup to go live" },
       { value: "24/7", label: "automated guest messages" },
-      { value: "0", label: "spreadsheets needed" },
+      { value: "Zero", label: "spreadsheets needed" },
     ],
     challenges: [
       {
@@ -259,9 +259,9 @@ export const SOLUTIONS: Solution[] = [
     moduleIds: ["bookingengine", "frontdesk", "housekeeping", "comms", "channel", "selfservice", "marketing", "revenue"],
     testimonial: {
       quote:
-        "I run three rooms with my husband. HospiOS turned 'hotel software' into something I actually enjoy using at the kitchen table.",
-      name: "Helen Ward",
-      role: "Owner · The Old Bakery B&B",
+        "I run a handful of rooms at home. HospiOS turned 'hotel software' into something I actually enjoy using at the kitchen table.",
+      name: "Illustrative example",
+      role: "Owner · small B&B",
     },
   },
   {
@@ -273,8 +273,8 @@ export const SOLUTIONS: Solution[] = [
       "Serviced apartments blend hotel service with apartment flexibility. Automate extended-stay pricing, monthly invoicing and housekeeping — and let guests check in from their phone.",
     icon: "key",
     stats: [
-      { value: "40%", label: "reduced check-in time" },
-      { value: "30d+", label: "long-stay rate plans" },
+      { value: "Faster", label: "guest check-in" },
+      { value: "Long-stay", label: "rate plans & invoicing" },
       { value: "24/7", label: "self-service access" },
     ],
     challenges: [
@@ -295,8 +295,8 @@ export const SOLUTIONS: Solution[] = [
     testimonial: {
       quote:
         "Corporate guests expect instant check-in and clean monthly invoices. HospiOS delivers both — our occupancy tracking finally matches reality.",
-      name: "Marcus Chen",
-      role: "Operations Lead · CityNest Apartments",
+      name: "Illustrative example",
+      role: "Operations Lead · serviced apartments",
     },
   },
   {
@@ -308,9 +308,9 @@ export const SOLUTIONS: Solution[] = [
       "Day-use, transit and flexible stays are a growing revenue line. HospiOS supports hourly rate plans, block-based availability and smart overbooking protection across your channels.",
     icon: "calendar",
     stats: [
-      { value: "2×", label: "revenue per room, per day" },
-      { value: "24h", label: "flexible arrival windows" },
-      { value: "0", label: "double-booked hours" },
+      { value: "New", label: "day-use revenue line" },
+      { value: "Hourly", label: "blocks & arrival windows" },
+      { value: "Safe", label: "slot-based inventory" },
     ],
     challenges: [
       {
@@ -329,9 +329,9 @@ export const SOLUTIONS: Solution[] = [
     moduleIds: ["reservations", "rooms", "channel", "housekeeping", "revenue", "frontdesk", "selfservice", "comms"],
     testimonial: {
       quote:
-        "Day-use rooms used to mean phone calls and missed revenue. Now hour slots sell on our site and Booking.com with zero overbooking.",
-      name: "Ahmed Khan",
-      role: "Owner · Skyline Transit Hotel",
+        "Day-use rooms used to mean phone calls and missed revenue. Now hour slots sell on our site and on channels with zero overbooking.",
+      name: "Illustrative example",
+      role: "Owner · city hotel",
     },
   },
   {
@@ -343,9 +343,9 @@ export const SOLUTIONS: Solution[] = [
       "Glamping pods, tiny houses, floating rooms and pop-up stays are redefining hospitality. HospiOS's flexible room types and configurable rates handle formats traditional PMS tools can't.",
     icon: "sparkle",
     stats: [
-      { value: "100%", label: "flexible room types" },
-      { value: "1 day", label: "to launch a new concept" },
-      { value: "50+", label: "channels supported" },
+      { value: "Flexible", label: "room & concept types" },
+      { value: "Fast", label: "concept launch" },
+      { value: "14+", label: "OTA channels" },
     ],
     challenges: [
       {
@@ -365,8 +365,8 @@ export const SOLUTIONS: Solution[] = [
     testimonial: {
       quote:
         "We launch a new glamping concept every season. HospiOS lets us spin up inventory, pricing and a booking page in an afternoon.",
-      name: "Freja Holm",
-      role: "Founder · North Pod Collective",
+      name: "Illustrative example",
+      role: "Founder · seasonal stays",
     },
   },
 ];

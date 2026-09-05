@@ -48,8 +48,8 @@ export default function BenchmarkPanel({
 
       <div className="flex flex-col gap-2">
         {rows.map((r) => (
-          <div key={r.key} className="flex items-center gap-3">
-            <span className="w-40 shrink-0 truncate text-xs text-zinc-500 dark:text-zinc-400">
+          <div key={r.key} className="flex items-center gap-2 sm:gap-3">
+            <span className="w-32 shrink-0 truncate text-xs text-zinc-500 sm:w-40 dark:text-zinc-400">
               {r.label}
             </span>
             <div

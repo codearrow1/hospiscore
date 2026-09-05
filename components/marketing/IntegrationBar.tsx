@@ -13,8 +13,8 @@ export default function IntegrationBar() {
           <svg className="h-4 w-4 text-indigo-400" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round"><path d="M12 2 4 5v6c0 5 3.5 9.5 8 11 4.5-1.5 8-6 8-11V5z" /></svg>
           {TOTAL_INTEGRATIONS}+ connected integrations
         </span>
-        <span>PCI DSS compliant</span>
-        <span>Google Cloud hosted</span>
+        <span>Gateway-secured payments</span>
+        <span>Cloud-hosted platform</span>
         <span>24/7 support</span>
       </div>
 
@@ -22,15 +22,15 @@ export default function IntegrationBar() {
         {INTEGRATION_GROUPS[0].items.slice(0, 12).map((name) => (
           <span
             key={name}
-            className="mx-2.5 flex shrink-0 items-center gap-2 rounded-full border border-zinc-800 bg-zinc-900/60 px-4 py-2 text-sm font-medium text-zinc-300 transition hover:border-indigo-500/50 hover:text-zinc-50"
+            className="mx-2.5 flex shrink-0 items-center gap-2 whitespace-nowrap rounded-full border border-zinc-800 bg-zinc-900/60 px-4 py-2.5 text-sm font-medium text-zinc-300 transition hover:border-indigo-500/50 hover:text-zinc-50"
           >
-            <span className="h-1.5 w-1.5 rounded-full bg-indigo-400/70" aria-hidden="true" />
+            <span className="h-1.5 w-1.5 shrink-0 rounded-full bg-indigo-400/70" aria-hidden="true" />
             {name}
           </span>
         ))}
         <Link
           href="/integrations"
-          className="mx-2.5 shrink-0 rounded-full border border-indigo-500/40 bg-indigo-500/10 px-4 py-2 text-sm font-semibold text-indigo-300 transition hover:bg-indigo-500/20"
+          className="mx-2.5 shrink-0 whitespace-nowrap rounded-full border border-indigo-500/40 bg-indigo-500/10 px-4 py-2.5 text-sm font-semibold text-indigo-300 transition hover:bg-indigo-500/20"
         >
           + {TOTAL_INTEGRATIONS - 12} more →
         </Link>

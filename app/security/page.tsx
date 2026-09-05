@@ -10,12 +10,12 @@ import SpotlightCard from "@/components/marketing/SpotlightCard";
 import TiltCard from "@/components/marketing/TiltCard";
 import Icon from "@/components/marketing/icons";
 import type { IconName } from "@/components/marketing/icons";
-import { SITE_NAME, ogImage } from "@/lib/site";
+import { SITE_NAME, SITE_URL, ogImage } from "@/lib/site";
 
 export const metadata: Metadata = {
   title: "Security & Compliance",
   description:
-    "HospiOS protects your property's data with enterprise-grade controls: SOC 2 Type II, ISO 27001, GDPR-ready, encryption, audit trails and 99.99% uptime.",
+    "HospiOS protects your property's data with strong controls: encryption in transit and at rest, role-based access, activity logging, backups, and data-residency options.",
   alternates: { canonical: "/security" },
   openGraph: {
     type: "website",
@@ -23,7 +23,7 @@ export const metadata: Metadata = {
     locale: "en_US",
     title: "Security & Compliance · HospiOS",
     description:
-      "Enterprise-grade security, out of the box — encryption, audit trails, compliance and uptime.",
+      "Strong security, out of the box — encryption, role-based access, activity logging and data-residency options.",
     images: [{ url: ogImage("Security & Compliance"), width: 1200, height: 630 }],
   },
 };
@@ -44,17 +44,17 @@ const PILLARS: { icon: IconName; title: string; body: string; bullets: string[] 
     title: "Access control",
     body: "Every user gets exactly the access they need — no more, no less.",
     bullets: [
-      "Granular role-based access across 20+ roles",
+      "Role-based access control across staff roles",
       "Two-factor authentication available",
       "Session and API-key management",
     ],
   },
   {
     icon: "trend",
-    title: "Full audit trails",
-    body: "Every action is logged, attributable, and reviewable.",
+    title: "Activity logging",
+    body: "Key actions are logged, reviewable, and attributable to a user.",
     bullets: [
-      "Activity logs on data and configuration changes",
+      "Activity logs on important changes",
       "Login and session history",
       "Admin review dashboard",
     ],
@@ -64,8 +64,8 @@ const PILLARS: { icon: IconName; title: string; body: string; bullets: string[] 
     title: "Reliability & uptime",
     body: "Hospitality never sleeps, and neither does our platform.",
     bullets: [
-      "99.99% uptime SLA on paid plans",
-      "Automated failover across regions",
+      "High-availability cloud architecture",
+      "Automated monitoring with status alerts",
       "Planned maintenance outside peak hours",
     ],
   },
@@ -84,20 +84,20 @@ const PILLARS: { icon: IconName; title: string; body: string; bullets: string[] 
     title: "Secure by design",
     body: "Security is part of how we build, not an afterthought.",
     bullets: [
-      "Independent penetration tests",
-      "Dependency and vulnerability scanning",
-      "A responsible-disclosure program",
+      "Continuous dependency and vulnerability scanning",
+      "Security review before every release",
+      "A channel to report security concerns",
     ],
   },
 ];
 
-const COMPLIANCE = [
-  { name: "SOC 2 Type II", detail: "Audited controls for security, availability, processing integrity, confidentiality and privacy." },
-  { name: "ISO 27001", detail: "Information security management aligned with the international standard." },
-  { name: "GDPR ready", detail: "Processors and data-subject rights supported — you stay the controller of guest data." },
-  { name: "PCI-DSS level 1", detail: "Payment handling built on certified providers; card data never touches our servers." },
-  { name: "EU data residency", detail: "Keep guest data in the EU for GDPR simplicity." },
-  { name: "99.99% uptime SLA", detail: "Four-nines availability on paid plans, with status transparency." },
+const COMMITMENTS = [
+  { name: "Encryption everywhere", detail: "AES-256 at rest and TLS 1.3 in transit for all property data." },
+  { name: "Role-based access", detail: "Fine-grained roles so every user only sees what they need." },
+  { name: "GDPR-aligned processing", detail: "You stay the controller of guest data; we act as your processor." },
+  { name: "Data residency options", detail: "Choose EU or US data residency for your property's data." },
+  { name: "Activity logging", detail: "Login and change logs so you can always review what happened." },
+  { name: "Backups & recovery", detail: "Automated backups with point-in-time restore." },
 ];
 
 export default function SecurityPage() {
@@ -108,7 +108,7 @@ export default function SecurityPage() {
           "@context": "https://schema.org",
           "@type": "WebPage",
           name: "HospiOS Security & Compliance",
-          url: "https://hospios.com/security",
+          url: `${SITE_URL}/security`,
           about: {
             "@type": "Organization",
             name: SITE_NAME,
@@ -125,7 +125,7 @@ export default function SecurityPage() {
               Enterprise security, <span className="text-gradient">out of the box</span>
             </>
           }
-          subtitle="Your guests' data is the most sensitive thing you hold. We build HospiOS so you never have to think about it — encryption, audit trails, compliance and uptime, handled."
+          subtitle="Your guests' data is the most sensitive thing you hold. We build HospiOS so you never have to think about it — encryption, access control, activity logging, backups and data residency, handled."
           top={
             <nav aria-label="Breadcrumb" className="text-xs text-zinc-500">
               <Link href="/" className="link-underline hover:text-indigo-400">Home</Link>
@@ -179,13 +179,13 @@ export default function SecurityPage() {
 
         <section className="border-y border-zinc-800/60 bg-zinc-900/30 py-16">
           <div className="mx-auto w-full max-w-6xl px-4 sm:px-6">
-            <SectionHeading
-              eyebrow="Compliance"
-              title="Certifications & commitments"
-              subtitle="Independent verification, so you can answer your procurement team in one email."
-            />
-            <div className="mt-12 grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
-              {COMPLIANCE.map((c, i) => (
+<SectionHeading
+            eyebrow="Trust"
+            title="Security commitments & practices"
+            subtitle="Plain-language security practices you can share with your procurement team."
+          />
+          <div className="mt-12 grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+            {COMMITMENTS.map((c, i) => (
                 <Reveal key={c.name} delay={(i % 3) * 80}>
                   <div className="glow-border flex h-full flex-col gap-2 rounded-2xl border border-zinc-800 bg-zinc-900/60 p-6">
                     <span className="inline-flex items-center gap-2 text-base font-semibold text-zinc-50">
@@ -210,7 +210,7 @@ export default function SecurityPage() {
                 <p className="mt-4 leading-relaxed text-zinc-400">
                   Your property is the controller of guest data; HospiOS is the
                   processor acting on your instructions. That means export,
-                  correction and deletion on demand — plus full support when your
+                  correction and deletion on demand — plus support when your
                   guests exercise their data rights.
                 </p>
                 <div className="mt-6 flex flex-wrap gap-3">

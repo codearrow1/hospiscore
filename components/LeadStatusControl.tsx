@@ -50,7 +50,7 @@ export default function LeadStatusControl({
         onChange={(e) => onChange(e.target.value as LeadStatus)}
         disabled={busy}
         aria-label="Lead status"
-        className={`rounded-lg border border-zinc-300 bg-white px-2 py-1 text-xs font-medium outline-none transition focus:border-indigo-500 focus:ring-2 focus:ring-indigo-200 disabled:opacity-50 dark:border-zinc-700 dark:bg-zinc-950 ${LEAD_STATUS_STYLES[status]}`}
+        className={`min-h-11 rounded-lg border border-zinc-300 bg-white px-2.5 py-2 text-xs font-medium outline-none transition focus:border-indigo-500 focus:ring-2 focus:ring-indigo-200 disabled:opacity-50 dark:border-zinc-700 dark:bg-zinc-950 ${LEAD_STATUS_STYLES[status]}`}
       >
         {LEAD_STATUSES.map((s) => (
           <option key={s} value={s}>

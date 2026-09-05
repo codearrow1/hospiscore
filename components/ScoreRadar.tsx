@@ -103,7 +103,7 @@ export default function ScoreRadar({
             y={ly}
             textAnchor={anchor}
             dominantBaseline="middle"
-            className="fill-zinc-400 text-[9px]"
+            className="fill-zinc-400 text-[10px]"
           >
             {label}
           </text>
