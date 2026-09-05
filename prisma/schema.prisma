@@ -628,7 +628,9 @@ model AffiliateCommission {
   organization       Organization?         @relation(fields: [organizationId], references: [id])
   subscriptionId     String?
   subscription       Subscription?         @relation(fields: [subscriptionId], references: [id])
-  leadId             String? // MarketingLead id (DataFile)
+  leadId             String? // MarketingLead.id (Prisma) — real FK (ADR-0002)
+  lead               MarketingLead?        @relation(fields: [leadId], references: [id], onDelete: SetNull)
+  legacyLeadId       String? // original DataFile marketing uuid, kept for history
   amount             Int // cents
   paidAmount         Int                   @default(0) // cents already consumed by payouts (partial consumption)
   currency           String                @default("USD")
@@ -1191,6 +1193,7 @@ model MarketingLead {
   demos                  MarketingDemoBooking[]
   reportRequests         MarketingReportRequest[]
   convertedCustomers     MarketingConvertedCustomer[]
+  affiliateCommissions   AffiliateCommission[]
 
   @@index([email])
   @@index([stage])

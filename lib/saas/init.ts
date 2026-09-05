@@ -121,6 +121,21 @@ async function provision(): Promise<void> {
 
   const { seedDefaultPlans } = await import("@/lib/saas/plans");
   await seedDefaultPlans();
+
+  // Checkpoint 3: bring the historical DataFile growth pipeline into the
+  // Prisma plane so the AffiliateCommission FK remap (ADR-0002) can resolve.
+  // Best-effort — a backfill hiccup must never brick boot.
+  try {
+    const { backfillGrowthData } = await import("@/lib/growth/backfill");
+    const res = await backfillGrowthData();
+    console.log(
+      `[saas-init] growth backfill: ${res.leadsSynced} leads, ` +
+        `${res.convertedCustomersSynced} conversions, ` +
+        `${res.relinkedCommissions} commissions relinked`,
+    );
+  } catch (e) {
+    console.error("[saas-init] growth backfill skipped:", e instanceof Error ? e.message : e);
+  }
 }
 
 let ready: Promise<void> | null = null;

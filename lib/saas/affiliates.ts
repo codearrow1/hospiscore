@@ -129,13 +129,30 @@ export async function attributeLeadToAffiliate(leadId: string, referralCode: str
   const aff = await getAffiliateByCode(referralCode);
   if (!aff) return null;
   if (aff.status !== "active" && aff.status !== "approved") return null;
-  // One attribution row per lead — repeated submissions must not spam the ledger.
-  const dupe = await prisma.affiliateCommission.findFirst({ where: { affiliateId: aff.id, leadId }, select: { id: true } });
+  // leadId is the legacy DataFile lead uuid (ADR-0002). Resolve it to the
+  // Prisma MarketingLead id so the FK stays consistent; fall back to a NULL
+  // leadId + legacyLeadId when the mirror row does not exist yet (the
+  // backfill re-links those later).
+  const lead = await prisma.marketingLead.findUnique({
+    where: { legacyLeadId: leadId },
+    select: { id: true },
+  });
+  const prismaLeadId = lead?.id ?? null;
+  // One attribution row per lead — repeated submissions must not spam the
+  // ledger. Match on either the resolved Prisma id or the legacy uuid.
+  const dupe = await prisma.affiliateCommission.findFirst({
+    where: {
+      affiliateId: aff.id,
+      OR: [{ leadId: prismaLeadId }, { legacyLeadId: leadId }],
+    },
+    select: { id: true },
+  });
   if (dupe) return aff.id;
   await prisma.affiliateCommission.create({
     data: {
       affiliateId: aff.id,
-      leadId,
+      leadId: prismaLeadId,
+      legacyLeadId: leadId,
       amount: 0,
       currency: "USD",
       status: "pending",
