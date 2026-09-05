@@ -7,6 +7,8 @@
 
 import { randomUUID } from "node:crypto";
 import { readData, writeData } from "@/lib/db";
+import { isGrowthPersistEnabled } from "@/lib/growth/flag";
+import { upsertLeadInPrisma, convertLeadInPrisma } from "@/lib/growth/prismaStore";
 import { getPricingDoc } from "@/lib/pricing/db";
 import { priceFor, recommendedPlan } from "@/lib/pricing/engine";
 import { getPlan, PLAN_IDS } from "@/lib/pricing/catalog";
@@ -213,7 +215,21 @@ export async function upsertLead(input: UpsertInput, target?: string): Promise<M
     },
     target,
   );
+
+  await mirrorLeadToPrisma(saved);
   return saved;
+}
+
+/** Best-effort mirror of a DataFile lead into the Prisma plane when enabled. */
+async function mirrorLeadToPrisma(saved: MarketingLead): Promise<void> {
+  try {
+    if (await isGrowthPersistEnabled()) {
+      await upsertLeadInPrisma(saved);
+    }
+  } catch {
+    // Prisma mirror is best-effort; the DataFile remains the source of truth
+    // until the flag cut-over (checkpoints 2/3).
+  }
 }
 
 function existingSummary(input: UpsertInput): string {
@@ -510,6 +526,14 @@ export async function convertLead(
     { leadId: id, type: "converted", summary: "Converted to customer", detail: input.notes, byEmail: input.byEmail },
     target,
   );
+
+  try {
+    if (await isGrowthPersistEnabled()) {
+      await convertLeadInPrisma(lead, customer);
+    }
+  } catch {
+    // Prisma mirror is best-effort; the DataFile remains the source of truth.
+  }
   return getLead(id, target);
 }
 

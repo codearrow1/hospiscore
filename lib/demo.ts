@@ -1,6 +1,8 @@
 import { randomUUID } from "node:crypto";
 import { writeData } from "@/lib/db";
 import type { LeadStatus } from "@/lib/accountTypes";
+import { isGrowthPersistEnabled } from "@/lib/growth/flag";
+import { storeDemoInPrisma } from "@/lib/growth/prismaStore";
 import { PLAN_IDS } from "@/lib/pricing/catalog";
 import type { PlanId } from "@/lib/pricing/types";
 
@@ -130,5 +132,26 @@ export async function submitDemoRequest(
     // Never fail the user-facing request because of CRM mirroring.
   }
 
+  await mirrorDemoToPrisma(record);
+
   return record;
+}
+
+/** Best-effort mirror of a demo request into the Prisma plane when enabled. */
+async function mirrorDemoToPrisma(record: DemoRequest): Promise<void> {
+  try {
+    if (!(await isGrowthPersistEnabled())) return;
+    await storeDemoInPrisma({
+      id: record.id,
+      sourceId: record.id,
+      startAt: record.createdAt,
+      status: record.status ?? "new",
+      demoType: "demo_request",
+      notes: record.message,
+      city: undefined,
+      country: record.country,
+    });
+  } catch {
+    // Prisma mirror is best-effort; the DataFile remains the source of truth.
+  }
 }

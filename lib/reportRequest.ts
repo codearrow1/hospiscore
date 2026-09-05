@@ -1,6 +1,8 @@
 import { randomUUID } from "node:crypto";
 import { writeData } from "@/lib/db";
 import type { LeadStatus } from "@/lib/accountTypes";
+import { isGrowthPersistEnabled } from "@/lib/growth/flag";
+import { storeReportInPrisma } from "@/lib/growth/prismaStore";
 
 /**
  * Score-report email requests (server-only).
@@ -103,5 +105,27 @@ export async function submitReportRequest(
     // Never fail the user-facing request because of CRM mirroring.
   }
 
+  await mirrorReportToPrisma(record);
+
   return record;
+}
+
+/** Best-effort mirror of a report request into the Prisma plane when enabled. */
+async function mirrorReportToPrisma(record: ReportRequest): Promise<void> {
+  try {
+    if (!(await isGrowthPersistEnabled())) return;
+    await storeReportInPrisma({
+      id: record.id,
+      sourceId: record.id,
+      name: record.name,
+      email: record.email,
+      phone: record.phone,
+      propertySlug: record.propertySlug,
+      propertyName: record.propertyName,
+      status: record.status,
+      createdAt: record.createdAt,
+    });
+  } catch {
+    // Prisma mirror is best-effort; the DataFile remains the source of truth.
+  }
 }

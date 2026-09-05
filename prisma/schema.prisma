@@ -1144,3 +1144,133 @@ model UserPreference {
   createdAt  DateTime @default(now())
   updatedAt  DateTime @updatedAt
 }
+
+// ---------------------------------------------------------------------------
+// Marketing growth pipeline (promoted from the JSON DataFile — see ADR-0001)
+// Mirrors lib/marketing/types.ts interfaces 1:1 plus migration columns.
+// ---------------------------------------------------------------------------
+
+model MarketingLead {
+  id                     String               @id @default(cuid())
+  // Legacy DataFile uuid preserved for traceability (ADR-0002)
+  legacyLeadId           String?              @unique
+  name                   String
+  email                  String
+  phone                  String?
+  company                String?
+  propertyName           String?
+  propertyType           String?
+  city                   String?
+  country                String? // ISO2
+  rooms                  Int?
+  currentPms             String?
+  requiredModules        Json? // string[] — SQLite has no scalar lists
+  planInterest           String?
+  billingCycle           String? // monthly|yearly
+  message                String?
+  source                 String // controlled vocab, see LEAD_SOURCES
+  attribution            Json? // LeadSourceAttribution
+  stage                  String               @default("new") // see PIPELINE_STAGES
+  score                  Int                  @default(0)
+  band                   String               @default("cold") // cold|warm|hot|very_hot
+  ownerEmail             String?
+  notes                  Json? // string[] — SQLite has no scalar lists
+  nextFollowUpAt         DateTime?
+  lastContactAt          DateTime?
+  estimatedValue         Int                  @default(0) // minor units (cents)
+  estimatedValueCurrency String?
+  priority               String? // high|medium|low
+  trialStartedAt         DateTime?
+  lostReason             String?
+  convertedCustomerId    String?
+  convertedAt            DateTime?
+  createdAt              DateTime             @default(now())
+  updatedAt              DateTime             @updatedAt
+
+  events                 MarketingLeadEvent[]
+  demos                  MarketingDemoBooking[]
+  reportRequests         MarketingReportRequest[]
+  convertedCustomers     MarketingConvertedCustomer[]
+
+  @@index([email])
+  @@index([stage])
+  @@index([source])
+  @@index([country])
+  @@index([ownerEmail])
+  @@index([band])
+  @@index([createdAt])
+}
+
+model MarketingLeadEvent {
+  id        String   @id @default(cuid())
+  leadId    String
+  lead      MarketingLead @relation(fields: [leadId], references: [id], onDelete: Cascade)
+  type      String // see LeadEventType
+  at        DateTime @default(now())
+  byEmail   String?
+  summary   String
+  detail    String?
+
+  @@index([leadId])
+  @@index([at])
+}
+
+model MarketingDemoBooking {
+  id          String          @id @default(cuid())
+  leadId      String? // null when no linked lead (ADR-0001 attribution via sourceId)
+  lead        MarketingLead?  @relation(fields: [leadId], references: [id], onDelete: SetNull)
+  sourceId    String? // references back to originating MarketingLead where one exists
+  startAt     DateTime
+  durationMin Int             @default(30)
+  status      String          @default("new") // see DEMO_STATUSES
+  demoType    String?
+  assignedTo  String?
+  meetingUrl  String?
+  phone       String?
+  notes       String?
+  city        String?
+  country     String?
+  createdAt   DateTime        @default(now())
+  updatedAt   DateTime        @updatedAt
+
+  @@index([leadId])
+  @@index([status])
+  @@index([startAt])
+}
+
+model MarketingReportRequest {
+  id           String         @id @default(cuid())
+  leadId       String?
+  lead         MarketingLead? @relation(fields: [leadId], references: [id], onDelete: SetNull)
+  sourceId     String?
+  name         String
+  email        String
+  phone        String?
+  propertySlug String
+  propertyName String
+  status       String? // see LeadStatus
+  createdAt    DateTime       @default(now())
+
+  @@index([email])
+  @@index([propertySlug])
+  @@index([createdAt])
+}
+
+model MarketingConvertedCustomer {
+  id             String        @id @default(cuid())
+  leadId         String        @unique
+  lead           MarketingLead @relation(fields: [leadId], references: [id], onDelete: Restrict)
+  convertedAt    DateTime      @default(now())
+  byEmail        String?
+  plan           String?
+  billingCycle   String? // monthly|yearly
+  country        String?
+  estimatedValue Int           @default(0) // minor units (cents)
+  organizationId String?
+  adminUserId    String?
+  notes          String?
+  createdAt      DateTime      @default(now())
+
+  @@index([leadId])
+  @@index([convertedAt])
+}
